@@ -1,0 +1,19 @@
+# SwiftPM / Xcode build products
+.build/
+.swiftpm/
+/Packages/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+DerivedData/
+build/
+*.app/
+
+# Node tooling for the JS bridge tests
+web/node_modules/
+
+# Local libraries, scratch and OS noise
+*.sqlite-wal
+*.sqlite-shm
+/scratch/
+.DS_Store
+*.swp
