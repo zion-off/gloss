@@ -55,6 +55,6 @@ public struct NavigationHistory<Location: Equatable & Sendable>: Equatable, Send
         backStack = backStack.reduce(into: []) { result, item in
             if result.last != item { result.append(item) }
         }
-        if backStack.last == current { backStack.removeLast() }
+        if let current, backStack.last == current, !backStack.isEmpty { backStack.removeLast() }
     }
 }
