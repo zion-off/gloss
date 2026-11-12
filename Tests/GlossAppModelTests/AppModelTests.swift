@@ -98,7 +98,7 @@ struct WorkspaceModelTests {
         await fresh.loadPersistedLayout()
         #expect(fresh.layout == .split)
         workspace.layout = .readerOnly
-        try await Task.sleep(for: .milliseconds(400))
+        await workspace.flushLayoutPersistence()
         await fresh.loadPersistedLayout()
         #expect(fresh.layout == .readerOnly)
     }

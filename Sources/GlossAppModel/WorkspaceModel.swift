@@ -20,8 +20,12 @@ public struct ReaderFocus: Hashable, Sendable {
     public private(set) var document: Document?
     public private(set) var page: Page?
     public var layout: SplitLayout {
-        didSet { guard layout != oldValue else { return }; Task { try? await persistLayout() } }
+        didSet {
+            guard layout != oldValue else { return }
+            persistTask = Task { [weak self] in await self?.persistLayout() }
+        }
     }
+    private var persistTask: Task<Void, Never>?
 
     public private(set) var readerHistory = NavigationHistory<ReaderFocus>()
     public private(set) var notesHistory = NavigationHistory<PageID>()
@@ -158,6 +162,11 @@ public struct ReaderFocus: Hashable, Sendable {
     private func persistLayout() async {
         guard persistLayoutSetting else { return }
         try? await services.settings.set(layout, for: WorkspaceSettings.layout)
+    }
+
+    /// Waits for any in-flight layout persistence (tests, and teardown before quit).
+    public func flushLayoutPersistence() async {
+        await persistTask?.value
     }
 
     /// Loads the persisted layout (composition root calls this once).
