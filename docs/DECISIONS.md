@@ -47,6 +47,17 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   (`ReaderEventMapping`): selections become `Passage`s, relocations become `ReadingPosition`s, and
   the annotation payload is derived from `[Highlight]` and `[LinkedPassage]` — the Mac layer never
   interprets raw JSON.
+- **D-018 The app is macOS-only (user requirement).** No other app targets, no other platforms in
+  `Package.swift`, and no UI abstraction for other platforms. Portable modules exist to be built
+  and tested on Linux and reused later. The Linux-buildable logic modules (markdown, notes, reader
+  bridge, app model, terminal) count as test seams under "keep Mac-only code thin", not as a
+  cross-platform UI layer, so they stay. iCloud sync stays possible at the data layer (tombstones,
+  change journal, separate blob store).
+- **D-019 Unspecified UI follows first-party Apple apps and the HIG (user requirement).** System
+  components first, no custom chrome, modes or banners, contextual commands, menus, popovers and
+  sheets. Custom pieces (format bar, slash menu, link chips) use system materials, fonts, SF Symbols
+  and animations. Plan items that are specified still apply but are implemented the Apple way: the
+  specified undo toast also registers with the window's `UndoManager` so Edit › Undo and ⌘Z work.
 - **D-017 Web code is TypeScript with pnpm (user requirement).** JavaScript only where TypeScript is
   impossible: vendored foliate-js (must stay byte-identical, D-014) and `tsc` output for the web view.
   The output is committed rather than built by a SwiftPM plugin so `swift build` never needs Node,
@@ -146,6 +157,12 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   lead command is the likeliest source. Its content is correct, so it stays (no history rewriting). `scripts/check.sh` also runs the JS tests once
   `web/` exists, so Swift slices committed while the bridge work is in progress are checked with
   `swift build --build-tests && swift test` instead.
+
+- **P-003 Three commits landed while `scripts/check.sh` failed:** `1649cd3`, `df13e97` (a flaky
+  layout-persistence test, a real race) and `2fd6047` (same flake). The gate was
+  `scripts/check.sh | tail -n 1 && git commit`, where the pipe hides the check's exit status. The
+  race is fixed in `3ea4ea3`/`d76dcf2`, every timing-based test now waits deterministically, and
+  CLAUDE.md forbids piping the check when gating a commit.
 
 ## Formats (GlossPDF)
 
