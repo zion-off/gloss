@@ -1,13 +1,14 @@
 // swift-tools-version: 6.1
 import PackageDescription
 
-// gloss — see docs/ARCHITECTURE.md for the module map.
+// gloss — see docs/ARCHITECTURE.md for the module map. The app targets macOS only; the portable
+// modules also build on Linux for testing (docs/DECISIONS.md D-018).
 // Every target builds on Linux. macOS-only targets wrap all of their sources in
 // `#if os(macOS)` so they compile to empty modules elsewhere (docs/DECISIONS.md D-002).
 
 let package = Package(
     name: "gloss",
-    platforms: [.macOS(.v14), .iOS(.v17)],
+    platforms: [.macOS(.v14)],
     products: [
         .executable(name: "gloss", targets: ["gloss"]),
     ],
