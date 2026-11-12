@@ -27,6 +27,7 @@ let package = Package(
         .target(name: "GlossExport", dependencies: ["GlossCore", "GlossMarkdown"]),
         .target(name: "GlossNotes", dependencies: ["GlossCore", "GlossMarkdown"]),
         .target(name: "GlossReaderBridge", dependencies: ["GlossCore", "GlossEPUB"]),
+        .target(name: "GlossPDF", dependencies: ["GlossCore", "GlossArchive"]),
         .target(name: "GlossMemoryStore", dependencies: ["GlossCore"]),
         .target(name: "GlossTestSupport", dependencies: ["GlossCore", "GlossMemoryStore", "GlossArchive"]),
         .target(name: "GlossStore", dependencies: [
@@ -40,6 +41,7 @@ let package = Package(
         .testTarget(name: "GlossNotesTests", dependencies: ["GlossNotes", "GlossTestSupport"]),
         .testTarget(name: "GlossReaderBridgeTests", dependencies: ["GlossReaderBridge", "GlossTestSupport"]),
         .testTarget(name: "GlossArchiveTests", dependencies: ["GlossArchive", "GlossTestSupport"]),
+        .testTarget(name: "GlossPDFTests", dependencies: ["GlossPDF", "GlossTestSupport", "GlossArchive"]),
         .testTarget(name: "GlossCoreTests", dependencies: ["GlossCore", "GlossMemoryStore", "GlossTestSupport"]),
         .testTarget(name: "GlossStoreTests", dependencies: [
             "GlossStore", "GlossTestSupport",
