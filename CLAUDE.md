@@ -70,6 +70,14 @@ swift test                       # all Swift tests
 scripts/check.sh                 # everything above, used before every commit
 ```
 
+## Independent review
+
+- When a chunk of work (a milestone or a coherent slice) is finished and green, send an
+  independent review sub-agent at **maximum effort** over the changes since the last review
+  (correctness, concurrency, API misuse, code smell, test quality). It reports findings only;
+  it changes nothing. Fix the findings, re-check, then commit the fixes. Keep a short log of
+  review findings and fixes in `docs/REVIEWS.md`.
+
 ## Commit policy
 
 - Granular commits: one logical change each. Tests go with the code they cover.
