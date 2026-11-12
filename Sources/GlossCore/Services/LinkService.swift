@@ -15,6 +15,11 @@ public enum LinkResolution: Hashable, Sendable {
 public struct LinkedPassage: Hashable, Sendable {
     public var target: LinkTarget
     public var pages: [Page]
+
+    public init(target: LinkTarget, pages: [Page]) {
+        self.target = target
+        self.pages = pages
+    }
 }
 
 /// What the hover popover shows for a passage link.
