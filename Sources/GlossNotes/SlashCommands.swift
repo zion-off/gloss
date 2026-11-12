@@ -76,7 +76,7 @@ public struct SlashCommandRegistry: Sendable {
                                keywords: ["list", "ul", "-"], command: ToggleList(.bullet)),
             FormatSlashCommand(id: "numbered", title: "numbered list", subtitle: "one, two, three", symbol: "list.number",
                                keywords: ["ordered", "ol", "1."], command: ToggleList(.ordered)),
-            FormatSlashCommand(id: "quote", title: "quote", subtitle: "set words apart", symbol: "text.quote",
+            FormatSlashCommand(id: "quote", title: "quote", subtitle: "a block quote", symbol: "text.quote",
                                keywords: ["blockquote", ">"], command: ToggleQuote()),
             FormatSlashCommand(id: "code", title: "code", subtitle: "a block of monospaced text", symbol: "chevron.left.forwardslash.chevron.right",
                                keywords: ["snippet", "```"], command: ToggleCodeBlock()),

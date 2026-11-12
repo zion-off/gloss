@@ -40,7 +40,7 @@ public enum LinkGestureAvailability: Hashable, Sendable {
         case .needsBookSelection: "now select a passage in the book"
         case .needsNotesSelection: "now select some words in your notes"
         case .needsBoth: "select words in your notes and a passage in the book"
-        case .notLinkable: "that notes selection can't become a link (try a single line, outside code)"
+        case .notLinkable: "links need a few words on one line, outside code"
         }
     }
 }
