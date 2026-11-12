@@ -80,6 +80,27 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
 - **D-043 Backups use `VACUUM INTO`.** A consistent snapshot of a live WAL database in one statement,
   compacted, readable by any SQLite.
 
+## Markdown (GlossMarkdown)
+
+- **D-050 Own markdown parser instead of swift-markdown/cmark.** Live styling needs exact UTF-16
+  ranges for every syntax character, cheap re-parsing per keystroke and pluggable block/inline
+  parsers (tables, images later); cmark's line/column AST and reserialisation model fit poorly.
+- **D-051 Blocks are line-based.** One block per line (fenced code excepted); paragraphs are not
+  merged, so styling maps 1:1 onto editor lines. Exporters merge consecutive paragraph lines.
+- **D-052 Inline spans do not cross lines.** Emphasis across soft line breaks is rare in notes and
+  would make per-line restyling non-local.
+- **D-053 No setext headings and no indented code blocks.** `---` is always a divider and four-space
+  indentation stays available for nested lists; both are common sources of surprise in editors.
+- **D-054 Emphasis follows CommonMark's delimiter algorithm** (flanking rules, `_` not intraword,
+  rule of three); strikethrough is GFM-style `~~`.
+- **D-055 "Syntax dims, and shows on the cursor" = two colours, never hidden glyphs.** Syntax
+  characters render in a faint colour and at secondary-label strength for every element touching
+  the selection. Hiding glyphs would break caret movement and selection in TextKit.
+- **D-056 Bold/italic with an empty selection wraps the word under the caret,** or inserts an empty
+  pair between words — the common behaviour of native markdown editors.
+- **D-057 Text gloss writes into notes is escaped minimally** (`\ * [ ] ~ \``, word-boundary `_`,
+  tag-like `<`, leading block markers) so quotes stay readable as plain text.
+
 ## Process notes
 
 - **P-001 Commits `7b2…`→`3a19212` of milestone 1 were split from one green check;** the
