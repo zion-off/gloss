@@ -11,9 +11,37 @@ milestones), `docs/DECISIONS.md` (why things are the way they are) and
 in-app copy) is a native macOS app for reading EPUBs and PDFs with a free-form markdown
 notes page per book. Notes link to exact passages with standard markdown links using the
 `gloss://` scheme, and the book shows which passages are linked from notes, like footnotes
-you write yourself. MIT licensed. macOS only for now, but iPad/iPhone and iCloud sync must
-stay possible: design for them, never build them. No distribution, packaging, signing or
-update work.
+you write yourself. MIT licensed. **The app targets macOS only** (see "Platform constraint").
+iCloud sync must stay possible later: design the data layer for it, never build it. No
+distribution, packaging, signing or update work.
+
+## Platform constraint
+
+- The app targets **macOS only**: SwiftUI/AppKit, TextKit 2, WKWebView, PDFKit. It does not
+  need to run on Linux, Windows, the web, iOS or iPadOS. Any non-macOS app target is out of
+  scope; do not add one, and do not declare other platforms in `Package.swift`.
+- Only the core, storage, import, export and CLI modules are platform-portable, and only so they
+  can be built and tested on the Linux VM and reused later.
+- The Linux-buildable logic modules (`GlossMarkdown`, `GlossNotes`, `GlossReaderBridge`,
+  `GlossAppModel`, `GlossTerminal`) are portable **for testing only**, under "keep Mac-only code
+  thin" below. They hold no view code and no platform abstraction.
+- **Do not abstract the UI layer for other platforms.** No view protocols, no cross-platform
+  wrappers, no `#if os(iOS)`. Mac code uses AppKit/SwiftUI directly.
+
+## Design principles
+
+- When the plan does not specify a UI decision, do what a first-party Apple app (Books, Notes,
+  Preview) would do. Prefer system components, system behaviour and Human Interface Guidelines
+  conventions over custom designs.
+- No custom chrome, modes, banners or novel interaction patterns where a standard macOS pattern
+  exists. Prefer contextual commands, menus, popovers and sheets.
+- Keyboard shortcuts follow the system and first-party apps (Notes for text formatting, Xcode's
+  Open Quickly for the switcher). Never take a system shortcut (⇧⌘Q log out, ⌘P print, ⌘O open,
+  ⌘H hide, ⌘M minimize, ⌘, settings).
+- Copy is lowercase, short and a bit playful, never at the cost of clarity.
+- Custom UI (the floating format bar, the slash menu, link chips) must still look and behave like
+  something Apple could have shipped: system materials, system fonts, SF Symbols, standard
+  animations, standard focus and accessibility behaviour.
 
 ## How to work
 
@@ -87,6 +115,8 @@ scripts/check.sh                 # everything above, used before every commit
 - Mac-only code may be uncompiled; such commits get a ` [mac-unverified]` suffix in the
   subject so the human can find and review them after building on a Mac.
 - Commit as you go, never in bulk at the end.
+- Commit only after `scripts/check.sh` exits 0. Never pipe its output into another command when
+  gating a commit (a pipe reports the last command's status, not the check's).
 - Tag milestones as `milestone-N` (see `docs/ARCHITECTURE.md`).
 - Commit locally only. No pushing, history rewriting or force operations.
 - Generated files and build products stay out of git (`.build/`, `web/node_modules/`, …).
@@ -107,7 +137,8 @@ scripts/check.sh                 # everything above, used before every commit
   Concrete implementations are wired at composition roots, one per executable
   (`Sources/gloss/main.swift`, `Sources/GlossMac/GlossApp.swift`).
 - **UI-free core:** the app and the CLI are thin clients over the same core services. The CLI
-  never imports UI code. The core must be reusable by a future iOS app.
+  never imports UI code. The portable modules stay free of UI and platform code so they can be
+  reused later; the UI layer itself is macOS-only and not abstracted.
 - **Testability:** time (`TimeSource`) and ID generation (`IDGenerator`) are injected. The
   core is test-first against the in-memory store.
 - Modern Swift 6 with strict concurrency; SwiftUI first, AppKit where needed.
