@@ -23,7 +23,13 @@ public struct ReaderFocus: Hashable, Sendable {
         didSet {
             // Loads must not write back (a stale load would clobber a newer persist).
             guard !suppressLayoutPersist, layout != oldValue else { return }
-            persistTask = Task { [weak self] in await self?.persistLayout() }
+            // Writes are chained so they land in order, and each writes the layout current
+            // when it runs: the last change always wins.
+            let previous = persistTask
+            persistTask = Task { [weak self] in
+                await previous?.value
+                await self?.persistLayout()
+            }
         }
     }
     private var persistTask: Task<Void, Never>?
