@@ -117,11 +117,17 @@ struct SlashCommandTests {
 
 @Suite("format bar")
 struct FormatBarTests {
-    @Test("items are in the specified order with standard shortcuts")
+    @Test("items are in the specified order with Apple Notes' shortcuts")
     func items() {
         #expect(FormatBar.items.map(\.id) == ["bold", "italic", "heading", "list", "quote", "code", "link"])
-        #expect(FormatBar.items[0].shortcutLabel == "⌘B")
-        #expect(FormatBar.items.last?.shortcutLabel == "⇧⌘K")
+        #expect(FormatBar.items.map(\.shortcutLabel) == ["⌘B", "⌘I", "⇧⌘H", "⇧⌘7", "⌘'", "⇧⌘M", "⇧⌘K"])
+    }
+
+    @Test("no format shortcut takes a system, standard-menu or gloss-reserved shortcut")
+    func noReservedShortcuts() {
+        let taken = FormatBar.items.map(\.shortcutLabel)
+        #expect(Set(taken).isDisjoint(with: FormatBar.reservedShortcuts))
+        #expect(Set(taken).count == taken.count)
     }
 
     @Test("active items reflect the selection")
