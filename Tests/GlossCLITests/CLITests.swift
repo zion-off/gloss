@@ -372,3 +372,50 @@ struct CLIFormatTests {
         #expect(Format.shortID("01m78xptr8fa4r6vwtr0f789s9") == "r0f789s9")
     }
 }
+
+@Suite("cli: review 2 regressions")
+struct CLIReviewTwoTests {
+    func ttyHarness() -> CLIHarness {
+        let cli = CLIHarness()
+        cli.terminal = Terminal(colorEnabled: true, isTTY: true, width: 80)
+        return cli
+    }
+
+    @Test("--json on a terminal prints nothing but json", arguments: [
+        ["import", "a.fake", "--json"], ["reindex", "--json"], ["backup", "copy.sqlite", "--json"], ["list", "--json"],
+    ])
+    func jsonOnATerminal(_ arguments: [String]) async throws {
+        let cli = ttyHarness()
+        try cli.file("a.fake", FakeFormat.file(title: "A"))
+        if arguments[0] != "import" { _ = try await cli.book("Seed") }
+        let result = await cli.run(arguments)
+        #expect(result.code == 0, "\(result.err)")
+        #expect(!result.out.contains("\u{1B}"), "\(arguments): escape codes on stdout")
+        #expect(throws: Never.self) { _ = try result.json() }
+    }
+
+    @Test("status lines still show on a terminal without --json")
+    func statusWithoutJSON() async throws {
+        let cli = ttyHarness()
+        _ = try await cli.book("Seed")
+        #expect(await cli.run("reindex").out.contains("\r\u{1B}[2K"))
+    }
+
+    @Test("the delete-forever question goes to stderr, and --json never prompts")
+    func confirmationStream() async throws {
+        let cli = CLIHarness()
+        _ = try await cli.book("Gone")
+        _ = await cli.run("book", "trash", "Gone")
+        cli.stdinIsTTY = true
+        cli.answers = ["n"]
+        let asked = await cli.run("trash", "purge", "Gone")
+        #expect(asked.err.contains("delete “Gone” for good? [y/N]"))
+        #expect(!asked.out.contains("[y/N]"))
+        cli.answers = ["y"]
+        let json = await cli.run("trash", "purge", "Gone", "--json")
+        #expect(json.code == 64)
+        #expect(json.out.isEmpty)
+        #expect(json.err.contains("wants a --yes"))
+        #expect(await cli.run("trash", "purge", "Gone", "--json", "--yes").code == 0)
+    }
+}

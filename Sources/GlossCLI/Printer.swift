@@ -7,19 +7,28 @@ struct Printer: Sendable {
     let output: OutputSink
     let terminal: Terminal
     let stderrTerminal: Terminal
+    /// In json mode stdout carries nothing but the json document: no status lines.
+    let json: Bool
 
-    init(environment: CLIEnvironment, colorEnabled: Bool) {
+    init(environment: CLIEnvironment, colorEnabled: Bool, json: Bool = false) {
         output = environment.output
         var terminal = environment.terminal
         terminal.colorEnabled = terminal.colorEnabled && colorEnabled
         self.terminal = terminal
-        stderrTerminal = Terminal(colorEnabled: environment.stderrColor && colorEnabled, isTTY: environment.stderrColor,
+        self.json = json
+        // Status lines never go to stderr, so whether it's a tty doesn't matter here.
+        stderrTerminal = Terminal(colorEnabled: environment.stderrColor && colorEnabled, isTTY: false,
                                   width: environment.terminal.width)
     }
 
     func paint(_ text: String, _ style: TerminalStyle) -> String { terminal.paint(text, style) }
 
     func line(_ text: String = "") { output.out(text + "\n") }
+
+    /// A question on stderr, so stdout stays clean for data and json.
+    func ask(_ question: String) {
+        output.err(stderrTerminal.paint("?", .warning) + " \(question) ")
+    }
 
     func success(_ text: String) {
         clearStatus()
@@ -44,14 +53,15 @@ struct Printer: Sendable {
         }
     }
 
-    /// A transient status line, shown only on a terminal and overwritten by the next line.
+    /// A transient status line, shown only on a terminal (never with --json) and overwritten by
+    /// the next line.
     func status(_ text: String) {
-        guard terminal.isTTY else { return }
+        guard terminal.isTTY, !json else { return }
         output.out("\r\u{1B}[2K" + paint("•", .accent2Style) + " " + paint(DisplayWidth.truncate(text, to: terminal.width - 2), .muted))
     }
 
     func clearStatus() {
-        guard terminal.isTTY else { return }
+        guard terminal.isTTY, !json else { return }
         output.out("\r\u{1B}[2K")
     }
 

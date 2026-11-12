@@ -60,13 +60,14 @@ struct TrashRestoreCommand: AsyncParsableCommand {
     }
 }
 
-/// Asks before deleting forever, unless --yes. Without a terminal to ask on, refuses.
+/// Asks before deleting forever, unless --yes. With no terminal to ask on, or with --json
+/// (scripts), refuses instead. The question goes to stderr.
 func confirmForever(_ question: String, yes: Bool, context: Context) throws {
     guard !yes else { return }
-    guard context.environment.stdinIsTTY else {
+    guard context.environment.stdinIsTTY, !context.json else {
         throw CLIFailure("this deletes for good, so gloss wants a --yes", code: CLIFailure.usageCode)
     }
-    context.environment.output.out(context.printer.paint("?", .warning) + " \(question) [y/N] ")
+    context.printer.ask("\(question) [y/N]")
     let answer = context.environment.readLine()?.trimmingCharacters(in: .whitespaces).lowercased() ?? ""
     guard answer == "y" || answer == "yes" else { throw CLIFailure("kept it", code: 1) }
 }
@@ -189,7 +190,7 @@ struct ReindexCommand: AsyncParsableCommand {
         let context = try Context(global)
         let printer = context.printer
         let report = try await context.core.rebuilder.rebuildAll { step in
-            if !context.json { printer.status("indexing \(step)…") }
+            printer.status("indexing \(step)…")
         }
         printer.clearStatus()
         if context.json {

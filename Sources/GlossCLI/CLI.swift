@@ -61,7 +61,7 @@ struct Context: Sendable {
 
     init(_ options: GlobalOptions) throws {
         environment = CLIEnvironment.current
-        printer = Printer(environment: environment, colorEnabled: !options.noColor)
+        printer = Printer(environment: environment, colorEnabled: !options.noColor, json: options.json)
         services = try environment.makeServices(options.library)
         references = References(services: services.core, printer: printer)
         json = options.json

@@ -40,10 +40,9 @@ struct ImportCommand: AsyncParsableCommand {
             }
             for file in files {
                 let name = file.lastPathComponent
-                if !context.json { printer.status("reading \(name)…") }
+                printer.status("reading \(name)…")
                 do {
                     let outcome = try await context.core.imports.importFile(at: file) { progress in
-                        guard !context.json else { return }
                         switch progress {
                         case .storing: printer.status("storing \(name)…")
                         case .indexing: printer.status("indexing \(name)…")
