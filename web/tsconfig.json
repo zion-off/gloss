@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "types": ["node", "jsdom"],
+    "allowImportingTsExtensions": true,
+    "allowJs": true,
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "include": ["src", "test", "scripts"]
+}

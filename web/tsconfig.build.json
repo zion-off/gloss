@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "allowImportingTsExtensions": false,
+    "rewriteRelativeImportExtensions": true,
+    "outDir": "../Sources/GlossReaderEPUB/Resources/reader",
+    "rootDir": "./src"
+  },
+  "include": ["src"]
+}

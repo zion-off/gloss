@@ -1,0 +1,17 @@
+/* gloss reader page. The web view itself is transparent; the book's own
+   background is applied by foliate from the book CSS / appearance styles.
+   No external resources; everything is served from the gloss-reader scheme. */
+
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+}
+
+foliate-view {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
