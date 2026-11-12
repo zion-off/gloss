@@ -26,9 +26,12 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   app + CLI access, migrations and a mature SQLite layer.
 - **D-011 swift-argument-parser 1.x** — preferred by the brief for the CLI.
 - **D-012 swift-crypto** — SHA-256 content addressing on Linux and macOS (CryptoKit is Apple-only).
-- **D-013 ZIPFoundation 0.9.x** — EPUBs are ZIP files; a mature reader that handles ZIP64 and data
-  descriptors on Linux (system zlib) and Apple (Compression). Its public raw-inflate API also
-  decodes PDF `FlateDecode` streams, so no separate zlib binding is needed.
+- **D-013 No ZIP dependency: own central-directory reader over system zlib (`CZlib`).** ZIPFoundation
+  was evaluated first, but its Linux inflate loop (`repeat … while result != Z_STREAM_END` in
+  `Data+Compression.swift`, 0.9.20) never terminates on truncated input, so one corrupt EPUB or PDF
+  stream could hang an import. Reading a ZIP's central directory (stored/deflate, ZIP64) is ~200
+  lines; `Inflate` is bounded (zip-bomb limit) and always terminates. zlib ships with macOS and every
+  Linux distribution, so this adds no dependency.
 - **D-014 foliate-js, vendored at a pinned commit** — required by the brief; vendored (not fetched)
   so CFI resolution can never change under existing notes. The PDF.js vendor folder is dropped
   because PDFs use PDFKit.
