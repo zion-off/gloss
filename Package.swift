@@ -28,7 +28,10 @@ let package = Package(
         .target(name: "GlossEPUB", dependencies: ["GlossCore", "GlossArchive"]),
         .target(name: "GlossExport", dependencies: ["GlossCore", "GlossMarkdown"]),
         .target(name: "GlossNotes", dependencies: ["GlossCore", "GlossMarkdown"]),
-        .target(name: "GlossReaderBridge", dependencies: ["GlossCore", "GlossEPUB"]),
+        .target(name: "GlossReaderBridge", dependencies: [
+            "GlossCore", "GlossEPUB",
+            .product(name: "Crypto", package: "swift-crypto"),
+        ]),
         .target(name: "GlossPDF", dependencies: ["GlossCore", "GlossArchive"]),
         .target(name: "GlossAppModel", dependencies: ["GlossCore", "GlossNotes", "GlossReaderBridge"]),
         .target(name: "GlossTerminal"),
