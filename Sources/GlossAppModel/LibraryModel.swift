@@ -1,0 +1,120 @@
+import Foundation
+import Observation
+import GlossCore
+
+/// The library grid: entries, sorting, shelves, covers, and imports with progress.
+@MainActor @Observable public final class LibraryModel {
+    public private(set) var entries: [LibraryEntry] = []
+    public private(set) var recentlyRead: [LibraryEntry] = []
+    public var sort: LibrarySort = .recent {
+        didSet { Task { await reload() } }
+    }
+    public var shelf: LibraryShelf? {
+        didSet { Task { await reload() } }
+    }
+    public private(set) var importing = false
+    /// What an in-flight import is doing ("reading moby.epub…").
+    public private(set) var importStatus: String?
+    /// Documents added by the most recent import (for the "just added" reveal).
+    public private(set) var lastImportedIDs: [DocumentID] = []
+
+    private let services: GlossServices
+    private let shelves: [LibraryShelf]
+    private var coverCache: [DocumentID: CoverImage] = [:]
+
+    public init(services: GlossServices) {
+        self.services = services
+        self.shelves = services.formats.shelves
+    }
+
+    public var availableShelves: [LibraryShelf] { shelves }
+
+    public func reload() async {
+        entries = (try? await services.library.entries(sortedBy: sort, shelf: shelf)) ?? []
+        recentlyRead = (try? await services.library.recentlyRead()) ?? []
+    }
+
+    /// Cover for a document, cached (the grid asks for many).
+    public func cover(of id: DocumentID) async -> CoverImage? {
+        if let cached = coverCache[id] { return cached }
+        guard let cover = try? await services.library.cover(of: id) else { return nil }
+        coverCache[id] = cover
+        return cover
+    }
+
+    /// Invalidates cached state for documents that changed (external changes, restores).
+    public func invalidate(ids: [DocumentID]) async {
+        for id in ids { coverCache[id] = nil }
+        await reload()
+    }
+
+    public func invalidateAll() async {
+        coverCache.removeAll()
+        await reload()
+    }
+
+    // MARK: Import
+
+    /// Imports files (and folders, recursively) with one progress line.
+    @discardableResult
+    public func importFiles(at urls: [URL]) async -> [Document] {
+        var imported: [Document] = []
+        importing = true
+        importStatus = nil
+        defer { importing = false; importStatus = nil }
+        for url in urls {
+            let files = await Self.expand(url, supportedExtensions: services.formats.supportedExtensions)
+            for file in files {
+                importStatus = "reading \(file.lastPathComponent)…"
+                do {
+                    let outcome = try await services.imports.importFile(at: file) { [weak self] progress in
+                        Task { @MainActor in
+                            switch progress {
+                            case .storing: self?.importStatus = "storing \(file.lastPathComponent)…"
+                            case .indexing: self?.importStatus = "indexing \(file.lastPathComponent)…"
+                            default: break
+                            }
+                        }
+                    }
+                    switch outcome {
+                    case .imported(let document):
+                        imported.append(document)
+                        importStatus = "added \(document.title)"
+                    case .duplicate(let document):
+                        importStatus = "\(document.title) is already in your library"
+                    }
+                } catch {
+                    importStatus = "couldn't read \(file.lastPathComponent): \(Self.describe(error))"
+                }
+            }
+        }
+        lastImportedIDs = imported.map(\.id)
+        await reload()
+        return imported
+    }
+
+    /// Recursively expands a folder into readable files.
+    static func expand(_ url: URL, supportedExtensions: [String]) async -> [URL] {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            return [url]
+        }
+        let extensions = Set(supportedExtensions)
+        var result: [URL] = []
+        var queue = [url]
+        while let directory = queue.popLast() {
+            guard let contents = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isDirectoryKey]) else { continue }
+            for item in contents.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+                var childIsDirectory: ObjCBool = false
+                FileManager.default.fileExists(atPath: item.path, isDirectory: &childIsDirectory)
+                if childIsDirectory.boolValue { queue.append(item) }
+                else if extensions.contains(item.pathExtension.lowercased()) { result.append(item) }
+            }
+        }
+        return result
+    }
+
+    static func describe(_ error: any Error) -> String {
+        (error as? GlossError)?.description ?? "something went wrong"
+    }
+}
