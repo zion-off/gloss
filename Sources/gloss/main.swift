@@ -1,2 +1,2 @@
-import GlossCore
-print(GlossCore.productName)
+// The CLI composition root lands in milestone 7.
+print("gloss")

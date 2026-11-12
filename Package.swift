@@ -19,11 +19,14 @@ let package = Package(
         .target(name: "GlossCore", dependencies: [
             .product(name: "Crypto", package: "swift-crypto"),
         ]),
+        .target(name: "GlossMemoryStore", dependencies: ["GlossCore"]),
+        .target(name: "GlossTestSupport", dependencies: ["GlossCore", "GlossMemoryStore"]),
         .target(name: "GlossStore", dependencies: [
             "GlossCore",
             .product(name: "GRDB", package: "GRDB.swift"),
         ]),
         .executableTarget(name: "gloss", dependencies: ["GlossCore"]),
+        .testTarget(name: "GlossCoreTests", dependencies: ["GlossCore", "GlossMemoryStore", "GlossTestSupport"]),
         .testTarget(name: "GlossStoreTests", dependencies: [
             "GlossStore",
             .product(name: "GRDB", package: "GRDB.swift"),
