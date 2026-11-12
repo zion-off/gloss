@@ -286,4 +286,18 @@ struct EscapingTests {
     func plain() {
         #expect(PlainText.strip("**bold** and [link](u) and \\*") == "bold and link and *")
     }
+
+    @Test("plain document text drops block markers, blanks and dividers")
+    func plainDocument() {
+        let body = "# title\n\n- [x] done *well*\n> quoted [link](gloss://page/x)\n---\n```\ncode **raw**\n```\n1. first"
+        #expect(PlainText.document(body) == "title\ndone well\nquoted link\ncode **raw**\nfirst")
+    }
+
+    @Test("a plain line after a quote or list item gets a blank line for CommonMark readers")
+    func lazyContinuation() {
+        #expect(CommonMarkCompatibility.separatingLazyContinuations("> q\nnext") == "> q\n\nnext")
+        #expect(CommonMarkCompatibility.separatingLazyContinuations("- a\nnext\n- b") == "- a\n\nnext\n- b")
+        #expect(CommonMarkCompatibility.separatingLazyContinuations("> a\n> b\n\nnext") == "> a\n> b\n\nnext")
+        #expect(CommonMarkCompatibility.separatingLazyContinuations("para\n> q\n# h") == "para\n> q\n# h")
+    }
 }

@@ -45,6 +45,22 @@ public enum LinkScanner {
 
 /// Markdown → plain text, for snippets, popovers and titles.
 public enum PlainText {
+    /// A whole body as plain text: block markers (`#`, `- [ ]`, `>`, fences) and inline syntax
+    /// removed, one line per block, blank lines and dividers dropped. Used for search indexing.
+    public static func document(_ markdown: String, parser: MarkdownParser = .standard) -> String {
+        let document = parser.parse(markdown)
+        return document.blocks.compactMap { block -> String? in
+            let leaf = block.leaf
+            switch leaf.kind {
+            case .blank, .thematicBreak: return nil
+            case .codeBlock: return document.text[leaf.contentRange]
+            default:
+                let text = strip(document.text[leaf.contentRange], parser: parser)
+                return text.isEmpty ? nil : text
+            }
+        }.joined(separator: "\n")
+    }
+
     /// Strips inline syntax characters from a fragment (block markers are left alone).
     public static func strip(_ markdown: String, parser: MarkdownParser = .standard) -> String {
         let text = MarkdownText(markdown)

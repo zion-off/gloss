@@ -16,9 +16,9 @@ public enum NotesIndexer {
         try tx.fullText.removeEntries(corpus: .notes, owner: pageID.stringValue)
     }
 
-    /// Markdown without syntax characters (link labels stay, destinations go).
+    /// Markdown without block markers or inline syntax (link labels stay, destinations go).
     public static func searchableText(_ body: String) -> String {
-        PlainText.strip(body)
+        PlainText.document(body)
     }
 }
 
