@@ -208,4 +208,81 @@ struct NotesEditorModelTests {
         await model.flushSave()
         #expect(try await lib.services.pages.page(root.id)?.body == "my typing")
     }
+
+    @Test("a failed save stays dirty: flushes retry it and external changes don't clobber it")
+    func failedSaveStaysDirty() async throws {
+        let lib = TestLibrary()
+        let (_, root) = try await lib.book()
+        let child = try await lib.services.pages.createSubpage(under: root.id, title: "draft")
+        let model = NotesEditorModel(services: lib.services, saveDelay: .seconds(60))
+        await model.load(child)
+        model.textDidChange("my typing", selection: 9..<9)
+        let entry = try await lib.services.trash.trash(.page, id: child.id.stringValue)
+        await model.flushSave()
+        guard case .failed = model.saveState else { Issue.record("expected a failed save, got \(model.saveState)"); return }
+        #expect(model.isDirty)
+
+        // Back from the trash and changed by the cli: the typing still wins, and the change
+        // is the cue to retry the save.
+        _ = try await lib.services.trash.restore(entry.id)
+        try await lib.services.pages.updateBody(child.id, to: "meanwhile, from the cli")
+        await model.pageChangedExternally()
+        #expect(model.text == "my typing")
+        #expect(model.saveState == .saved)
+        #expect(try await lib.services.pages.page(child.id)?.body == "my typing")
+    }
+
+    @Test("a flush after a failed save writes the text")
+    func flushRetriesFailedSave() async throws {
+        let lib = TestLibrary()
+        let (_, root) = try await lib.book()
+        let child = try await lib.services.pages.createSubpage(under: root.id, title: "draft")
+        let model = NotesEditorModel(services: lib.services, saveDelay: .seconds(60))
+        await model.load(child)
+        model.textDidChange("keep me", selection: 7..<7)
+        let entry = try await lib.services.trash.trash(.page, id: child.id.stringValue)
+        await model.flushSave()
+        _ = try await lib.services.trash.restore(entry.id)
+        await model.flushSave()
+        #expect(model.saveState == .saved)
+        #expect(try await lib.services.pages.page(child.id)?.body == "keep me")
+    }
+
+    @Test("a page trashed elsewhere with nothing unsaved unloads")
+    func trashedElsewhereUnloads() async throws {
+        let lib = TestLibrary()
+        let (_, root) = try await lib.book()
+        let child = try await lib.services.pages.createSubpage(under: root.id, title: "draft")
+        try await lib.services.pages.updateBody(child.id, to: "# saved")
+        let model = editor(lib)
+        await model.load(try await lib.services.pages.page(child.id)!)
+        _ = try await lib.services.trash.trash(.page, id: child.id.stringValue)
+        await model.pageChangedExternally()
+        #expect(model.page == nil)
+        #expect(model.text.isEmpty && model.spans.isEmpty && model.breadcrumbs.isEmpty)
+        #expect(model.saveState == .saved)
+    }
+
+    @Test("a failed link lookup doesn't style live links as broken")
+    func failedLookupIsNotBroken() async throws {
+        let memory = TestLibrary()
+        let flaky = FlakyLibraryStore(memory.store)
+        let services = GlossServices(store: flaky, blobs: memory.blobs, formats: memory.services.formats,
+                                     ids: memory.services.ids, time: memory.clock)
+        let (_, root) = try await memory.book()
+        let a = try await services.pages.createSubpage(under: root.id, title: "a")
+        let b = try await services.pages.createSubpage(under: root.id, title: "b")
+        try await services.pages.updateBody(root.id, to: "[a](gloss://page/\(a.id))")
+        let model = NotesEditorModel(services: services, saveDelay: .seconds(60))
+        await model.load(try await services.pages.page(root.id)!)
+        #expect(!model.spans.contains { $0.role == NotesRole.brokenLink })
+
+        flaky.failsReads = true
+        let body = "[a](gloss://page/\(a.id)) [b](gloss://page/\(b.id))"
+        model.textDidChange(body, selection: 0..<0)
+        await model.flushSave()
+        #expect(model.saveState == .saved)
+        #expect(!model.spans.contains { $0.role == NotesRole.brokenLink })
+    }
 }
+

@@ -50,6 +50,7 @@ import GlossNotes
     private let slashCommands: SlashCommandRegistry
     private let saveDelay: Duration
     private var styler = NotesStyler()
+    private var linkStatuses: [GlossLink: LinkStatus] = [:]
     private var children: [Page] = []
     private var savedLinks: Set<GlossLink> = []
     /// The debounce timer for the next save.
@@ -66,7 +67,8 @@ import GlossNotes
         self.saveDelay = saveDelay
     }
 
-    public var isDirty: Bool { saveState == .pending }
+    /// Text the store doesn't have yet: a save is pending, or the last one failed.
+    public var isDirty: Bool { saveState != .saved }
 
     // MARK: Loading
 
@@ -84,10 +86,17 @@ import GlossNotes
     }
 
     /// Picks up a change made elsewhere (the CLI, another window). Unsaved local edits win: they
-    /// are saved over it, the way a second save from another app would be.
+    /// are saved over it, the way a second save from another app would be. After a failed save
+    /// the change is the cue to try again (the page may be back from the trash).
     public func pageChangedExternally() async {
-        guard let id = page?.id, !isDirty, let fresh = try? await services.pages.page(id) else { return }
-        guard fresh.trash == nil else { page = nil; return }
+        guard let id = page?.id else { return }
+        if isDirty {
+            if case .failed = saveState { await flushSave() }
+            return
+        }
+        let fresh: Page?
+        do { fresh = try await services.pages.page(id) } catch { return }  // a failed read proves nothing
+        guard let fresh, fresh.trash == nil else { unload(); return }
         if fresh.body != text {
             text = fresh.body
             selection = clamp(selection)
@@ -95,6 +104,21 @@ import GlossNotes
         page = fresh
         savedLinks = NotesStyler.glossLinks(in: MarkdownParser.standard.parse(fresh.body))
         await refreshContext()
+    }
+
+    /// Shows nothing (the page was trashed or purged elsewhere, with nothing unsaved).
+    private func unload() {
+        saveTask?.cancel()
+        saveTask = nil
+        page = nil
+        breadcrumbs = []
+        text = ""
+        selection = 0..<0
+        slashMenu = nil
+        dismissedSlashAt = nil
+        children = []
+        savedLinks = []
+        reparse()
     }
 
     // MARK: Input from the text view
@@ -181,7 +205,7 @@ import GlossNotes
     /// is set for `/page`.
     public func confirmSlashMenu(itemID: String? = nil) async throws -> SlashCommandResult? {
         guard let menu = slashMenu, let page else { return nil }
-        let id = itemID ?? menu.items[safe: menu.selectedIndex]?.id
+        let id = itemID ?? (menu.items.indices.contains(menu.selectedIndex) ? menu.items[menu.selectedIndex].id : nil)
         guard let command = slashCommands.commands.first(where: { $0.id == id }) else { return nil }
         slashMenu = nil
         let result = try await slashCommands.run(command, trigger: menu.trigger, in: document, page: page.id)
@@ -223,7 +247,8 @@ import GlossNotes
     }
 
     private func writeCurrentText() async {
-        guard let page, saveState == .pending else { return }
+        // `.failed` is dirty too: a retry (flush, window close) must write, not skip.
+        guard let page, saveState != .saved else { return }
         let body = text
         do {
             let saved = try await services.pages.updateBody(page.id, to: body)
@@ -254,12 +279,18 @@ import GlossNotes
     private func refreshLinkStatuses() async {
         var statuses: [GlossLink: LinkStatus] = [:]
         for link in NotesStyler.glossLinks(in: MarkdownParser.standard.parse(text)) {
-            switch try? await services.links.resolve(link) {
-            case .inTrash?: statuses[link] = .inTrash
-            case .missing?, nil: statuses[link] = .missing
-            default: statuses[link] = .live
+            do {
+                switch try await services.links.resolve(link) {
+                case .inTrash: statuses[link] = .inTrash
+                case .missing: statuses[link] = .missing
+                default: statuses[link] = .live
+                }
+            } catch {
+                // A failed lookup proves nothing: keep what was known, else don't call it broken.
+                statuses[link] = linkStatuses[link] ?? .live
             }
         }
+        linkStatuses = statuses
         styler = NotesStyler(statuses: statuses)
         reparse()
     }
@@ -296,8 +327,4 @@ import GlossNotes
         let lower = min(max(0, range.lowerBound), length)
         return lower..<min(max(lower, range.upperBound), length)
     }
-}
-
-extension Array {
-    subscript(safe index: Int) -> Element? { indices.contains(index) ? self[index] : nil }
 }
