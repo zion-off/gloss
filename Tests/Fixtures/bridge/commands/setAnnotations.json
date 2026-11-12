@@ -1,0 +1,32 @@
+{
+  "v": 1,
+  "type": "setAnnotations",
+  "payload": {
+    "highlights": [
+      {
+        "id": "01J8ZC0M4G5H6K7P8Q9R",
+        "cfi": "epubcfi(/6/8!/4/2/1:23,/4/2/1:57)",
+        "color": "yellow"
+      },
+      {
+        "id": "01J8ZC0M4G5H6K7P8Q9S",
+        "cfi": "epubcfi(/6/10!/4/2/2/1:0,/4/2/2/1:88)",
+        "color": "green"
+      }
+    ],
+    "markers": [
+      {
+        "id": "01J8ZC0M4G5H6K7P8Q9T",
+        "cfi": "epubcfi(/6/10!/4/2/2/1:0,/4/2/2/1:88)"
+      },
+      {
+        "id": "01J8ZC0M4G5H6K7P8Q9U",
+        "cfi": "epubcfi(/6/10!/4/2/2/1:0,/4/2/2/1:88)"
+      },
+      {
+        "id": "01J8ZC0M4G5H6K7P8Q9V",
+        "cfi": "epubcfi(/6/12!/4/2/1:10)"
+      }
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "v": 1,
+  "type": "searchResults",
+  "payload": {
+    "query": "white whale",
+    "items": [
+      {
+        "cfi": "epubcfi(/6/10!/4/2/2/1:88,/4/2/2/1:99)",
+        "label": "Chapter 3. The Spouter-Inn",
+        "excerpt": {
+          "pre": "…a large whale. One of these",
+          "match": "white whale",
+          "post": "s were what I chiefly saw…"
+        }
+      },
+      {
+        "cfi": "epubcfi(/6/12!/4/2/1:10,/4/2/1:21)",
+        "label": null,
+        "excerpt": {
+          "pre": "…the grand and dreaded",
+          "match": "white whale",
+          "post": "of the Pacific…"
+        }
+      }
+    ],
+    "progress": 0.4,
+    "done": false
+  }
+}

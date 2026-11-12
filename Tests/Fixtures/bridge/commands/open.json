@@ -1,0 +1,30 @@
+{
+  "v": 1,
+  "type": "open",
+  "payload": {
+    "url": "gloss-reader://books/01J8ZC0M4G5H6K7P8Q9R.blob",
+    "position": "epubcfi(/6/8!/4/2/1:0)",
+    "appearance": {
+      "flow": "paginated",
+      "css": "html { color: #3b2f1e; background: #f8f1e3; } p { line-height: 1.5; text-align: justify; }",
+      "layout": {
+        "margin": 48,
+        "gap": 0.06,
+        "maxInlineSize": 720,
+        "maxColumnCount": 2
+      },
+      "colors": {
+        "background": "#f8f1e3",
+        "foreground": "#3b2f1e",
+        "marker": "rgba(59, 47, 30, 0.45)",
+        "highlights": {
+          "yellow": "rgba(240, 199, 56, 0.35)",
+          "green": "rgba(98, 165, 122, 0.35)",
+          "blue": "rgba(96, 138, 188, 0.35)",
+          "pink": "rgba(216, 128, 149, 0.35)",
+          "purple": "rgba(154, 111, 181, 0.35)"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "v": 1,
+  "type": "turnPage",
+  "payload": {
+    "direction": "forward"
+  }
+}

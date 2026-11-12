@@ -1,0 +1,32 @@
+{
+  "v": 1,
+  "type": "opened",
+  "payload": {
+    "toc": [
+      {
+        "label": "Moby-Dick; or, The Whale",
+        "href": "text/title.xhtml",
+        "children": [
+          {
+            "label": "Chapter 1. Loomings",
+            "href": "text/ch001.xhtml",
+            "children": []
+          },
+          {
+            "label": "Chapter 2. The Carpet-Bag",
+            "href": "text/ch002.xhtml",
+            "children": []
+          }
+        ]
+      },
+      {
+        "label": "Etymology",
+        "href": "text/etymology.xhtml",
+        "children": []
+      }
+    ],
+    "sectionCount": 14,
+    "direction": "ltr",
+    "fixedLayout": false
+  }
+}

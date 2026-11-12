@@ -1,0 +1,17 @@
+{
+  "v": 1,
+  "type": "relocated",
+  "payload": {
+    "cfi": "epubcfi(/6/8!/4/2/1:23)",
+    "fraction": 0.281,
+    "section": {
+      "index": 3,
+      "count": 14
+    },
+    "tocLabel": "Chapter 1. Loomings",
+    "pageLabel": null,
+    "pagesLeftInSection": 7,
+    "atStart": false,
+    "atEnd": false
+  }
+}

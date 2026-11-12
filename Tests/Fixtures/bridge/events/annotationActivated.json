@@ -1,0 +1,19 @@
+{
+  "v": 1,
+  "type": "annotationActivated",
+  "payload": {
+    "highlightIDs": [
+      "01J8ZC0M4G5H6K7P8Q9S"
+    ],
+    "markerIDs": [
+      "01J8ZC0M4G5H6K7P8Q9T",
+      "01J8ZC0M4G5H6K7P8Q9U"
+    ],
+    "rect": {
+      "x": 96.5,
+      "y": 340.0,
+      "width": 412.75,
+      "height": 22.5
+    }
+  }
+}

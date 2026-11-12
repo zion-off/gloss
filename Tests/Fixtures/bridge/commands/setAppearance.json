@@ -1,0 +1,28 @@
+{
+  "v": 1,
+  "type": "setAppearance",
+  "payload": {
+    "appearance": {
+      "flow": "scrolled",
+      "css": "html { color: #d8d3c8; background: #1f1b16; } p { line-height: 1.6; }",
+      "layout": {
+        "margin": 32,
+        "gap": 0.08,
+        "maxInlineSize": 640,
+        "maxColumnCount": 1
+      },
+      "colors": {
+        "background": "#1f1b16",
+        "foreground": "#d8d3c8",
+        "marker": "rgba(216, 211, 200, 0.4)",
+        "highlights": {
+          "yellow": "rgba(240, 199, 56, 0.4)",
+          "green": "rgba(98, 165, 122, 0.4)",
+          "blue": "rgba(96, 138, 188, 0.4)",
+          "pink": "rgba(216, 128, 149, 0.4)",
+          "purple": "rgba(154, 111, 181, 0.4)"
+        }
+      }
+    }
+  }
+}

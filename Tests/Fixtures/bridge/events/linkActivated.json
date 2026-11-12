@@ -1,0 +1,8 @@
+{
+  "v": 1,
+  "type": "linkActivated",
+  "payload": {
+    "href": "https://www.gutenberg.org/ebooks/2701",
+    "external": true
+  }
+}

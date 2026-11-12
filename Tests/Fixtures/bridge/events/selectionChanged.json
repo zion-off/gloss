@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "type": "selectionChanged",
+  "payload": {
+    "cfi": "epubcfi(/6/8!/4/2/1:23,/4/2/1:57)",
+    "text": "Call me Ishmael. Some years ago—never mind how long precisely—",
+    "label": "Chapter 1. Loomings",
+    "fraction": 0.281,
+    "rect": {
+      "x": 96.5,
+      "y": 208.25,
+      "width": 412.75,
+      "height": 22.5
+    }
+  }
+}
