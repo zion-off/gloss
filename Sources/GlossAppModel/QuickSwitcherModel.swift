@@ -2,7 +2,7 @@ import Foundation
 import Observation
 import GlossCore
 
-/// ⌘O: jump to a book or a notes page by typing.
+/// "open quickly" (⇧⌘O, after Xcode): jump to a book or a notes page by typing (D-071).
 @MainActor @Observable public final class QuickSwitcherModel {
     public struct Item: Hashable, Identifiable, Sendable {
         public enum Kind: Hashable, Sendable { case document, page }
