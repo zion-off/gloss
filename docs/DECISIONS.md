@@ -125,3 +125,9 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   `0078ce7`, `d1a1c5c`, verified with `scripts/verify-commits.sh`): they were split from one green
   check. History is not rewritten (commit policy). Since then each slice is checked before its own
   commit and ranges are verified with `scripts/verify-commits.sh`.
+- **P-002 `ce7a2c2` was not committed by the lead.** It appeared at 21:10:52 UTC with the repo
+  identity while two sub-agents were running, holding exactly the lead's finished GlossNotes slice
+  (same 7 files, tests green). Its content is correct, so it stays (no history rewriting); the
+  sub-agents were told to run no git commands. `scripts/check.sh` also runs the JS tests once
+  `web/` exists, so Swift slices committed while the bridge work is in progress are checked with
+  `swift build --build-tests && swift test` instead.
