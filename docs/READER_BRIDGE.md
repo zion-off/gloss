@@ -11,10 +11,13 @@ protocol. Both sides implement it and are tested against the same fixtures:
 ## Transport
 
 - Every message is an envelope: `{ "v": 1, "type": "<type>", "payload": { … } }`.
-- **Swift → JS (commands):** `webView.callAsyncJavaScript("return await window.glossReader.receive(command)",
-  arguments: ["command": envelope])`. `receive` validates the envelope and returns `null` (or a small reply
+- **Swift → JS (commands):** `webView.callAsyncJavaScript("return await window.glossReader.receive(JSON.parse(command))",
+  arguments: ["command": <ReaderCommand.encodedString()>], contentWorld: .page)` — the envelope travels as JSON text
+  for the same reason as events. `receive` validates the envelope and returns `null` (or a small reply
   object where noted). Invalid commands reject with an `Error` whose message starts with `bridge:`.
-- **JS → Swift (events):** `window.webkit.messageHandlers.gloss.postMessage(envelope)`.
+- **JS → Swift (events):** `window.webkit.messageHandlers.gloss.postMessage(JSON.stringify(envelope))`. Events
+  travel as JSON text so Swift decodes exactly what the glue validated, without WebKit's object bridging
+  (`EPUBBridgeDriver.engineEvent(fromMessageBody:)` refuses anything that isn't a string).
 - Book bytes never travel through JS strings: `open` gives a URL on the `gloss-reader` scheme that the
   app's `WKURLSchemeHandler` serves from the blob store; JS `fetch`es it into a `File` and calls
   `view.open(file)`.

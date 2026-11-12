@@ -6,7 +6,7 @@
 interface Window {
     webkit?: {
         messageHandlers?: {
-            gloss?: { postMessage(envelope: unknown): void }
+            gloss?: { postMessage(json: string): void }
         }
     }
     glossReader?: { receive(envelope: unknown): Promise<unknown> }

@@ -56,7 +56,8 @@ const postEvent = <K extends protocol.EventType>(
         return
     }
     const handler = window.webkit?.messageHandlers?.gloss
-    if (handler) handler.postMessage(envelope)
+    // JSON text, so Swift decodes exactly what was validated here (no object bridging).
+    if (handler) handler.postMessage(JSON.stringify(envelope))
     else console.log('gloss: no message handler, dropping event', envelope.type)
 }
 

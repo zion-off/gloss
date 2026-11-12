@@ -95,4 +95,21 @@ struct EPUBBridgeDriverTests {
         #expect(translated["error"] == .some(.failed("open: fetch gloss-reader://books/missing.blob failed: 404 Not Found")))
         #expect(translated["linkActivated"] == .some(.externalLink(URL(string: "https://www.gutenberg.org/ebooks/2701")!)))
     }
+
+    @Test("script messages arrive as JSON text; anything else is malformed")
+    func messageBodies() throws {
+        let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent("Tests/Fixtures/bridge/events/relocated.json")
+        let text = try String(contentsOf: fixture, encoding: .utf8)
+        guard case .relocated(let location)? = try EPUBBridgeDriver.engineEvent(fromMessageBody: text) else { Issue.record(); return }
+        #expect(location.progression > 0)
+        #expect(try EPUBBridgeDriver.engineEvent(fromMessageBody: #"{"v":1,"type":"ready","payload":{}}"#) == .ready)
+
+        // An object (what WebKit would hand over for a posted JS object) is refused, not guessed at.
+        #expect(throws: ReaderBridgeError.self) {
+            try EPUBBridgeDriver.engineEvent(fromMessageBody: ["v": 1, "type": "ready", "payload": [String: Int]()] as [String: Any])
+        }
+        #expect(throws: (any Error).self) { try EPUBBridgeDriver.engineEvent(fromMessageBody: "not json") }
+        #expect(throws: (any Error).self) { try EPUBBridgeDriver.engineEvent(fromMessageBody: #"{"v":2,"type":"ready","payload":{}}"#) }
+    }
 }
