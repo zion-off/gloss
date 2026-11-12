@@ -101,7 +101,8 @@ public struct TerminalTree: Sendable {
     }
 }
 
-/// Words wrapped to a width, keeping words whole where possible.
+/// Words wrapped to a width, keeping words whole where possible. Newlines and runs of spaces in
+/// the input collapse into single spaces: give it one paragraph at a time.
 public enum TextWrap {
     public static func wrap(_ text: String, width: Int, indent: String = "") -> [String] {
         let available = max(10, width - DisplayWidth.of(indent))
