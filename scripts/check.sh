@@ -19,7 +19,9 @@ grep -E "^✔ Test run with" "$log" | awk '{tests += $5; suites += $8} END {prin
 if [ -f web/pnpm-lock.yaml ]; then
   ( cd web
     pnpm install --frozen-lockfile --silent >/dev/null
-    pnpm --silent test && pnpm --silent check-build ) || { echo "✘ web checks failed (typecheck, tests or stale build output)"; exit 1; }
+    pnpm --silent test >"$log" 2>&1 || { grep -E "^not ok|error TS|# fail" "$log" | head -20; exit 1; }
+    grep -E "^# pass" "$log" | sed 's/^# pass /✔ /; s/$/ web tests/'
+    pnpm --silent check-build ) || { echo "✘ web checks failed (typecheck, tests or stale build output; log: $log)"; exit 1; }
 elif [ -f web/package.json ]; then
   echo "✘ web/ has no pnpm-lock.yaml (pnpm is the package manager)"; exit 1
 fi
