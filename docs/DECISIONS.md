@@ -194,18 +194,22 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
 
 ## Formats (GlossPDF)
 
-- **D-069 The PDF reader scans the whole file for `N G obj` bodies instead of following xref
-  offsets.** Broken xref tables are the most common real-world PDF defect; a single forward
-  pass with per-failure progress is linear, and later definitions of the same object number
-  naturally win, which is exactly incremental-update semantics. Xref streams and `trailer`
-  dictionaries are read only for `/Root`, `/Info` and `/Encrypt` (last one wins).
-- **D-067 Stream data trusts `/Length` only when `endstream` shows up right where it predicts,
-  else scans for `endstream`.** Handles indirect and wrong lengths without ever reading past
-  the file; at most one failed scan reaches end of file, so the pass stays linear.
-- **D-068 `GlossArchive.Inflate` is the only decompressor.** It is bounded and
+- **D-063 The PDF reader scans the whole file for `N G obj` bodies instead of following xref
+  offsets.** Broken xref tables are the most common real-world PDF defect. Headers are found by a
+  bounded byte matcher (at most ~150 bytes read per position, no allocation), so the search is
+  linear; definitions later in the file win, which is incremental-update semantics. That holds
+  across object streams too: a compressed member only replaces a definition that comes earlier in
+  the file. Trailer candidates (`trailer` dictionaries and xref streams) are sorted by file
+  position, and the last one with `/Root` or `/Info` wins.
+- **D-064 Every lexer that parses document bodies shares one scan budget (16 bytes per input
+  byte + 1 MB).** Tolerant parsing re-reads input after failures, and review 1 found an
+  unterminated string made that quadratic (a 32 KB file took 37 s). The budget makes the worst case
+  linear by construction; legitimate files read each byte about once. Stream data is never lexed:
+  `/Length` is trusted when `endstream` appears where it predicts, else gloss scans for `endstream`.
+- **D-065 `GlossArchive.Inflate` is the only decompressor.** It is bounded and
   truncation-tolerant, so one corrupt stream can never hang an import; LZWDecode is treated as
   unsupported (nil) rather than reimplemented, since it is rare in the wild.
-- **D-069 Encrypted PDFs return what is readable without decryption and no text chunks.** The
+- **D-066 Encrypted PDFs return what is readable without decryption and no text chunks.** The
   page tree and resource names are unencrypted, so the page count still comes out; strings and
   streams are not, so title/author/text are skipped rather than emitted as garbage. Only
   non-PDF data throws.
