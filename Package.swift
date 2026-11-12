@@ -31,7 +31,7 @@ let package = Package(
         .testTarget(name: "GlossMarkdownTests", dependencies: ["GlossMarkdown"]),
         .testTarget(name: "GlossCoreTests", dependencies: ["GlossCore", "GlossMemoryStore", "GlossTestSupport"]),
         .testTarget(name: "GlossStoreTests", dependencies: [
-            "GlossStore",
+            "GlossStore", "GlossTestSupport",
             .product(name: "GRDB", package: "GRDB.swift"),
         ]),
     ],
