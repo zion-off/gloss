@@ -52,6 +52,8 @@ distribution, packaging, signing or update work.
 - If something cannot be verified without running the app, implement it as well as possible
   and list it in `docs/MACOS_HANDOFF.md`.
 - Verify third-party API details against current docs or source, not memory.
+  Apple APIs: `docs/MAC_API_NOTES.md` (exact declarations, availability and actor isolation,
+  verified against Apple's documentation JSON); anything marked UNVERIFIED goes in the handoff.
 - Keep dependencies minimal; justify each one in `docs/DECISIONS.md`.
 - Keep `docs/ARCHITECTURE.md` current when the design changes.
 
