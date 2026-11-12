@@ -19,6 +19,14 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
 2. **Passage links resolve in both directions** (notes → book and book marker → note). _(not written yet)_
 3. **Native markdown editor with links and the floating formatting bar.** _(not written yet)_
 
+## Every Mac slice: Apple-likeness pass
+
+- Compare against Books, Notes and Preview: system components, standard menus and shortcuts, no custom
+  chrome, modes or banners (CLAUDE.md "Design principles").
+- Light and dark appearance, Increase Contrast, Reduce Motion and Reduce Transparency all look right.
+- VoiceOver reads every custom control (format bar, slash menu, link chips, subpage rows, markers).
+- Copy is lowercase, short and clear.
+
 ## Checklist by file
 
 _(filled in as Mac code lands)_

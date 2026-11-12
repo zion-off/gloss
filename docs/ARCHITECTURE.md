@@ -265,6 +265,13 @@ the hit.
   and a `NavigationHistory` per pane (⌘[ / ⌘]).
 - `ExternalChangeMonitor` polls the change journal and refreshes models.
 - `gloss://` URLs from other apps or `gloss open` route through `URLRouter`.
+- **System components first** (D-019). `NavigationSplitView` with a source-list sidebar, a
+  standard toolbar with a search field and its scope menu, popovers for marker lists and selection
+  commands, sheets for import conflicts and document details, the standard `Settings` scene, and
+  menu commands with standard shortcuts (D-070, D-071). Custom pieces (format bar, slash menu, link
+  chips, subpage rows) use system materials (`.regularMaterial`/`NSVisualEffectView`), the system
+  font, SF Symbols, standard animations and full VoiceOver labels.
+- macOS only (D-018): Mac modules use AppKit and SwiftUI directly, with no platform abstraction.
 
 ## 10. Milestones
 
