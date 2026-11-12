@@ -93,6 +93,7 @@ struct WorkspaceModelTests {
         #expect(workspace.searchContext == .notes(book.id))
         workspace.layout = .split
         #expect(workspace.searchContext == .split(book.id))
+        await workspace.flushLayoutPersistence()
 
         let fresh = WorkspaceModel(services: lib.services)
         await fresh.loadPersistedLayout()
@@ -153,7 +154,7 @@ struct LibraryAndTrashModelTests {
         await model.reload()
         #expect(model.entries.map(\.document.title) == ["Beta", "Alpha"])
         model.sort = .title
-        try await Task.sleep(for: .milliseconds(30))
+        await model.settle()
         #expect(model.entries.map(\.document.title) == ["Alpha", "Beta"])
         #expect(model.availableShelves == [.books])
 
@@ -215,16 +216,16 @@ struct SearchAndSwitcherTests {
         try await app.workspace.openDocument(book.id)
         app.search.setScope(.allNotes)
         app.search.query = "whale"
-        try await Task.sleep(for: .milliseconds(300))
+        await app.search.settle()
         #expect(app.search.results.map(\.group) == [.notes])
         app.search.setScope(.document(book.id, [.text, .notes]))
-        try await Task.sleep(for: .milliseconds(300))
+        await app.search.settle()
         #expect(app.search.results.map(\.group) == [.notes, .bookText])
         let section = try #require(app.search.results.first)
         let hit = try #require(section.hits.first)
         #expect(SearchModel.Hit(hit: hit, section: section.id).selection == .page(root.id, book.id, match: 16..<21))
         app.search.query = "   "
-        try await Task.sleep(for: .milliseconds(200))
+        await app.search.settle()
         #expect(app.search.results.isEmpty)
         #expect(!app.search.isSearching)
     }
@@ -310,4 +311,28 @@ struct ExternalChangeTests {
 @MainActor
 struct TemporaryDirectoryHolder {
     static let directory = TempDir()
+}
+
+@MainActor
+struct RaceTests {
+    @Test("rapid layout changes persist the last one")
+    func layoutRace() async throws {
+        let lib = TestLibrary()
+        let workspace = WorkspaceModel(services: lib.services)
+        for layout in [SplitLayout.readerOnly, .notesOnly, .split, .readerOnly, .notesOnly] { workspace.layout = layout }
+        await workspace.flushLayoutPersistence()
+        #expect(try await lib.services.settings.value(WorkspaceSettings.layout) == .notesOnly)
+    }
+
+    @Test("rapid sort changes show the last sort")
+    func sortRace() async throws {
+        let lib = TestLibrary()
+        _ = try await lib.book("Beta", author: "A")
+        lib.clock.advance(by: 1)
+        _ = try await lib.book("Alpha", author: "B")
+        let model = LibraryModel(services: lib.services)
+        for sort in [LibrarySort.author, .title, .dateAdded, .author, .title] { model.sort = sort }
+        await model.settle()
+        #expect(model.entries.map(\.document.title) == ["Alpha", "Beta"])
+    }
 }

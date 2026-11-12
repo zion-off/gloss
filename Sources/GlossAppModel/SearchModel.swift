@@ -90,6 +90,11 @@ import GlossCore
         }
     }
 
+    /// Waits for the search started by the latest query or scope change.
+    public func settle() async {
+        await searchTask?.value
+    }
+
     public func cancel() {
         searchTask?.cancel()
         results = []

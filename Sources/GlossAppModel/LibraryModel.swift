@@ -7,10 +7,10 @@ import GlossCore
     public private(set) var entries: [LibraryEntry] = []
     public private(set) var recentlyRead: [LibraryEntry] = []
     public var sort: LibrarySort = .recent {
-        didSet { Task { await reload() } }
+        didSet { scheduleReload() }
     }
     public var shelf: LibraryShelf? {
-        didSet { Task { await reload() } }
+        didSet { scheduleReload() }
     }
     public private(set) var importing = false
     /// What an in-flight import is doing ("reading moby.epub…").
@@ -21,6 +21,11 @@ import GlossCore
     private let services: GlossServices
     private let shelves: [LibraryShelf]
     private var coverCache: [DocumentID: CoverImage] = [:]
+    private var reloadTask: Task<Void, Never>?
+    /// Bumped by every reload; only the newest reload may publish its results.
+    private var reloadGeneration = 0
+    /// The file whose progress may update `importStatus` (late callbacks are dropped).
+    private var importingFile: URL?
 
     public init(services: GlossServices) {
         self.services = services
@@ -30,8 +35,22 @@ import GlossCore
     public var availableShelves: [LibraryShelf] { shelves }
 
     public func reload() async {
-        entries = (try? await services.library.entries(sortedBy: sort, shelf: shelf)) ?? []
-        recentlyRead = (try? await services.library.recentlyRead()) ?? []
+        reloadGeneration += 1
+        let generation = reloadGeneration
+        let fetched = (try? await services.library.entries(sortedBy: sort, shelf: shelf)) ?? []
+        let recent = (try? await services.library.recentlyRead()) ?? []
+        guard generation == reloadGeneration else { return }  // a newer reload owns the result
+        entries = fetched
+        recentlyRead = recent
+    }
+
+    private func scheduleReload() {
+        reloadTask = Task { [weak self] in await self?.reload() }
+    }
+
+    /// Waits for a reload started by changing `sort` or `shelf`.
+    public func settle() async {
+        await reloadTask?.value
     }
 
     /// Cover for a document, cached (the grid asks for many).
@@ -66,16 +85,20 @@ import GlossCore
             let files = await Self.expand(url, supportedExtensions: services.formats.supportedExtensions)
             for file in files {
                 importStatus = "reading \(file.lastPathComponent)…"
+                importingFile = file
+                defer { importingFile = nil }
                 do {
                     let outcome = try await services.imports.importFile(at: file) { [weak self] progress in
                         Task { @MainActor in
+                            guard let self, self.importingFile == file else { return }
                             switch progress {
-                            case .storing: self?.importStatus = "storing \(file.lastPathComponent)…"
-                            case .indexing: self?.importStatus = "indexing \(file.lastPathComponent)…"
+                            case .storing: self.importStatus = "storing \(file.lastPathComponent)…"
+                            case .indexing: self.importStatus = "indexing \(file.lastPathComponent)…"
                             default: break
                             }
                         }
                     }
+                    importingFile = nil
                     switch outcome {
                     case .imported(let document):
                         imported.append(document)
@@ -84,6 +107,7 @@ import GlossCore
                         importStatus = "\(document.title) is already in your library"
                     }
                 } catch {
+                    importingFile = nil
                     importStatus = "couldn't read \(file.lastPathComponent): \(Self.describe(error))"
                 }
             }
