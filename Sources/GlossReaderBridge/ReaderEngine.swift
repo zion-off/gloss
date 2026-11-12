@@ -1,0 +1,109 @@
+import Foundation
+import GlossCore
+
+// The engine-neutral boundary between the app and a reading engine (foliate-js for EPUB,
+// PDFKit for PDF). Engines translate their own events into `ReaderEngineEvent`s and implement
+// `ReaderDriving`; everything above (`ReaderController`) never sees an engine's details.
+
+/// A table-of-contents entry, with a locator the engine can go to.
+public struct ReaderTocEntry: Hashable, Sendable {
+    public var label: String
+    public var target: Locator
+    public var children: [ReaderTocEntry]
+
+    public init(label: String, target: Locator, children: [ReaderTocEntry] = []) {
+        self.label = label
+        self.target = target
+        self.children = children
+    }
+}
+
+/// Where the reader is.
+public struct ReaderLocation: Hashable, Sendable {
+    public var locator: Locator
+    /// 0…1 through the book.
+    public var progression: Double
+    /// "Chapter 1. Loomings", for breadcrumbs and the saved position.
+    public var label: String?
+    /// "3 pages left in Loomings", for the status line.
+    public var progressText: String
+    public var atStart: Bool
+    public var atEnd: Bool
+
+    public init(locator: Locator, progression: Double, label: String?, progressText: String, atStart: Bool = false, atEnd: Bool = false) {
+        self.locator = locator
+        self.progression = progression
+        self.label = label
+        self.progressText = progressText
+        self.atStart = atStart
+        self.atEnd = atEnd
+    }
+}
+
+/// What the book should draw: highlights in their colours, and a separate marker for every
+/// passage that live notes link to.
+public struct ReaderAnnotations: Hashable, Sendable {
+    public struct HighlightMark: Hashable, Sendable {
+        public var id: HighlightID
+        public var locator: Locator
+        public var color: HighlightColor
+    }
+
+    public struct LinkMark: Hashable, Sendable {
+        public var id: LinkTargetID
+        public var locator: Locator
+    }
+
+    public var highlights: [HighlightMark]
+    public var markers: [LinkMark]
+
+    public init(highlights: [HighlightMark] = [], markers: [LinkMark] = []) {
+        self.highlights = highlights
+        self.markers = markers
+    }
+
+    public init(highlights: [Highlight], linkedPassages: [LinkedPassage]) {
+        self.highlights = highlights.map { HighlightMark(id: $0.id, locator: $0.passage.locator, color: $0.color) }
+        self.markers = linkedPassages.map { LinkMark(id: $0.target.id, locator: $0.target.passage.locator) }
+    }
+}
+
+/// Something that happened in the engine.
+public enum ReaderEngineEvent: Hashable, Sendable {
+    /// The engine can take commands.
+    case ready
+    case opened(toc: [ReaderTocEntry])
+    case relocated(ReaderLocation)
+    /// The user selected a passage; `anchor` is where to point popovers (view coordinates).
+    case selectionChanged(Passage, anchor: ReaderRect)
+    case selectionCleared
+    /// The user clicked drawn annotations.
+    case annotationActivated(highlights: [HighlightID], markers: [LinkTargetID], anchor: ReaderRect)
+    case externalLink(URL)
+    case failed(String)
+}
+
+public enum ReaderDrivingError: Error, Equatable, Sendable {
+    case unsupportedLocator(LocatorScheme)
+    case notReady
+}
+
+/// The commands every engine supports.
+@MainActor
+public protocol ReaderDriving: AnyObject {
+    func open(_ document: Document, at position: Locator?) async throws
+    func go(to locator: Locator, flash: Bool) async throws
+    func turnPage(forward: Bool) async throws
+    func show(_ annotations: ReaderAnnotations) async throws
+    func clearSelection() async throws
+    /// Shows a search hit: the locator when the engine can resolve it, else the first match of
+    /// `text` near it.
+    func reveal(searchHit locator: Locator?, text: String) async throws
+}
+
+/// Engines that reflow text (EPUB) also take reading settings. PDFs don't, so this is a
+/// separate capability rather than a no-op on every engine.
+@MainActor
+public protocol ReflowableAppearanceApplying: AnyObject {
+    func apply(_ appearance: ReaderAppearance) async throws
+}

@@ -8,6 +8,8 @@ public enum EPUBLocators {
     public static let cfiScheme = LocatorScheme("epubcfi")
     /// Search chunks extracted on import: the spine index of a section.
     public static let sectionScheme = LocatorScheme("epub-section")
+    /// Table-of-contents targets: an href inside the book.
+    public static let hrefScheme = LocatorScheme("epub-href")
 }
 
 /// EPUB 2 and 3 on the import side: metadata, per-section text and the cover.
