@@ -23,6 +23,7 @@ let package = Package(
         ]),
         .systemLibrary(name: "CZlib", path: "Sources/CZlib", providers: [.apt(["zlib1g-dev"]), .brew(["zlib"])]),
         .target(name: "GlossArchive", dependencies: ["CZlib"]),
+        .target(name: "GlossEPUB", dependencies: ["GlossCore", "GlossArchive"]),
         .target(name: "GlossMemoryStore", dependencies: ["GlossCore"]),
         .target(name: "GlossTestSupport", dependencies: ["GlossCore", "GlossMemoryStore", "GlossArchive"]),
         .target(name: "GlossStore", dependencies: [
@@ -31,6 +32,7 @@ let package = Package(
         ]),
         .executableTarget(name: "gloss", dependencies: ["GlossCore"]),
         .testTarget(name: "GlossMarkdownTests", dependencies: ["GlossMarkdown"]),
+        .testTarget(name: "GlossEPUBTests", dependencies: ["GlossEPUB", "GlossTestSupport"]),
         .testTarget(name: "GlossArchiveTests", dependencies: ["GlossArchive", "GlossTestSupport"]),
         .testTarget(name: "GlossCoreTests", dependencies: ["GlossCore", "GlossMemoryStore", "GlossTestSupport"]),
         .testTarget(name: "GlossStoreTests", dependencies: [
