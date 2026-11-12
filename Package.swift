@@ -18,6 +18,7 @@ let package = Package(
     targets: [
         .target(name: "GlossMarkdown"),
         .target(name: "GlossCore", dependencies: [
+            "GlossMarkdown",
             .product(name: "Crypto", package: "swift-crypto"),
         ]),
         .target(name: "GlossMemoryStore", dependencies: ["GlossCore"]),
