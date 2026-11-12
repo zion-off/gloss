@@ -7,6 +7,11 @@ public struct PageTree: Hashable, Sendable {
         public var page: Page
         public var children: [Node]
 
+        public init(page: Page, children: [Node] = []) {
+            self.page = page
+            self.children = children
+        }
+
         /// Depth-first pages with their depth.
         public func walk(depth: Int = 0) -> [(page: Page, depth: Int)] {
             [(page, depth)] + children.flatMap { $0.walk(depth: depth + 1) }
