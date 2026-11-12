@@ -58,6 +58,13 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   sheets. Custom pieces (format bar, slash menu, link chips) use system materials, fonts, SF Symbols
   and animations. Plan items that are specified still apply but are implemented the Apple way: the
   specified undo toast also registers with the window's `UndoManager` so Edit › Undo and ⌘Z work.
+- **D-070 Formatting shortcuts follow Apple Notes' Format menu.** ⌘B, ⌘I, ⇧⌘H heading,
+  ⇧⌘7 bulleted list, ⌘' block quote, ⇧⌘M monospaced. The first draft used ⇧⌘Q for quote, which
+  is the system-wide Log Out shortcut. ⌘K is the plan's "link to passage", so the plain web link is
+  ⇧⌘K. A test keeps format shortcuts away from system, standard-menu and gloss-reserved shortcuts.
+- **D-071 The quick switcher is ⇧⌘O ("open quickly"), after Xcode's Open Quickly.** The plan's
+  "⌘P style" names the interaction, not the key: ⌘P is Print (and "export as PDF via print" needs
+  it), and ⌘O is File › Open in every Mac app.
 - **D-017 Web code is TypeScript with pnpm (user requirement).** JavaScript only where TypeScript is
   impossible: vendored foliate-js (must stay byte-identical, D-014) and `tsc` output for the web view.
   The output is committed rather than built by a SwiftPM plugin so `swift build` never needs Node,
