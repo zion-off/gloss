@@ -16,6 +16,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-crypto.git", from: "5.0.0"),
     ],
     targets: [
+        .target(name: "GlossMarkdown"),
         .target(name: "GlossCore", dependencies: [
             .product(name: "Crypto", package: "swift-crypto"),
         ]),
@@ -26,6 +27,7 @@ let package = Package(
             .product(name: "GRDB", package: "GRDB.swift"),
         ]),
         .executableTarget(name: "gloss", dependencies: ["GlossCore"]),
+        .testTarget(name: "GlossMarkdownTests", dependencies: ["GlossMarkdown"]),
         .testTarget(name: "GlossCoreTests", dependencies: ["GlossCore", "GlossMemoryStore", "GlossTestSupport"]),
         .testTarget(name: "GlossStoreTests", dependencies: [
             "GlossStore",
