@@ -419,3 +419,107 @@ struct CLIReviewTwoTests {
         #expect(await cli.run("trash", "purge", "Gone", "--json", "--yes").code == 0)
     }
 }
+
+@Suite("cli: review 2 references and files")
+struct CLIReviewTwoReferenceTests {
+    @Test("text starting with a dash goes in after --")
+    func dashText() async throws {
+        let cli = CLIHarness()
+        let book = try await cli.book("Lists")
+        let result = await cli.run("page", "write", "Lists", "--", "- [x] hello there")
+        #expect(result.code == 0, "\(result.err)")
+        #expect(try await cli.services.pages.rootPage(of: book.id)?.body == "- [x] hello there")
+        #expect(await cli.run("page", "write", "--help").out.contains("needs -- in front"))
+    }
+
+    @Test("export and open keep ambiguity and trash errors instead of hiding them")
+    func preciseErrors() async throws {
+        let cli = CLIHarness()
+        _ = try await cli.book("The Plague")
+        _ = try await cli.book("The Fall")
+        let ambiguous = await cli.run("export", "the")
+        #expect(ambiguous.err.contains("matches more than one book"))
+        _ = await cli.run("book", "trash", "The Plague")
+        for command in [["export", "plague"], ["open", "plague"]] {
+            let result = await cli.run(command)
+            #expect(result.code == 1)
+            #expect(result.err.contains("The Plague is in the trash"), "\(command): \(result.err)")
+        }
+        // A page title that isn't a book still falls through to pages.
+        let root = try #require(try await cli.services.pages.rootPage(of: cli.services.library.entries()[0].id))
+        _ = try await cli.services.pages.createSubpage(under: root.id, title: "clamence")
+        #expect(await cli.run("export", "clamence").out.hasPrefix("# clamence"))
+    }
+
+    @Test("a raw page id names its book, like its gloss:// link")
+    func pageIDNamesBook() async throws {
+        let cli = CLIHarness()
+        let book = try await cli.book("Noces")
+        let root = try #require(try await cli.services.pages.rootPage(of: book.id))
+        let shown = await cli.run("book", "show", root.id.stringValue)
+        #expect(shown.code == 0, "\(shown.err)")
+        #expect(shown.out.hasPrefix("Noces"))
+    }
+
+    @Test("an exact title beats an id fragment that happens to match another book")
+    func titleBeatsFragment() async throws {
+        let cli = CLIHarness()
+        let other = try await cli.book("Other")
+        let lookalike = String(other.id.stringValue.suffix(8))  // valid base32, and other's short id
+        _ = try await cli.book(lookalike)
+        let shown = await cli.run("book", "show", lookalike)
+        #expect(shown.out.hasPrefix(lookalike + "\n"), "\(shown.out)")
+    }
+
+    @Test("a fragment matching a page and a book is ambiguous, not missing")
+    func fragmentAmbiguity() async throws {
+        let cli = CLIHarness()
+        _ = try await cli.book("A")
+        let sharedPrefix = "0000000000e0"  // every test id starts like this
+        let result = await cli.run("page", "rename", sharedPrefix, "x")
+        #expect(result.err.contains("matches more than one thing"), "\(result.err)")
+    }
+
+    @Test("export -o refuses to overwrite unless --force")
+    func exportOverwrite() async throws {
+        let cli = CLIHarness()
+        _ = try await cli.book("Kept")
+        try cli.file("notes.md", Data("precious".utf8))
+        let refused = await cli.run("export", "Kept", "-o", "notes.md")
+        #expect(refused.code == 1)
+        #expect(refused.err.contains("already exists"))
+        #expect(String(decoding: try Data(contentsOf: cli.directory.appendingPathComponent("notes.md")), as: UTF8.self) == "precious")
+        #expect(await cli.run("export", "Kept", "-o", "notes.md", "--force").code == 0)
+    }
+
+    @Test("open --json reports a real boolean and the reason")
+    func openJSON() async throws {
+        let cli = CLIHarness()
+        _ = try await cli.book("Betwixt")
+        let json = try #require(try await cli.run("open", "Betwixt", "--json").json() as? [String: Any])
+        #expect(json["opened"] as? Bool == false)
+        #expect((json["reason"] as? String)?.contains("macOS") == true)
+    }
+
+    @Test("an editor that saves non-utf-8 text changes nothing")
+    func editorEncoding() async throws {
+        let cli = CLIHarness()
+        let book = try await cli.book("Latin")
+        try await cli.services.pages.updateBody(try #require(try await cli.services.pages.rootPage(of: book.id)).id, to: "café")
+        cli.editBytes = Data([0x63, 0x61, 0x66, 0xE9])  // "café" in Latin-1
+        let result = await cli.run("page", "edit", "Latin")
+        #expect(result.code == 1)
+        #expect(result.err.contains("utf-8"))
+        #expect(try await cli.services.pages.rootPage(of: book.id)?.body == "café")
+    }
+
+    @Test("wrapped list items hang under their text, whatever the marker")
+    func listHang() {
+        let markdown = TerminalMarkdown(terminal: Terminal(colorEnabled: false, isTTY: false, width: 24), describe: { _ in nil })
+        let rendered = markdown.render("10. one two three four five six seven\n- [x] alpha beta gamma delta epsilon")
+        let lines = rendered.split(separator: "\n").map(String.init)
+        #expect(lines[1].hasPrefix("    ") && !lines[1].hasPrefix("     "))  // "10. " is 4 wide
+        let checked = lines.firstIndex { $0.hasPrefix("☑") }!
+        #expect(lines[checked + 1].hasPrefix("  ") && !lines[checked + 1].hasPrefix("   "))  // "☑ " is 2 wide
+    }
+}

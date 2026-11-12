@@ -99,11 +99,15 @@ public struct CLIFailure: Error, Equatable, CustomStringConvertible {
     public var message: String
     public var hint: String?
     public var code: Int32
+    /// "Nothing by that name": callers may try another kind of thing. Ambiguity and trash
+    /// errors are not this, and must reach the user.
+    public var isNotFound: Bool
 
-    public init(_ message: String, hint: String? = nil, code: Int32 = 1) {
+    public init(_ message: String, hint: String? = nil, code: Int32 = 1, notFound: Bool = false) {
         self.message = message
         self.hint = hint
         self.code = code
+        self.isNotFound = notFound
     }
 
     public var description: String { message }

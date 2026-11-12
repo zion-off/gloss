@@ -16,7 +16,8 @@ struct ImportCommand: AsyncParsableCommand {
     var paths: [String]
 
     struct Output: Encodable {
-        struct Failure: Encodable { var file: String; var error: String }
+        /// `input` is the argument as typed; `file` the file that failed (inside it, for folders).
+        struct Failure: Encodable { var input: String; var file: String; var error: String }
         var imported: [DocumentJSON] = []
         var duplicates: [DocumentJSON] = []
         var failed: [Failure] = []
@@ -30,7 +31,7 @@ struct ImportCommand: AsyncParsableCommand {
         for path in paths {
             let url = context.environment.url(forPath: path)
             guard FileManager.default.fileExists(atPath: url.path) else {
-                result.failed.append(.init(file: path, error: "no such file"))
+                result.failed.append(.init(input: path, file: url.path, error: "no such file"))
                 if !context.json { printer.failure(CLIFailure("couldn't find \(path)")) }
                 continue
             }
@@ -66,7 +67,7 @@ struct ImportCommand: AsyncParsableCommand {
                     }
                 } catch {
                     let message = (error as? GlossError)?.description ?? "it doesn't look like an epub or pdf gloss can read"
-                    result.failed.append(.init(file: file.path, error: message))
+                    result.failed.append(.init(input: path, file: file.path, error: message))
                     if !context.json { printer.failure(CLIFailure("couldn't import \(name): \(message)")) }
                 }
             }

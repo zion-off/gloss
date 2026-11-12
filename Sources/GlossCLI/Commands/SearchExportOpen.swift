@@ -16,6 +16,7 @@ struct SearchCommand: AsyncParsableCommand {
         discussion: """
         without --book, gloss searches your library and all your notes.
         with --book, it searches that book's text and notes (like split view in the app).
+        words starting with a dash need -- in front: gloss search -- -ish
         """)
 
     @OptionGroup var global: GlobalOptions
@@ -106,6 +107,7 @@ struct ExportCommand: AsyncParsableCommand {
     @Option(help: "markdown or html") var format: CLIExportFormat = .markdown
     @Flag(help: "only this page, without the pages inside it") var pageOnly = false
     @Option(name: .shortAndLong, help: "a file or folder to write to (default: print it)") var output: String?
+    @Flag(help: "replace the file if it's already there") var force = false
 
     func run() async throws {
         let context = try Context(global)
@@ -119,6 +121,9 @@ struct ExportCommand: AsyncParsableCommand {
         var isDirectory: ObjCBool = false
         if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue {
             url.appendPathComponent(file.filename)
+        }
+        guard force || !FileManager.default.fileExists(atPath: url.path) else {
+            throw CLIFailure("\(url.lastPathComponent) already exists", hint: "pick another name, or add --force to replace it")
         }
         do { try file.data.write(to: url, options: .atomic) }
         catch { throw CLIFailure("couldn't write \(url.path)") }
@@ -137,11 +142,16 @@ struct ExportCommand: AsyncParsableCommand {
         if case .page = link { isPageRef = true }
         else if let raw = GlossID(string: target) { isPageRef = try await context.core.pages.page(PageID(raw)) != nil }
         else { isPageRef = false }
-        if !isPageRef, let document = try? await context.references.document(target) {
-            if pageOnly, let root = try await context.core.pages.rootPage(of: document.id) {
-                return .page(root.id, includeSubpages: false)
+        if !isPageRef {
+            do {
+                let document = try await context.references.document(target)
+                if pageOnly, let root = try await context.core.pages.rootPage(of: document.id) {
+                    return .page(root.id, includeSubpages: false)
+                }
+                return .document(document.id)
+            } catch let failure as CLIFailure where failure.isNotFound {
+                // Not a book: look for a page below. Ambiguity and trash errors go to the user.
             }
-            return .document(document.id)
         }
         let page = try await context.references.page(target)
         return .page(page.id, includeSubpages: !pageOnly)
@@ -161,32 +171,30 @@ struct OpenCommand: AsyncParsableCommand {
         let context = try Context(global)
         let link: GlossLink
         if let parsed = GlossLink(string: target) {
-            guard await URLRouterCheck.exists(parsed, context: context) else {
+            switch try await context.core.links.resolve(parsed) {
+            case .passage, .page, .document:
+                link = parsed
+            case .inTrash(let title, _):
+                throw CLIFailure("\(title) is in the trash", hint: "bring it back with: gloss trash restore \"\(title)\"")
+            case .missing:
                 throw CLIFailure("that link points at something that's gone")
             }
-            link = parsed
-        } else if let document = try? await context.references.document(target) {
-            link = .document(document.id)
         } else {
-            link = .page(try await context.references.page(target).id)
+            do {
+                link = .document(try await context.references.document(target).id)
+            } catch let failure as CLIFailure where failure.isNotFound {
+                link = .page(try await context.references.page(target).id)
+            }
         }
+        struct Out: Encodable { var url: String; var opened: Bool; var reason: String? }
         switch try context.environment.openURL(link.url) {
         case .opened:
-            if context.json { try context.printer.json(["url": link.string, "opened": "true"]); return }
+            if context.json { try context.printer.json(Out(url: link.string, opened: true)); return }
             context.printer.success("opened \(context.printer.paint(link.string, .link))")
         case .unsupported(let reason):
-            if context.json { try context.printer.json(["url": link.string, "opened": "false"]); return }
+            if context.json { try context.printer.json(Out(url: link.string, opened: false, reason: reason)); return }
             context.environment.output.out(link.string + "\n")
             context.printer.warn(reason)
-        }
-    }
-}
-
-enum URLRouterCheck {
-    static func exists(_ link: GlossLink, context: Context) async -> Bool {
-        switch try? await context.core.links.resolve(link) {
-        case .passage, .page, .document: true
-        default: false
         }
     }
 }

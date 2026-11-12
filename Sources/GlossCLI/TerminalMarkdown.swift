@@ -44,9 +44,11 @@ struct TerminalMarkdown {
                 } else {
                     marker = terminal.paint("•", TerminalStyle(color: .accent))
                 }
-                let wrapped = TextWrap.wrap(content, width: width, indent: indent + "   ")
+                // Wrapped lines hang under the text, whatever the marker's width (•, ☑, 10.).
+                let hang = String(repeating: " ", count: DisplayWidth.of(marker) + 1)
+                let wrapped = TextWrap.wrap(content, width: width, indent: indent + hang)
                 emit(wrapped.enumerated().map { index, line in
-                    index == 0 ? indent + marker + " " + line.dropFirst(indent.count + 3) : line
+                    index == 0 ? indent + marker + " " + line.dropFirst(indent.count + hang.count) : line
                 })
             case .quote:
                 let bar = terminal.paint("│", TerminalStyle(color: .accent2))
@@ -86,7 +88,6 @@ struct TerminalMarkdown {
         var cursor = range.lowerBound
         for inline in inlines {
             out += text[cursor..<inline.range.lowerBound]
-            let content = render(inline.children, in: inline.contentRange, text)
             switch inline.kind {
             case .strong: out += terminal.paint(PlainText.strip(text[inline.contentRange]), .strong)
             case .emphasis: out += terminal.paint(PlainText.strip(text[inline.contentRange]), TerminalStyle(italic: true))
@@ -94,15 +95,15 @@ struct TerminalMarkdown {
             case .code: out += terminal.paint(text[inline.contentRange], .code)
             case .escape: out += text[inline.contentRange]
             case .autolink: out += terminal.paint(text[inline.contentRange], .link)
-            case .link: out += link(inline, label: content, text)
-            default: out += content
+            case .link: out += link(inline, text)
+            default: out += render(inline.children, in: inline.contentRange, text)
             }
             cursor = inline.range.upperBound
         }
         return out + text[cursor..<max(cursor, range.upperBound)]
     }
 
-    private func link(_ inline: Inline, label: String, _ text: MarkdownText) -> String {
+    private func link(_ inline: Inline, _ text: MarkdownText) -> String {
         let destination = inline.destination ?? ""
         let plainLabel = PlainText.strip(text[inline.contentRange])
         guard let glossLink = GlossLink(string: destination) else {

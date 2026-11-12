@@ -136,7 +136,10 @@ struct PageAddCommand: AsyncParsableCommand {
 struct PageWriteCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "write", abstract: "replace a page's text, or add to it with --append",
-        discussion: "the text comes from the arguments, or from stdin when you pass - (or pipe something in). \\n becomes a line break.")
+        discussion: """
+        the text comes from the arguments, or from stdin when you pass - (or pipe something in). \\n becomes a line break.
+        text starting with a dash, like a list item, needs -- in front: gloss page write notes -- '- buy milk'
+        """)
 
     @OptionGroup var global: GlobalOptions
     @Argument(help: "the page (or book) to write") var page: String
@@ -176,7 +179,9 @@ struct PageEditCommand: AsyncParsableCommand {
         try Data(page.body.utf8).write(to: file)
         try context.environment.editFile(file)
         guard let data = FileManager.default.contents(atPath: file.path) else { throw CLIFailure("the edited file disappeared") }
-        let edited = String(decoding: data, as: UTF8.self)
+        guard let edited = String(data: data, encoding: .utf8) else {
+            throw CLIFailure("the editor didn't save utf-8 text, so gloss kept the page as it was")
+        }
         guard edited != page.body else {
             if context.json { try context.printer.json(PageJSON(page, includeBody: true)) } else { context.printer.note("no changes") }
             return

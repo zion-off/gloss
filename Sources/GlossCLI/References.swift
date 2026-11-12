@@ -31,9 +31,16 @@ struct References: Sendable {
             if let id = DocumentID(trimmed), let exact = all.first(where: { $0.id == id }) {
                 return try Self.live(exact, what: exact.title)
             }
-            let byFragment = all.filter { Self.matchesFragment($0.id.stringValue, trimmed) }
-            if byFragment.count == 1 { return try Self.live(byFragment[0], what: byFragment[0].title) }
+            // A page's id names its book, like a gloss://page link does.
+            if let raw = GlossID(string: trimmed), let page = try tx.pages.page(PageID(raw)) {
+                return try Self.live(try tx.documents.document(page.documentID), what: "that book")
+            }
             let live = all.filter { $0.trash == nil }
+            // An exact title beats an id fragment: titles like "decaf" are valid base32.
+            let exactTitles = Self.exactTitleMatches(live, title: \.title, query: trimmed)
+            if exactTitles.count == 1 { return exactTitles[0] }
+            let byFragment = exactTitles.isEmpty ? all.filter { Self.matchesFragment($0.id.stringValue, trimmed) } : []
+            if byFragment.count == 1 { return try Self.live(byFragment[0], what: byFragment[0].title) }
             let matches = Self.titleMatches(live, title: \.title, query: trimmed)
             if matches.count == 1 { return matches[0] }
             if matches.count > 1 || byFragment.count > 1 {
@@ -44,7 +51,7 @@ struct References: Sendable {
             if let trashed = Self.titleMatches(all.filter { $0.trash != nil }, title: \.title, query: trimmed).first {
                 throw CLIFailure("\(trashed.title) is in the trash", hint: "bring it back with: gloss trash restore \"\(trashed.title)\"")
             }
-            throw CLIFailure("couldn't find a book called “\(trimmed)”", hint: "see what's there with: gloss list")
+            throw CLIFailure("couldn't find a book called “\(trimmed)”", hint: "see what's there with: gloss list", notFound: true)
         }
     }
 
@@ -74,29 +81,41 @@ struct References: Sendable {
             }
             let pages = try tx.pages.pages(.any)
             let documents = try tx.documents.documents(.any)
-            let pageFragments = pages.filter { Self.matchesFragment($0.id.stringValue, trimmed) }
-            let documentFragments = documents.filter { Self.matchesFragment($0.id.stringValue, trimmed) }
-            if pageFragments.count + documentFragments.count == 1 {
-                if let page = pageFragments.first { return try Self.livePage(page) }
-                let document = try Self.live(documentFragments[0], what: documentFragments[0].title)
-                return try tx.pages.rootPage(of: document.id)
-            }
             let livePages = pages.filter { $0.trash == nil }
-            let titled = Self.titleMatches(livePages, title: { $0.title.isEmpty ? PageService.untitled : $0.title }, query: trimmed)
-            // A book title means its main page, unless a subpage has exactly that title.
             let liveDocuments = documents.filter { $0.trash == nil }
+            let pageTitle: (Page) -> String = { $0.title.isEmpty ? PageService.untitled : $0.title }
+            let titles = Dictionary(documents.map { ($0.id, $0.title) }, uniquingKeysWith: { a, _ in a })
+            // An exact title beats an id fragment: titles like "decaf" are valid base32.
+            let hasExactTitle = !Self.exactTitleMatches(livePages, title: pageTitle, query: trimmed).isEmpty
+                || !Self.exactTitleMatches(liveDocuments, title: \.title, query: trimmed).isEmpty
+            if !hasExactTitle {
+                let pageFragments = pages.filter { Self.matchesFragment($0.id.stringValue, trimmed) }
+                let documentFragments = documents.filter { Self.matchesFragment($0.id.stringValue, trimmed) }
+                if pageFragments.count + documentFragments.count == 1 {
+                    if let page = pageFragments.first { return try Self.livePage(page) }
+                    let document = try Self.live(documentFragments[0], what: documentFragments[0].title)
+                    return try tx.pages.rootPage(of: document.id)
+                }
+                if pageFragments.count + documentFragments.count > 1 {
+                    let rows: [(id: String, title: String, detail: String)] =
+                        pageFragments.map { (Format.shortID($0.id), pageTitle($0), titles[$0.documentID] ?? "") }
+                        + documentFragments.map { (Format.shortID($0.id), $0.title, "book") }
+                    throw CLIFailure("“\(trimmed)” matches more than one thing", hint: Self.candidateList(rows) + "\nuse a longer id to pick one")
+                }
+            }
+            let titled = Self.titleMatches(livePages, title: pageTitle, query: trimmed)
+            // A book title means its main page, unless a subpage has exactly that title.
             let books = Self.titleMatches(liveDocuments, title: \.title, query: trimmed)
             if titled.count == 1, books.isEmpty || titled[0].parentID != nil { return titled[0] }
             if titled.count <= 1, books.count == 1 { return try tx.pages.rootPage(of: books[0].id) }
             if titled.count > 1 {
-                let titles = Dictionary(documents.map { ($0.id, $0.title) }, uniquingKeysWith: { a, _ in a })
                 throw CLIFailure("“\(trimmed)” matches more than one page",
                                  hint: Self.candidateList(titled.map { (Format.shortID($0.id), $0.title, titles[$0.documentID] ?? "") }) + "\nuse an id to pick one")
             }
             return nil
         }
         guard let result else {
-            throw CLIFailure("couldn't find a page called “\(trimmed)”", hint: "list a book's pages with: gloss pages <book>")
+            throw CLIFailure("couldn't find a page called “\(trimmed)”", hint: "list a book's pages with: gloss pages <book>", notFound: true)
         }
         return result
     }
@@ -127,6 +146,13 @@ struct References: Sendable {
         return id.hasPrefix(lower) || id.hasSuffix(lower)
     }
 
+    /// Exact (folded) title matches only.
+    static func exactTitleMatches<T>(_ items: [T], title: (T) -> String, query: String) -> [T] {
+        let folded = TextMatcher.fold(query.trimmingCharacters(in: .whitespaces))
+        guard !folded.isEmpty else { return [] }
+        return items.filter { TextMatcher.fold(title($0)) == folded }
+    }
+
     /// Exact (folded) title matches, or else partial ones.
     static func titleMatches<T>(_ items: [T], title: (T) -> String, query: String) -> [T] {
         let folded = TextMatcher.fold(query.trimmingCharacters(in: .whitespaces))
@@ -142,7 +168,7 @@ struct References: Sendable {
     }
 
     static func live(_ document: Document?, what: String) throws -> Document {
-        guard let document else { throw CLIFailure("couldn't find \(what)") }
+        guard let document else { throw CLIFailure("couldn't find \(what)", notFound: true) }
         guard document.trash == nil else {
             throw CLIFailure("\(document.title) is in the trash", hint: "bring it back with: gloss trash restore \"\(document.title)\"")
         }
@@ -150,7 +176,7 @@ struct References: Sendable {
     }
 
     static func livePage(_ page: Page?) throws -> Page {
-        guard let page else { throw CLIFailure("couldn't find that page") }
+        guard let page else { throw CLIFailure("couldn't find that page", notFound: true) }
         guard page.trash == nil else {
             let title = page.title.isEmpty ? PageService.untitled : page.title
             throw CLIFailure("\(title) is in the trash", hint: "bring it back with: gloss trash restore \"\(title)\"")

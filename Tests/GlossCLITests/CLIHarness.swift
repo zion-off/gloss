@@ -29,6 +29,8 @@ final class CLIHarness: @unchecked Sendable {
     var openResult: OpenResult = .unsupported("the gloss app runs on macOS; here's the link instead")
     /// What the fake editor does to the file it's given.
     var edit: @Sendable (String) -> String = { $0 }
+    /// When set, the fake editor writes these bytes instead (for invalid UTF-8).
+    var editBytes: Data?
     var terminal = Terminal.plain
 
     init() {
@@ -59,8 +61,9 @@ final class CLIHarness: @unchecked Sendable {
             terminal: terminal, stderrColor: false, stdinIsTTY: stdinIsTTY,
             readStdin: { [stdin] in stdin },
             readLine: { [self] in lock.withLock { answers.isEmpty ? nil : answers.removeFirst() } },
-            openURL: { [self] url in lock.withLock { opened.append(url) }; return openResult },
-            editFile: { [edit] url in
+            openURL: { [self] url in lock.withLock { opened.append(url); return openResult } },
+            editFile: { [edit, editBytes] url in
+                if let editBytes { try editBytes.write(to: url); return }
                 let text = String(decoding: try Data(contentsOf: url), as: UTF8.self)
                 try Data(edit(text).utf8).write(to: url)
             },
