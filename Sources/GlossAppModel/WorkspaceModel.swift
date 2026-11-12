@@ -46,6 +46,8 @@ public struct ReaderFocus: Hashable, Sendable {
     public private(set) var readerFocus: ReaderFocus?
     /// A passage link the reader should flash once it lands (set by routing).
     public private(set) var pendingPassage: LinkTargetID?
+    /// A range in the open page the editor should select and scroll to (a marker click).
+    public private(set) var pendingNoteReveal: Range<Int>?
 
     private let services: GlossServices
     private let persistLayoutSetting: Bool
@@ -72,6 +74,18 @@ public struct ReaderFocus: Hashable, Sendable {
         readerHistory.visit(ReaderFocus(documentID: id, locator: locator))
         readerFocus = readerHistory.current
         pendingPassage = nil
+    }
+
+    /// Opens a notes page at a range (from a marker click), revealing the panel if hidden.
+    public func openPage(_ id: PageID, revealing range: Range<Int>?) async throws {
+        try await openPage(id)
+        pendingNoteReveal = range
+        if !layout.showsNotes { layout = .split }
+    }
+
+    /// The editor took the pending reveal.
+    public func consumeNoteReveal() {
+        pendingNoteReveal = nil
     }
 
     /// Opens a notes page; its book follows when it lives in another document.

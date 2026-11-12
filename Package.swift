@@ -51,7 +51,7 @@ let package = Package(
         .testTarget(name: "GlossExportTests", dependencies: ["GlossExport", "GlossTestSupport"]),
         .testTarget(name: "GlossNotesTests", dependencies: ["GlossNotes", "GlossTestSupport"]),
         .testTarget(name: "GlossReaderBridgeTests", dependencies: ["GlossReaderBridge", "GlossTestSupport"]),
-        .testTarget(name: "GlossAppModelTests", dependencies: ["GlossAppModel", "GlossTestSupport"]),
+        .testTarget(name: "GlossAppModelTests", dependencies: ["GlossAppModel", "GlossTestSupport", "GlossReaderBridge"]),
         .testTarget(name: "GlossTerminalTests", dependencies: ["GlossTerminal"]),
         .testTarget(name: "GlossCLITests", dependencies: ["GlossCLI", "GlossTestSupport", "GlossEPUB"]),
         .testTarget(name: "GlossArchiveTests", dependencies: ["GlossArchive", "GlossTestSupport"]),

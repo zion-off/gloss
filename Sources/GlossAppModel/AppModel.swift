@@ -12,6 +12,8 @@ import GlossCore
     public let trash: TrashModel
     public let switcher: QuickSwitcherModel
     public let router: URLRouter
+    public let reader: ReaderController
+    public var linking: LinkingCoordinator { LinkingCoordinator(services: services, reader: reader) }
     public var changeMonitor: ExternalChangeMonitor?
 
     public init(services: GlossServices) {
@@ -22,6 +24,10 @@ import GlossCore
         self.trash = TrashModel(services: services)
         self.switcher = QuickSwitcherModel(services: services)
         self.router = URLRouter(links: services.links)
+        self.reader = ReaderController(services: services)
+        reader.openNote = { [weak self] page, range in
+            try? await self?.workspace.openPage(page, revealing: range)
+        }
     }
 
     /// Wires the change monitor (call once at startup, after the views exist).
@@ -44,6 +50,10 @@ import GlossCore
         await workspace.refresh()
         if !pageIDs.isEmpty || !documentIDs.isEmpty {
             search.contextChanged()
+        }
+        let annotationEntities: Set<String> = [ChangeEntity.page, ChangeEntity.highlight, ChangeEntity.linkTarget]
+        if changes.contains(where: { annotationEntities.contains($0.entity) }) {
+            await reader.refreshAnnotations()
         }
     }
 
