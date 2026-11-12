@@ -91,7 +91,7 @@ private struct Composer {
             guard let glossLink = GlossLink(string: link.destination) else { continue }
             edits.append(TextEdit(range: link.range, replacement: replacement(for: glossLink, link: link)))
         }
-        return EditResult(edits: edits, selection: 0..<0).apply(to: body)
+        return CommonMarkCompatibility.separatingLazyContinuations(EditResult(edits: edits, selection: 0..<0).apply(to: body))
     }
 
     mutating func replacement(for glossLink: GlossLink, link: MarkdownLink) -> String {

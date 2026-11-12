@@ -58,7 +58,7 @@ struct ExportTests {
         """
         try await lib.services.pages.updateBody(camusRoot.id, to: body)
         let text = try await exportText(lib, .document(camus.id))
-        #expect(text.contains("> one must imagine \\*Sisyphus\\* happy — *chapter 4*\n"))
+        #expect(text.contains("> one must imagine \\*Sisyphus\\* happy — *chapter 4*\n\ncompare"))
         #expect(text.contains("compare this line[^1] and again[^1]."))
         #expect(text.contains("dead link stays as text."))
         #expect(text.hasSuffix("[^1]: “we tell ourselves stories” — page 11, *The White Album*\n"))
