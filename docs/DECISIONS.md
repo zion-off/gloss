@@ -79,3 +79,9 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   that `gloss reindex` can drop and rebuild; they are never synced.
 - **D-043 Backups use `VACUUM INTO`.** A consistent snapshot of a live WAL database in one statement,
   compacted, readable by any SQLite.
+
+## Process notes
+
+- **P-001 Commits `7b2…`→`3a19212` of milestone 1 were split from one green check;** the
+  intermediate ones may not build on their own. History is not rewritten (commit policy); from
+  here on every slice is checked before its own commit.
