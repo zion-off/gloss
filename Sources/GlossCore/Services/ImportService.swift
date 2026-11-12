@@ -57,7 +57,13 @@ public struct ImportService: Sendable {
             progress?(.done)
             return .duplicate(existing)
         }
-        let metadata = (try? format.readMetadata(from: data)) ?? ImportedMetadata()
+        // A file the detected format can't read would become a broken book, so refuse it.
+        let metadata: ImportedMetadata
+        do {
+            metadata = try format.readMetadata(from: data)
+        } catch {
+            throw GlossError.invalid("it looks damaged, so gloss couldn't read it")
+        }
         progress?(.storing)
         try await blobs.put(data)
 

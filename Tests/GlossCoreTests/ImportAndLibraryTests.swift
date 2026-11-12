@@ -42,6 +42,24 @@ struct ImportTests {
         }
     }
 
+    @Test("a file its format can't read is refused, not stored as a broken book")
+    func damaged() async throws {
+        struct Strict: DocumentFormat {
+            var kind: DocumentKind { DocumentKind("strict") }
+            var badge: String { "strict" }
+            var shelf: LibraryShelf { .books }
+            var fileExtensions: [String] { ["strict"] }
+            func sniff(_ prefix: Data) -> Bool { false }
+            func readMetadata(from data: Data) throws -> ImportedMetadata { throw GlossError.invalid("unreadable") }
+        }
+        let lib = TestLibrary(formats: [Strict()])
+        await #expect(throws: GlossError.invalid("it looks damaged, so gloss couldn't read it")) {
+            try await lib.services.imports.importData(Data("garbage".utf8), filename: "book.strict")
+        }
+        #expect(try await lib.services.library.entries().isEmpty)
+        #expect(try await lib.blobs.allHashes().isEmpty)
+    }
+
     @Test("missing titles fall back to the file name")
     func fallbackTitle() async throws {
         let lib = TestLibrary()
