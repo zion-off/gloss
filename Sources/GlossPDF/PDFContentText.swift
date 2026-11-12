@@ -16,7 +16,7 @@ struct PDFPageTextExtractor {
     /// The extracted text so far for the current page.
     private(set) var text = ""
     /// Font decoders by object identity (cached across pages of one document).
-    private var fontCache: [String: PDFFontDecoder] = [:]
+    private var fontCache: [Int: PDFFontDecoder] = [:]
 
     // Text state (subset).
     private var currentFont: PDFFontDecoder?
@@ -230,15 +230,18 @@ struct PDFPageTextExtractor {
         lexer.index = bytes.count // unterminated: consume the rest
     }
 
-    /// The font decoder for a resource name, cached by object number.
+    /// The font decoder for a resource name. Indirect fonts are cached by object number (the
+    /// document keeps one definition per number); direct font dictionaries aren't cached, since
+    /// two pages may define different fonts under the same resource name.
     private mutating func font(named name: String, resources: [String: PDFObject]?) -> PDFFontDecoder? {
         guard let resources, let fonts = doc.dictionary(resources["Font"]),
               let object = fonts[name] else { return nil }
-        let key: String
-        if case .reference(let number, _) = object { key = "ref:\(number)" } else { key = "direct:\(name)" }
-        if let cached = fontCache[key] { return cached }
+        guard case .reference(let number, _) = object else {
+            return PDFFontDecoder.make(fontObject: object, in: doc)
+        }
+        if let cached = fontCache[number] { return cached }
         let decoder = PDFFontDecoder.make(fontObject: object, in: doc)
-        fontCache[key] = decoder
+        fontCache[number] = decoder
         return decoder
     }
 }

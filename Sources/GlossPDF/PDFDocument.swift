@@ -45,30 +45,21 @@ struct PDFDocument: Sendable {
         let bytes = [UInt8](data)
         var objects: [Int: Entry] = [:]
 
-        // Loose objects: one forward pass; every failure path advances at least one byte.
-        var lexer = PDFLexer(bytes)
+        // Loose objects: a byte scan for `N G obj` headers (bounded, allocation-free), then a
+        // full parse of each body. Bodies share one budget, so failed parses that re-read the
+        // input can't add up to more than linear time.
+        let budget = PDFScanBudget.linear(in: bytes.count)
         let endstream = Array("endstream".utf8)
-        while lexer.index < bytes.count, objects.count < Limits.maxObjects {
-            let start = lexer.index
-            guard case .integer(let n)? = lexer.nextToken() else {
-                lexer.index = start + 1
+        var position = 0
+        while position < bytes.count, objects.count < Limits.maxObjects, !budget.isExhausted {
+            guard let header = matchObjectHeader(bytes, at: position) else {
+                position += 1
                 continue
             }
-            let objectOffset = lexer.tokenStart
-            let afterN = lexer.index
-            guard case .integer(let g)? = lexer.nextToken() else {
-                lexer.index = afterN
-                continue
-            }
-            // Resume after the FIRST integer on failure: the second one may itself start
-            // a real object header (e.g. a startxref value right before `N 0 obj`).
-            guard case .keyword("obj")? = lexer.nextToken() else {
-                lexer.index = afterN
-                continue
-            }
-            let bodyStart = lexer.index
+            let (n, g, objectOffset, bodyStart) = header
+            var lexer = PDFLexer(bytes, at: bodyStart, budget: budget)
             guard var body = PDFObjectParser.parse(&lexer) else {
-                lexer.index = bodyStart + 1
+                position = bodyStart
                 continue
             }
             if case .dictionary(let dict) = body {
@@ -90,11 +81,12 @@ struct PDFDocument: Sendable {
                     lexer.index = peek
                 }
             }
-            if n >= 0, n <= Limits.maxObjectNumber, g >= 0 {
+            if n <= Limits.maxObjectNumber, g >= 0 {
                 objects[n] = Entry(offset: objectOffset, object: body)
             }
             let save = lexer.index
             if case .keyword("endobj")? = lexer.nextToken() {} else { lexer.index = save }
+            position = Swift.max(lexer.index, bodyStart)
         }
 
         // Objects inside object streams (compressed objects), in file order.
@@ -106,7 +98,7 @@ struct PDFDocument: Sendable {
         var searchFrom = 0
         while let found = PDFBytes.find(needle, in: bytes, from: searchFrom, limit: bytes.count - searchFrom) {
             searchFrom = found + needle.count
-            var trailerLexer = PDFLexer(bytes, at: searchFrom)
+            var trailerLexer = PDFLexer(bytes, at: searchFrom, budget: budget)
             let dict = PDFObjectParser.parseDictionary(&trailerLexer)
             if !dict.isEmpty { candidates.append((found, dict)) }
         }
@@ -115,6 +107,8 @@ struct PDFDocument: Sendable {
                 candidates.append((entry.offset, stream.dictionary))
             }
         }
+        // Incremental updates append: the trailer latest in the file is the current one.
+        candidates.sort { $0.offset < $1.offset }
         var root: PDFObject?
         var info: PDFObject?
         var encrypted = false
@@ -172,7 +166,42 @@ struct PDFDocument: Sendable {
         return (Data(bytes[dataStart...]), count)
     }
 
-    /// Adds the objects inside `/Type /ObjStm` streams to `objects`, in file order.
+    /// Matches `N G obj` at `start`: N where the previous byte isn't part of a number, then
+    /// whitespace, G, whitespace and the keyword `obj`. Reads at most ~150 bytes.
+    /// Returns the numbers, the header's offset and where the body starts.
+    static func matchObjectHeader(_ bytes: [UInt8], at start: Int) -> (n: Int, g: Int, offset: Int, bodyStart: Int)? {
+        func isDigit(_ i: Int) -> Bool { i < bytes.count && bytes[i] >= 0x30 && bytes[i] <= 0x39 }
+        guard isDigit(start) else { return nil }
+        if start > 0 {
+            let previous = bytes[start - 1]
+            if (previous >= 0x30 && previous <= 0x39) || previous == 0x2E || previous == 0x2B || previous == 0x2D { return nil }
+        }
+        func number(at i: inout Int, maxDigits: Int) -> Int? {
+            let begin = i
+            var value = 0
+            while isDigit(i), i - begin < maxDigits {
+                value = value * 10 + Int(bytes[i] - 0x30)
+                i += 1
+            }
+            return i > begin && !isDigit(i) ? value : nil
+        }
+        func whitespace(at i: inout Int) -> Bool {
+            let begin = i
+            while i < bytes.count, PDFBytes.isWhitespace(bytes[i]), i - begin < 64 { i += 1 }
+            return i > begin
+        }
+        var i = start
+        guard let n = number(at: &i, maxDigits: 10), whitespace(at: &i),
+              let g = number(at: &i, maxDigits: 5), whitespace(at: &i),
+              i + 3 <= bytes.count, bytes[i] == 0x6F, bytes[i + 1] == 0x62, bytes[i + 2] == 0x6A else { return nil }
+        i += 3
+        guard i == bytes.count || !PDFBytes.isRegular(bytes[i]) else { return nil }
+        return (n, g, start, i)
+    }
+
+    /// Adds the objects inside `/Type /ObjStm` streams to `objects`. A member replaces an
+    /// existing definition only if its object stream comes later in the file: incremental
+    /// updates append, so position decides which definition is current.
     private static func expandObjectStreams(_ objects: inout [Int: Entry]) {
         let streams = objects.values.compactMap { entry -> (offset: Int, stream: PDFStream)? in
             if case .stream(let stream) = entry.object, stream.dictionary["Type"] == .name("ObjStm") {
@@ -187,7 +216,8 @@ struct PDFDocument: Sendable {
             guard count > 0, count <= 65_536, first >= 0 else { continue }
             let streamBytes = [UInt8](data)
             guard first <= streamBytes.count else { continue }
-            var lexer = PDFLexer(streamBytes)
+            let budget = PDFScanBudget.linear(in: streamBytes.count)
+            var lexer = PDFLexer(streamBytes, budget: budget)
             var pairs: [(num: Int, offset: Int)] = []
             for _ in 0..<count {
                 guard case .integer(let num)? = lexer.nextToken(),
@@ -197,7 +227,8 @@ struct PDFDocument: Sendable {
             for pair in pairs {
                 let at = first + pair.offset
                 guard pair.num >= 1, pair.num <= Limits.maxObjectNumber, at >= 0, at <= streamBytes.count else { continue }
-                var sub = PDFLexer(streamBytes, at: at)
+                if let existing = objects[pair.num], existing.offset >= entry.offset { continue }
+                var sub = PDFLexer(streamBytes, at: at, budget: budget)
                 if let object = PDFObjectParser.parse(&sub) {
                     objects[pair.num] = Entry(offset: entry.offset, object: object)
                 }

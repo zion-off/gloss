@@ -94,6 +94,21 @@ enum PDFToken: Equatable {
     case dictClose
 }
 
+/// A cap on the total bytes a group of lexers may read, shared by reference. Tolerant parsing
+/// re-reads input after failures; the budget keeps the worst case linear in the input size
+/// however hostile the file (docs/DECISIONS.md D-064).
+final class PDFScanBudget {
+    private(set) var remaining: Int
+
+    init(bytes: Int) { remaining = bytes }
+
+    /// A budget proportional to an input of `size` bytes.
+    static func linear(in size: Int) -> PDFScanBudget { PDFScanBudget(bytes: 16 * size + 1_048_576) }
+
+    func charge(_ count: Int) { remaining -= count }
+    var isExhausted: Bool { remaining <= 0 }
+}
+
 /// Whitespace- and comment-aware tokenizer over raw bytes. Malformed input yields skipped
 /// bytes and partial tokens, never a trap; every call makes progress or hits end of input.
 struct PDFLexer {
@@ -106,15 +121,31 @@ struct PDFLexer {
     /// Where the token returned by the last `nextToken()` call started.
     private(set) var tokenStart = 0
 
-    init(_ bytes: [UInt8], at index: Int = 0) {
+    /// When set, every token is charged to it, and an exhausted budget reads as end of input.
+    let budget: PDFScanBudget?
+
+    init(_ bytes: [UInt8], at index: Int = 0, budget: PDFScanBudget? = nil) {
         self.bytes = bytes
         self.index = Swift.min(Swift.max(index, 0), bytes.count)
+        self.budget = budget
     }
 
     var isAtEnd: Bool { index >= bytes.count }
 
     /// Reads the next token, skipping whitespace and `%` comments; nil at end of input.
     mutating func nextToken() -> PDFToken? {
+        guard let budget else { return readToken() }
+        guard !budget.isExhausted else {
+            index = bytes.count
+            return nil
+        }
+        let start = index
+        let token = readToken()
+        budget.charge(Swift.max(1, index - start))
+        return token
+    }
+
+    private mutating func readToken() -> PDFToken? {
         while index < bytes.count {
             let c = bytes[index]
             if PDFBytes.isWhitespace(c) {
