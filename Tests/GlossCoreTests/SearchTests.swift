@@ -42,10 +42,13 @@ struct SearchTests {
         let (a, aRoot) = try await lib.book("A")
         let (_, bRoot) = try await lib.book("B")
         try await lib.services.pages.updateBody(aRoot.id, to: "lighthouse")
-        try await lib.services.pages.updateBody(bRoot.id, to: "lighthouse keeper")
-        #expect(try await lib.services.search.search("lighthouse", in: .allNotes).first?.hits.compactMap(\.subtitle).sorted() == ["A", "B"])
+        let sub = try await lib.services.pages.createSubpage(under: bRoot.id, title: "keeper")
+        try await lib.services.pages.updateBody(sub.id, to: "lighthouse keeper")
+        let hits = try #require(try await lib.services.search.search("lighthouse", in: .allNotes).first?.hits)
+        // A book's main page is titled after the book, so only the subpage names its book.
+        #expect(Set(hits.map { "\($0.title)|\($0.subtitle ?? "-")" }) == ["A|-", "keeper|B"])
         _ = try await lib.services.trash.trash(.document, id: a.id.stringValue)
-        #expect(try await lib.services.search.search("lighthouse", in: .allNotes).first?.hits.count == 1)
+        #expect(try await lib.services.search.search("lighthouse", in: .allNotes).first?.hits.map(\.title) == ["keeper"])
         #expect(try await lib.services.search.search("   ", in: .allNotes).isEmpty)
     }
 
@@ -60,6 +63,16 @@ struct SearchTests {
         let lib = TestLibrary()
         let service = SearchService(store: lib.store, sources: SearchService.standardSources + [Echo()])
         #expect(try await service.search("hello", in: .library).first?.group.id == "echo")
+    }
+
+    @Test("note snippets read as text, without markdown markers")
+    func cleanSnippets() async throws {
+        let lib = TestLibrary()
+        let (_, root) = try await lib.book()
+        try await lib.services.pages.updateBody(root.id, to: "- [x] finish part one\n> mother died **today**")
+        let snippet = try #require(try await lib.services.search.search("mother", in: .allNotes).first?.hits.first?.snippet.plainText)
+        #expect(!snippet.contains("[x]") && !snippet.contains(">") && !snippet.contains("**"))
+        #expect(snippet.contains("mother died today"))
     }
 
     @Test("rebuilding derived data restores indexes and references")

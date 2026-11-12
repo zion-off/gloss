@@ -92,8 +92,10 @@ public struct NotesSearchSource: SearchSource {
             guard let pageID = PageID(hit.owner), let page = try tx.pages.page(pageID), page.trash == nil,
                   let document = try tx.documents.document(page.documentID), document.trash == nil else { return nil }
             let match = NotesSearchSource.firstVisibleMatch(of: matcher, in: page.body)
-            return SearchHit(group: .notes, title: page.title.isEmpty ? PageService.untitled : page.title,
-                             subtitle: documentID == nil ? document.title : nil, snippet: hit.snippet,
+            let title = page.title.isEmpty ? PageService.untitled : page.title
+            // Across books, name the book, unless the title already does (a book's main page).
+            let subtitle = documentID == nil && title != document.title ? document.title : nil
+            return SearchHit(group: .notes, title: title, subtitle: subtitle, snippet: hit.snippet,
                              destination: .page(page.id, page.documentID, match: match))
         }.prefix(limit).map { $0 }
     }
