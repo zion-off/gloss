@@ -14,6 +14,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.12.0"),
         .package(url: "https://github.com/apple/swift-crypto.git", from: "5.0.0"),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.5.0"),
     ],
     targets: [
         .target(name: "GlossMarkdown"),
@@ -29,6 +30,7 @@ let package = Package(
         .target(name: "GlossReaderBridge", dependencies: ["GlossCore", "GlossEPUB"]),
         .target(name: "GlossPDF", dependencies: ["GlossCore", "GlossArchive"]),
         .target(name: "GlossAppModel", dependencies: ["GlossCore", "GlossNotes", "GlossReaderBridge"]),
+        .target(name: "GlossTerminal"),
         .target(name: "GlossMemoryStore", dependencies: ["GlossCore"]),
         .target(name: "GlossTestSupport", dependencies: ["GlossCore", "GlossMemoryStore", "GlossArchive"]),
         .target(name: "GlossStore", dependencies: [
@@ -42,6 +44,7 @@ let package = Package(
         .testTarget(name: "GlossNotesTests", dependencies: ["GlossNotes", "GlossTestSupport"]),
         .testTarget(name: "GlossReaderBridgeTests", dependencies: ["GlossReaderBridge", "GlossTestSupport"]),
         .testTarget(name: "GlossAppModelTests", dependencies: ["GlossAppModel", "GlossTestSupport"]),
+        .testTarget(name: "GlossTerminalTests", dependencies: ["GlossTerminal"]),
         .testTarget(name: "GlossArchiveTests", dependencies: ["GlossArchive", "GlossTestSupport"]),
         .testTarget(name: "GlossPDFTests", dependencies: ["GlossPDF", "GlossTestSupport", "GlossArchive"]),
         .testTarget(name: "GlossCoreTests", dependencies: ["GlossCore", "GlossMemoryStore", "GlossTestSupport"]),
