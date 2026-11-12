@@ -14,7 +14,7 @@ if ! swift test --skip-build >"$log" 2>&1; then
   grep -E "✘|error|failed" "$log" | head -40
   echo "✘ swift tests failed (full log: $log)"; exit 1
 fi
-grep -E "^✔ Test run|Executed [0-9]+ tests" "$log" | tail -2
+grep -E "^✔ Test run with" "$log" | awk '{tests += $5; suites += $8} END {printf "✔ %d swift tests in %d suites\n", tests, suites}'
 
 if [ -f web/package.json ]; then
   ( cd web
