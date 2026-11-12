@@ -61,6 +61,10 @@ public struct ImportService: Sendable {
         let metadata: ImportedMetadata
         do {
             metadata = try format.readMetadata(from: data)
+        } catch let error as CancellationError {
+            throw error
+        } catch let error as GlossError {
+            throw error  // formats speak gloss's copy
         } catch {
             throw GlossError.invalid("it looks damaged, so gloss couldn't read it")
         }

@@ -44,17 +44,31 @@ struct ImportTests {
 
     @Test("a file its format can't read is refused, not stored as a broken book")
     func damaged() async throws {
+        struct ParserFailure: Error {}
         struct Strict: DocumentFormat {
             var kind: DocumentKind { DocumentKind("strict") }
             var badge: String { "strict" }
             var shelf: LibraryShelf { .books }
             var fileExtensions: [String] { ["strict"] }
             func sniff(_ prefix: Data) -> Bool { false }
-            func readMetadata(from data: Data) throws -> ImportedMetadata { throw GlossError.invalid("unreadable") }
+            func readMetadata(from data: Data) throws -> ImportedMetadata {
+                switch String(decoding: data, as: UTF8.self) {
+                case "locked": throw GlossError.notAllowed("this book is drm-locked")
+                case "cancel": throw CancellationError()
+                default: throw ParserFailure()
+                }
+            }
         }
         let lib = TestLibrary(formats: [Strict()])
         await #expect(throws: GlossError.invalid("it looks damaged, so gloss couldn't read it")) {
             try await lib.services.imports.importData(Data("garbage".utf8), filename: "book.strict")
+        }
+        // A format's own message, in gloss's copy, reaches the user; cancellation stays cancellation.
+        await #expect(throws: GlossError.notAllowed("this book is drm-locked")) {
+            try await lib.services.imports.importData(Data("locked".utf8), filename: "book.strict")
+        }
+        await #expect(throws: CancellationError.self) {
+            try await lib.services.imports.importData(Data("cancel".utf8), filename: "book.strict")
         }
         #expect(try await lib.services.library.entries().isEmpty)
         #expect(try await lib.blobs.allHashes().isEmpty)
@@ -159,5 +173,22 @@ struct LibraryTests {
         let position = try #require(try await lib.services.library.position(of: document.id))
         #expect(position.progression == 1)
         #expect(try await lib.services.library.entries().first?.progress == 1)
+    }
+}
+
+@Suite("import candidates")
+struct ImportCandidateTests {
+    @Test("folders expand once each, even with symlink loops")
+    func symlinkLoops() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("gloss-candidates-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let nested = root.appendingPathComponent("a/b", isDirectory: true)
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+        try Data("x".utf8).write(to: nested.appendingPathComponent("book.epub"))
+        try Data("x".utf8).write(to: root.appendingPathComponent("top.pdf"))
+        // b/loop → root: following it naively never ends.
+        try FileManager.default.createSymbolicLink(at: nested.appendingPathComponent("loop"), withDestinationURL: root)
+        let found = ImportCandidates.expand(root, supportedExtensions: ["epub", "pdf"])
+        #expect(found.map(\.lastPathComponent).sorted() == ["book.epub", "top.pdf"])
     }
 }
