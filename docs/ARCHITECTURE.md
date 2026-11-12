@@ -258,7 +258,29 @@ the hit.
   protocol (`GlossReaderBridge` in Swift, `web/src/bridge/protocol.ts` in TypeScript) with shared fixtures
   under `Tests/Fixtures/bridge/` tested on both sides.
 
-## 9. App layer (macOS)
+## 9. CLI
+
+`GlossCLI` holds the commands (swift-argument-parser) and knows only the core, export, markdown
+and terminal modules. `Sources/gloss/main.swift` is the composition root: SQLite store, EPUB and
+PDF formats, `/usr/bin/open`, `$VISUAL`/`$EDITOR`. Commands read their environment (services,
+output, stdin, opener, editor, clock) from a task-local `CLIEnvironment`, so tests run them
+in-process against the in-memory store (`Tests/GlossCLITests`) and `scripts/cli-smoke.sh` runs the
+real binary against real SQLite, EPUB and PDF files with concurrent writers.
+
+```
+gloss import <files or folders…>        gloss search <words…> [--book b] [--in library|notes|text|everything]
+gloss list [--sort …] [--shelf …]       gloss export <book|page> [--format markdown|html] [--page-only] [-o path]
+gloss book show|edit|trash <book>       gloss open <book|page|gloss://…>
+gloss pages <book>                      gloss trash [list] | restore | purge | empty | keep <days|forever>
+gloss read <page> [--raw|--rendered]    gloss backup <file or folder>
+gloss page add|write|edit|rename|trash  gloss reindex
+gloss highlights [list|delete]          gloss where
+```
+
+Every command takes `--json` (stable shapes in `JSONModels.swift`), `--library` and `--no-color`.
+Output follows `NO_COLOR`/`CLICOLOR_FORCE` and drops colour and status lines when piped.
+
+## 10. App layer (macOS)
 
 - One main `WindowGroup` plus "open in new window"; a `Settings` scene.
 - `WorkspaceModel` (GlossAppModel) holds the split layout (global), the open document/page,
@@ -273,7 +295,7 @@ the hit.
   font, SF Symbols, standard animations and full VoiceOver labels.
 - macOS only (D-018): Mac modules use AppKit and SwiftUI directly, with no platform abstraction.
 
-## 10. Milestones
+## 11. Milestones
 
 | # | Milestone | Scope | Where |
 |---|---|---|---|

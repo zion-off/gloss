@@ -65,6 +65,23 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
 - **D-071 The quick switcher is ⇧⌘O ("open quickly"), after Xcode's Open Quickly.** The plan's
   "⌘P style" names the interaction, not the key: ⌘P is Print (and "export as PDF via print" needs
   it), and ⌘O is File › Open in every Mac app.
+- **D-072 Short ids are the last 8 characters of an id.** UUIDv7 ids start with a timestamp, so
+  prefixes of things created in the same second collide; the tail is random. References accept a
+  4+ character start or end of an id, a full id, a `gloss://` link or a title.
+- **D-073 Global CLI options go after the subcommand** (`gloss list --json`). ArgumentParser's
+  `@OptionGroup` in every leaf command is its standard way to share options; `@ParentCommand` only
+  reaches one level up, and `gloss trash restore` is two deep. `GLOSS_LIBRARY` covers scripts that
+  want to set the library once.
+- **D-074 `gloss read` prints raw markdown when stdout is piped and renders on a terminal**
+  (`--raw`/`--rendered` force either), so `gloss read x > notes.md` round-trips.
+- **D-075 ArgumentParser's built-in help and error headers stay as the library prints them**
+  ("OVERVIEW", "Error:"). They aren't configurable; all of gloss's own copy is lowercase.
+- **D-076 Deleting for good needs `--yes`, or a "y" at a prompt on a terminal.** Without a terminal
+  to ask on, `trash purge`/`trash empty` refuse (exit 64) rather than guess.
+- **D-077 `gloss open` hands the link to `/usr/bin/open` on macOS and prints it elsewhere** (exit 0),
+  so scripts can still capture `gloss://` links on Linux.
+- **D-078 Exit codes: 0 success, 1 failure (including partial import failures), 64 wrong usage**,
+  matching ArgumentParser's validation failures (EX_USAGE).
 - **D-017 Web code is TypeScript with pnpm (user requirement).** JavaScript only where TypeScript is
   impossible: vendored foliate-js (must stay byte-identical, D-014) and `tsc` output for the web view.
   The output is committed rather than built by a SwiftPM plugin so `swift build` never needs Node,
@@ -170,6 +187,10 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   `scripts/check.sh | tail -n 1 && git commit`, where the pipe hides the check's exit status. The
   race is fixed in `3ea4ea3`/`d76dcf2`, every timing-based test now waits deterministically, and
   CLAUDE.md forbids piping the check when gating a commit.
+
+- **P-004 `45bf246` and `7579d9e` don't build alone.** A test file holding tests for two slices
+  was staged whole into the first; the type its second test needs only arrives in `46d8614`. Caught
+  by `scripts/verify-commits.sh`; history is not rewritten. Edits are now staged slice by slice.
 
 ## Formats (GlossPDF)
 
