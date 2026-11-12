@@ -15,9 +15,8 @@ public enum ImportCandidates {
             guard let contents = try? FileManager.default.contentsOfDirectory(
                 at: directory, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) else { continue }
             for item in contents.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
-                var childIsDirectory: ObjCBool = false
-                FileManager.default.fileExists(atPath: item.path, isDirectory: &childIsDirectory)
-                if childIsDirectory.boolValue { queue.append(item) }
+                let childIsDirectory = (try? item.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+                if childIsDirectory { queue.append(item) }
                 else if extensions.contains(item.pathExtension.lowercased()) { result.append(item) }
             }
         }

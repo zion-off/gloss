@@ -8,7 +8,11 @@ if ! swift build --build-tests >"$log" 2>&1; then
   grep -E "error:" "$log" | sort -u | head -40
   echo "✘ build failed (full log: $log)"; exit 1
 fi
-grep -E "warning:" "$log" | grep -E "/(Sources|Tests)/" | sort -u | head -20
+warnings=$(grep -E "warning:" "$log" | grep -E "/gloss/(Sources|Tests)/" | sed 's/\x1b\[[0-9;]*m//g' | sort -u)
+if [ -n "$warnings" ]; then
+  echo "$warnings" | head -20
+  echo "✘ compiler warnings in Sources/ or Tests/ (zero-warning policy)"; exit 1
+fi
 
 if ! swift test --skip-build >"$log" 2>&1; then
   grep -E "✘|error|failed" "$log" | head -40

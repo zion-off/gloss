@@ -18,7 +18,7 @@ struct PDFImportThroughCoreTests {
         let page = builder.add("<< /Type /Page /Parent \(pages) 0 R /Contents \(contents) 0 R /Resources << /Font << /F1 \(font) 0 R >> >> >>")
         builder.set(pages, "<< /Type /Pages /Kids [\(page) 0 R] /Count 1 >>")
         let catalog = builder.add("<< /Type /Catalog /Pages \(pages) 0 R >>")
-        let data = try builder.build(root: catalog, info: info)
+        let data = builder.build(root: catalog, info: info)
 
         let lib = TestLibrary(formats: [PDFFormat()])
         let outcome = try await lib.services.imports.importData(data, filename: "moby.pdf")

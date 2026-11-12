@@ -43,7 +43,7 @@ import GlossCore
         await library.invalidate(ids: documentIDs.compactMap { DocumentID($0) })
         await workspace.refresh()
         if !pageIDs.isEmpty || !documentIDs.isEmpty {
-            await search.contextChanged()
+            search.contextChanged()
         }
     }
 
