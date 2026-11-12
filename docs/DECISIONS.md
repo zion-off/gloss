@@ -146,3 +146,29 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   lead command is the likeliest source. Its content is correct, so it stays (no history rewriting). `scripts/check.sh` also runs the JS tests once
   `web/` exists, so Swift slices committed while the bridge work is in progress are checked with
   `swift build --build-tests && swift test` instead.
+
+## Formats (GlossPDF)
+
+- **D-069 The PDF reader scans the whole file for `N G obj` bodies instead of following xref
+  offsets.** Broken xref tables are the most common real-world PDF defect; a single forward
+  pass with per-failure progress is linear, and later definitions of the same object number
+  naturally win, which is exactly incremental-update semantics. Xref streams and `trailer`
+  dictionaries are read only for `/Root`, `/Info` and `/Encrypt` (last one wins).
+- **D-067 Stream data trusts `/Length` only when `endstream` shows up right where it predicts,
+  else scans for `endstream`.** Handles indirect and wrong lengths without ever reading past
+  the file; at most one failed scan reaches end of file, so the pass stays linear.
+- **D-068 `GlossArchive.Inflate` is the only decompressor.** It is bounded and
+  truncation-tolerant, so one corrupt stream can never hang an import; LZWDecode is treated as
+  unsupported (nil) rather than reimplemented, since it is rare in the wild.
+- **D-069 Encrypted PDFs return what is readable without decryption and no text chunks.** The
+  page tree and resource names are unencrypted, so the page count still comes out; strings and
+  streams are not, so title/author/text are skipped rather than emitted as garbage. Only
+  non-PDF data throws.
+- **D-067 Simple fonts decode through WinAnsi/MacRoman/Standard tables plus `/Differences`
+  (AGL subset, `uniXXXX` names); Type0 through `/ToUnicode` CMaps.** With no usable mapping,
+  printable bytes fall back to Latin-1 — wrong-but-readable beats nothing for search.
+- **D-068 `PDFPassageLocator` is pure Codable JSON under the `pdf` scheme with a `v` field.**
+  The Mac PDFKit engine can mint locators without GlossPDF present at runtime, and search
+  chunks use a separate `pdf-page` scheme (plain page index) so the two never collide.
+- **D-069 The test target adds `GlossArchive` beyond the brief's dependency list** so tests
+  can compress streams with `Deflate.zlib`; `GlossTestSupport` alone does not re-export it.
