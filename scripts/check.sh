@@ -20,6 +20,10 @@ if ! swift test --skip-build >"$log" 2>&1; then
 fi
 grep -E "^✔ Test run with" "$log" | awk '{tests += $5; suites += $8} END {printf "✔ %d swift tests in %d suites\n", tests, suites}'
 
+if [ -x scripts/cli-smoke.sh ]; then
+  scripts/cli-smoke.sh || exit 1
+fi
+
 if [ -f web/pnpm-lock.yaml ]; then
   ( cd web
     pnpm install --frozen-lockfile --silent >/dev/null
