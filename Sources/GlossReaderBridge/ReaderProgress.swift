@@ -34,7 +34,8 @@ public enum ReaderEventMapping {
                         updatedAt: updatedAt)
     }
 
-    /// "Chapter 1. Loomings · 28%" for breadcrumbs and the jump bar.
+    /// "Chapter 1. Loomings · page 12" (the toc label and the print page label, when the book
+    /// has them) for breadcrumbs and the saved position.
     public static func progressLabel(of relocated: ReaderRelocatedPayload) -> String? {
         var parts: [String] = []
         if let label = relocated.tocLabel, !label.isEmpty { parts.append(label) }
