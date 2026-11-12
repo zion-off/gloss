@@ -8,8 +8,9 @@ DerivedData/
 build/
 *.app/
 
-# Node tooling for the JS bridge tests
+# Node tooling for the bridge (pnpm)
 web/node_modules/
+web/.check-build/
 
 # Local libraries, scratch and OS noise
 *.sqlite-wal

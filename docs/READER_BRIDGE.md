@@ -77,3 +77,5 @@ protocol. Both sides implement it and are tested against the same fixtures:
 - Highlights use the colour from `colors.highlights`; markers draw a faint underline in `colors.marker`,
   visually separate from highlight colours.
 - The web view's data store is non-persistent; JS keeps no state that must survive a reload.
+- `index.html` loads its scripts through an inline `<script type="importmap">`; the scheme handler's
+  response headers must not set a CSP that blocks import maps or module scripts.
