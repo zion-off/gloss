@@ -25,6 +25,7 @@ let package = Package(
         .target(name: "GlossArchive", dependencies: ["CZlib"]),
         .target(name: "GlossEPUB", dependencies: ["GlossCore", "GlossArchive"]),
         .target(name: "GlossExport", dependencies: ["GlossCore", "GlossMarkdown"]),
+        .target(name: "GlossNotes", dependencies: ["GlossCore", "GlossMarkdown"]),
         .target(name: "GlossMemoryStore", dependencies: ["GlossCore"]),
         .target(name: "GlossTestSupport", dependencies: ["GlossCore", "GlossMemoryStore", "GlossArchive"]),
         .target(name: "GlossStore", dependencies: [
@@ -35,6 +36,7 @@ let package = Package(
         .testTarget(name: "GlossMarkdownTests", dependencies: ["GlossMarkdown"]),
         .testTarget(name: "GlossEPUBTests", dependencies: ["GlossEPUB", "GlossTestSupport"]),
         .testTarget(name: "GlossExportTests", dependencies: ["GlossExport", "GlossTestSupport"]),
+        .testTarget(name: "GlossNotesTests", dependencies: ["GlossNotes", "GlossTestSupport"]),
         .testTarget(name: "GlossArchiveTests", dependencies: ["GlossArchive", "GlossTestSupport"]),
         .testTarget(name: "GlossCoreTests", dependencies: ["GlossCore", "GlossMemoryStore", "GlossTestSupport"]),
         .testTarget(name: "GlossStoreTests", dependencies: [
