@@ -67,6 +67,21 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   deleted with a tombstone row (enough for future sync); trashed rows stay until purged.
 - **D-032 The root page cannot be trashed alone.** Every document keeps exactly one root page;
   trashing the book trashes the root.
+- **D-033 New link targets start orphaned.** A target created for "link to passage" counts as
+  referenced only once a saved page links to it, so abandoned gestures are swept like any orphan.
+- **D-034 Renaming a book renames its root page only if the root still had the book's old title.**
+  Same rule as block-line labels: follow along unless the user customised it.
+- **D-035 Purging a page degrades links to it, like passages.** Page links (block lines included)
+  become plain text, so a purged page never leaves a dead `gloss://` link behind.
+- **D-036 Purging a book also purges its pages that were trashed separately, entries included.**
+  Nothing may survive whose document is gone.
+- **D-037 Search hides trashed books and pages at query time** instead of removing their index
+  entries, so restoring needs no re-indexing.
+- **D-038 Library title/author sorting ignores case, accents and a leading "the/a/an"; empty values
+  sort last.** Matches how Apple Books and Finder present titles.
+- **D-039 `gloss page add` places the new subpage at the end of the parent's body.** The editor
+  inserts the block line at the caret itself; outside the editor the end of the page is the only
+  sensible place, and an unplaced page would still render after the body.
 
 ## Storage
 
@@ -103,6 +118,7 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
 
 ## Process notes
 
-- **P-001 Commits `7b2…`→`3a19212` of milestone 1 were split from one green check;** the
-  intermediate ones may not build on their own. History is not rewritten (commit policy); from
-  here on every slice is checked before its own commit.
+- **P-001 Five milestone-1 commits do not build on their own** (`3903e20`, `f350c16`, `f4cce6a`,
+  `0078ce7`, `d1a1c5c`, verified with `scripts/verify-commits.sh`): they were split from one green
+  check. History is not rewritten (commit policy). Since then each slice is checked before its own
+  commit and ranges are verified with `scripts/verify-commits.sh`.
