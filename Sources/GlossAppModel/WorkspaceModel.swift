@@ -146,29 +146,51 @@ public struct ReaderFocus: Hashable, Sendable {
 
     /// Reloads the open document and page; drops them if they were trashed or purged.
     public func refresh() async {
-        if let id = document?.id {
-            document = try? await services.library.document(id)
+        // Only a successful read can show something is gone; a failed read keeps what's open.
+        if let id = document?.id, case .success(let result) = await fetch(document: id) {
+            document = result?.trash == nil ? result : nil
         }
-        if let id = page?.id {
-            let reloaded = try? await services.pages.page(id)
-            page = reloaded?.trash == nil ? reloaded : nil
+        if let id = page?.id, case .success(let result) = await fetch(page: id) {
+            page = result?.trash == nil ? result : nil
         }
-        if document?.trash != nil { document = nil; page = nil }
-        // Drop history entries whose targets no longer exist.
-        var liveReader: [ReaderFocus] = []
-        for focus in readerHistory.backStack + (readerHistory.current.map { [$0] } ?? []) {
-            if let document = try? await services.library.document(focus.documentID), document.trash == nil {
-                liveReader.append(focus)
-            }
+        if document == nil {
+            page = nil
+            readerFocus = nil
+            pendingPassage = nil
         }
-        readerHistory = NavigationHistory<ReaderFocus>()
-        for focus in liveReader { readerHistory.visit(focus) }
-        var liveNotes: [PageID] = []
-        for id in notesHistory.backStack + (notesHistory.current.map { [$0] } ?? []) {
-            if let page = try? await services.pages.page(id), page.trash == nil { liveNotes.append(id) }
+        // Drop history entries whose targets are gone, keeping back and forward history.
+        var deadBooks: Set<DocumentID> = []
+        let books = Set(readerHistory.backStack.map(\.documentID) + readerHistory.forwardStack.map(\.documentID)
+                        + (readerHistory.current.map { [$0.documentID] } ?? []))
+        for id in books where await isGone(document: id) { deadBooks.insert(id) }
+        if !deadBooks.isEmpty {
+            readerHistory.removeAll { deadBooks.contains($0.documentID) }
+            if let focus = readerFocus, deadBooks.contains(focus.documentID) { readerFocus = nil }
         }
-        notesHistory = NavigationHistory<PageID>()
-        for id in liveNotes { notesHistory.visit(id) }
+        var deadPages: Set<PageID> = []
+        let pages = Set(notesHistory.backStack + notesHistory.forwardStack + (notesHistory.current.map { [$0] } ?? []))
+        for id in pages where await isGone(page: id) { deadPages.insert(id) }
+        if !deadPages.isEmpty { notesHistory.removeAll { deadPages.contains($0) } }
+    }
+
+    /// Gone means a successful read found nothing, or found it in the trash.
+    private func isGone(document id: DocumentID) async -> Bool {
+        guard case .success(let result) = await fetch(document: id) else { return false }
+        return result == nil || result?.trash != nil
+    }
+
+    private func isGone(page id: PageID) async -> Bool {
+        guard case .success(let result) = await fetch(page: id) else { return false }
+        return result == nil || result?.trash != nil
+    }
+
+    // `try?` would flatten "not found" and "read failed" into the same nil.
+    private func fetch(document id: DocumentID) async -> Result<Document?, any Error> {
+        do { return .success(try await services.library.document(id)) } catch { return .failure(error) }
+    }
+
+    private func fetch(page id: PageID) async -> Result<Page?, any Error> {
+        do { return .success(try await services.pages.page(id)) } catch { return .failure(error) }
     }
 
     /// The search context, derived from what is open and how the window is split.
@@ -186,9 +208,13 @@ public struct ReaderFocus: Hashable, Sendable {
         try? await services.settings.set(layout, for: WorkspaceSettings.layout)
     }
 
-    /// Waits for any in-flight layout persistence (tests, and teardown before quit).
+    /// Waits for any in-flight layout persistence (tests, and teardown before quit), including
+    /// writes scheduled while waiting.
     public func flushLayoutPersistence() async {
-        await persistTask?.value
+        while let task = persistTask {
+            await task.value
+            if persistTask == task { break }
+        }
     }
 
     /// Loads the persisted layout (composition root calls this once).

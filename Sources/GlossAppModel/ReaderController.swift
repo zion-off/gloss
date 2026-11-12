@@ -46,10 +46,27 @@ import GlossReaderBridge
         self.services = services
     }
 
-    /// Connects the engine the view created. Commands wait until it reports `ready`.
+    /// Connects the engine the view created. Commands wait until it reports `ready`. Attaching
+    /// again (the web view reloaded after a crash) reopens the book where the reader was.
     public func attach(_ driver: any ReaderDriving) {
         self.driver = driver
         isReady = false
+        if pendingOpen == nil, let document {
+            pendingOpen = (document, location?.locator)
+        }
+    }
+
+    /// Closes the book (it was trashed or purged, here or from another process).
+    public func close() {
+        document = nil
+        pendingOpen = nil
+        pendingFocus = nil
+        toc = []
+        location = nil
+        selection = nil
+        selectionAnchor = nil
+        markerChoice = nil
+        highlightFocus = nil
     }
 
     /// Opens a document, at `locator` (a passage) or else at the saved reading position.
@@ -170,7 +187,10 @@ import GlossReaderBridge
 
     /// Waits for the latest position save (tests, and before the window closes).
     public func flushPosition() async {
-        await positionTask?.value
+        while let task = positionTask {
+            await task.value
+            if positionTask == task { break }
+        }
     }
 
     // MARK: Internals

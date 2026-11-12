@@ -51,6 +51,15 @@ import GlossCore
         if !pageIDs.isEmpty || !documentIDs.isEmpty {
             search.contextChanged()
         }
+        // The book in the reader may have gone (trashed or purged from the cli).
+        if let open = reader.document, documentIDs.contains(open.id.stringValue) {
+            do {
+                let current = try await services.library.document(open.id)
+                if current == nil || current?.trash != nil { reader.close() }
+            } catch {
+                // A failed read proves nothing; keep the book open.
+            }
+        }
         let annotationEntities: Set<String> = [ChangeEntity.page, ChangeEntity.highlight, ChangeEntity.linkTarget]
         if changes.contains(where: { annotationEntities.contains($0.entity) }) {
             await reader.refreshAnnotations()

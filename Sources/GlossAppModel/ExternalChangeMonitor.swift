@@ -18,11 +18,20 @@ import GlossCore
         self.lastSequence = (try? await feed.latestChangeSequence()) ?? 0
     }
 
-    /// Returns changes since the last poll, ignoring this process's own writes.
+    /// Rows fetched per query.
+    static let pageSize = 500
+
+    /// Returns changes since the last poll, ignoring this process's own writes. Reads in pages
+    /// until the journal is drained, and only advances past rows it actually received, so a big
+    /// import from the CLI or a write landing mid-poll is never skipped.
     @discardableResult
     public func poll() async -> [ChangeRecord] {
-        guard let changes = try? await feed.changes(after: lastSequence, limit: 500) else { return [] }
-        lastSequence = (try? await feed.latestChangeSequence()) ?? lastSequence
+        var changes: [ChangeRecord] = []
+        while let batch = try? await feed.changes(after: lastSequence, limit: Self.pageSize), !batch.isEmpty {
+            changes += batch
+            lastSequence = batch.last?.sequence ?? lastSequence
+            if batch.count < Self.pageSize { break }
+        }
         lastPolledAt = Date()
         let foreign = changes.filter { $0.origin != feed.origin }
         if !foreign.isEmpty {

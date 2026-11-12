@@ -9,9 +9,11 @@ import GlossCore
         /// When it will be purged, if retention is finite.
         public var expiresAt: Date?
 
+        /// The book a trashed page belongs to (nil for books themselves).
+        public var documentTitle: String?
+
         public var id: TrashEntryID { entry.id }
         public var title: String { entry.title }
-        public var documentTitle: String? { entry.kind == .document ? nil : nil }
     }
 
     public private(set) var items: [Item] = []
@@ -25,19 +27,19 @@ import GlossCore
 
     public func reload() async {
         let entries = (try? await services.trash.entries()) ?? []
-        let retention = try? await services.settings.value(TrashSettings.retentionDays)
-        retentionDays = retention ?? nil
-        items = await withTaskGroup(of: (TrashEntry, Date?).self) { group in
-            for entry in entries {
-                group.addTask { [services] in
-                    let expiry = try? await services.trash.expiry(of: entry)
-                    return (entry, expiry ?? nil)
-                }
+        retentionDays = (try? await services.settings.value(TrashSettings.retentionDays)) ?? nil
+        var titles: [DocumentID: String] = [:]
+        var loaded: [Item] = []
+        for entry in entries {
+            var documentTitle: String?
+            if entry.kind != .document, let id = entry.documentID {
+                if titles[id] == nil { titles[id] = try? await services.library.document(id)?.title }
+                documentTitle = titles[id]
             }
-            var result: [(TrashEntry, Date?)] = []
-            for await pair in group { result.append(pair) }
-            return result.sorted { $0.0.trashedAt > $1.0.trashedAt }
-        }.map { Item(entry: $0.0, expiresAt: $0.1) }
+            let expiry = (try? await services.trash.expiry(of: entry)) ?? nil
+            loaded.append(Item(entry: entry, expiresAt: expiry, documentTitle: documentTitle))
+        }
+        items = loaded.sorted { $0.entry.trashedAt > $1.entry.trashedAt }
     }
 
     @discardableResult

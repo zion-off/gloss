@@ -50,7 +50,10 @@ import GlossCore
 
     /// Waits for a reload started by changing `sort` or `shelf`.
     public func settle() async {
-        await reloadTask?.value
+        while let task = reloadTask {
+            await task.value
+            if reloadTask == task { break }
+        }
     }
 
     /// Cover for a document, cached (the grid asks for many).

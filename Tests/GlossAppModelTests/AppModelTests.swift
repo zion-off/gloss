@@ -15,6 +15,7 @@ import Testing
 import GlossCore
 import GlossMemoryStore
 import GlossTestSupport
+import GlossReaderBridge
 
 @MainActor
 struct WorkspaceModelTests {
@@ -309,10 +310,6 @@ struct ExternalChangeTests {
     }
 }
 
-@MainActor
-struct TemporaryDirectoryHolder {
-    static let directory = TempDir()
-}
 
 @MainActor
 struct RaceTests {
@@ -335,5 +332,104 @@ struct RaceTests {
         for sort in [LibrarySort.author, .title, .dateAdded, .author, .title] { model.sort = sort }
         await model.settle()
         #expect(model.entries.map(\.document.title) == ["Alpha", "Beta"])
+    }
+}
+
+@MainActor
+struct ReviewOneAppModelTests {
+    final class PagedFeed: ChangeFeed, @unchecked Sendable {
+        let origin = "app"
+        var records: [ChangeRecord] = []
+        /// Rows that "arrive" while a poll is running (after its first query).
+        var lateArrivals: [ChangeRecord] = []
+        func latestChangeSequence() async throws -> Int64 { records.last?.sequence ?? 0 }
+        func changes(after sequence: Int64, limit: Int) async throws -> [ChangeRecord] {
+            let batch = Array(records.filter { $0.sequence > sequence }.prefix(limit))
+            if !lateArrivals.isEmpty { records += lateArrivals; lateArrivals = [] }
+            return batch
+        }
+        func trimChanges(before date: Date) async throws {}
+    }
+
+    func record(_ sequence: Int64) -> ChangeRecord {
+        ChangeRecord(sequence: sequence, entity: ChangeEntity.page, entityID: "p\(sequence)", origin: "cli", date: .testEpoch)
+    }
+
+    @Test("polling drains more than one page of changes and never skips late rows")
+    func monitorPaging() async throws {
+        let feed = PagedFeed()
+        let monitor = await ExternalChangeMonitor(feed: feed) { _ in }
+        feed.records = (1...1_234).map(record)
+        #expect(await monitor.poll().count == 1_234)
+        feed.records.append(record(1_235))
+        feed.lateArrivals = [record(1_236)]
+        #expect(await monitor.poll().map(\.sequence) == [1_235])
+        #expect(await monitor.poll().map(\.sequence) == [1_236])  // the row that landed mid-poll
+        #expect(await monitor.poll().isEmpty)
+    }
+
+    @Test("refresh keeps forward history and clears the focus of a trashed book")
+    func refreshKeepsForwardHistory() async throws {
+        let lib = TestLibrary()
+        let (a, _) = try await lib.book("A")
+        let (b, _) = try await lib.book("B")
+        let (c, _) = try await lib.book("C")
+        let workspace = WorkspaceModel(services: lib.services, persistLayoutSetting: false)
+        try await workspace.openDocument(a.id)
+        try await workspace.openDocument(b.id)
+        try await workspace.openDocument(c.id)
+        try await workspace.goBackInReader()
+        try await workspace.goBackInReader()
+        #expect(workspace.document?.id == a.id)
+        await workspace.refresh()
+        #expect(workspace.canGoForwardInReader)  // nothing gone, nothing dropped
+
+        _ = try await lib.services.trash.trash(.document, id: a.id.stringValue)
+        await workspace.refresh()
+        #expect(workspace.document == nil)
+        #expect(workspace.page == nil)
+        #expect(workspace.readerFocus?.documentID != a.id)
+        #expect(workspace.canGoForwardInReader || workspace.canGoBackInReader)
+        #expect(!workspace.readerHistory.backStack.contains { $0.documentID == a.id })
+    }
+
+    @Test("the reader closes a book trashed from outside, and reopens after an engine reload")
+    func readerLifecycle() async throws {
+        let lib = TestLibrary()
+        let (book, _) = try await lib.book()
+        let app = AppModel(services: lib.services)
+        let first = FakeDriver()
+        app.reader.attach(first)
+        await app.reader.handle(.ready)
+        await app.reader.open(book)
+        await app.reader.handle(.relocated(ReaderLocation(locator: Locator(scheme: FakeFormat.scheme, value: "here"),
+                                                          progression: 0.3, label: nil, progressText: "")))
+        // The web view crashed and was recreated: the new engine reopens at the same place.
+        let second = FakeDriver()
+        app.reader.attach(second)
+        await app.reader.handle(.ready)
+        #expect(second.calls.first == .open(book.id, Locator(scheme: FakeFormat.scheme, value: "here")))
+
+        _ = try await lib.services.trash.trash(.document, id: book.id.stringValue)
+        let change = ChangeRecord(sequence: 1, entity: ChangeEntity.document, entityID: book.id.stringValue, origin: "cli", date: .testEpoch)
+        await app.handleExternalChanges([change])
+        #expect(app.reader.document == nil)
+        #expect(app.reader.location == nil)
+    }
+
+    @Test("trashed pages name their book")
+    func trashBookTitles() async throws {
+        let lib = TestLibrary()
+        let (book, root) = try await lib.book("Noces")
+        let page = try await lib.services.pages.createSubpage(under: root.id, title: "tipasa")
+        _ = try await lib.services.trash.trash(.page, id: page.id.stringValue)
+        let (other, _) = try await lib.book("Exile")
+        _ = try await lib.services.trash.trash(.document, id: other.id.stringValue)
+        let model = TrashModel(services: lib.services)
+        await model.reload()
+        let byTitle = Dictionary(uniqueKeysWithValues: model.items.map { ($0.title, $0.documentTitle) })
+        #expect(byTitle["tipasa"] == .some("Noces"))
+        #expect(byTitle["Exile"] == .some(nil))
+        _ = book
     }
 }
