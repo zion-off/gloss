@@ -46,12 +46,12 @@ clients that wire concrete implementations at their composition roots:
 | `GlossPDF` | all | GlossCore, GlossArchive | PDF: object parsing, metadata, page text extraction, PDF locators |
 | `GlossExport` | all | GlossCore, GlossMarkdown | exporters (markdown, html) |
 | `GlossNotes` | all | GlossCore, GlossMarkdown | notes-editor behaviour: styling roles, format commands, slash menu, subpage blocks, link gestures |
-| `GlossReaderBridge` | all | GlossCore | the Swift side of the reader bridge: messages, appearance → CSS, progress text |
-| `GlossAppModel` | all | GlossCore, GlossNotes, GlossReaderBridge | app view state (Observation): library, workspace, navigation, search, trash, import |
+| `GlossReaderBridge` | all | GlossCore, GlossEPUB, swift-crypto | the engine-neutral reader boundary (`ReaderDriving`, `ReaderEngineEvent`, `ReaderAnnotations`), the foliate bridge (messages, `EPUBBridgeDriver`), appearance → CSS, progress text, `gloss-reader://` routing and the reader page CSP |
+| `GlossAppModel` | all | GlossCore, GlossNotes, GlossReaderBridge | app view state (Observation): library, workspace, navigation, search, trash, import, `ReaderController`, `LinkingCoordinator`, `NotesEditorModel` |
 | `GlossTerminal` | all | — | terminal styling: colors, tables, trees, progress |
 | `GlossCLI` | all | ArgumentParser + the Linux modules above | CLI commands and output |
 | `gloss` | all | GlossCLI | CLI composition root |
-| `GlossReaderKit` | macOS | GlossCore, GlossAppModel | reading-engine protocol, registry and SwiftUI host |
+| `GlossReaderKit` | macOS | GlossAppModel, GlossReaderBridge | engine registry and the SwiftUI host view (the engine protocol itself is `ReaderDriving` in GlossReaderBridge, so it is Linux-tested) |
 | `GlossReaderEPUB` | macOS | GlossReaderKit, GlossReaderBridge | foliate-js in WKWebView, scheme handler, JS glue (resources) |
 | `GlossReaderPDF` | macOS | GlossReaderKit, GlossPDF | PDFKit view, selection → locator, overlay highlights/markers |
 | `GlossEditor` | macOS | GlossNotes, GlossAppModel | TextKit 2 editor, live styling, format bar, slash menu, subpage rows |
@@ -165,7 +165,7 @@ and `PageTrashHandler` ship in v1. Rules (`TrashService`, fully unit-tested):
 | `TrashableEntityHandler` | documents, pages | trash cascade/restore/purge |
 | `SlashCommand` (GlossNotes) | page, headings, lists, quote, code, divider | slash menu |
 | `BlockParser`, `InlineParser`, `StylingRule` (GlossMarkdown) | headings, lists, tasks, quotes, code, emphasis, links | extensible markdown |
-| `ReadingEngine` (GlossReaderKit) + capabilities (`ReflowableAppearanceApplying`, …) | foliate EPUB, PDFKit | reading |
+| `ReaderDriving` (GlossReaderBridge) + capabilities (`ReflowableAppearanceApplying`) | `EPUBBridgeDriver` (foliate), PDFKit driver (Mac) | reading |
 
 Services: `ImportService`, `LibraryService`, `PageService`, `HighlightService`,
 `LinkService`, `LinkMaintenance`, `TrashService`, `SearchService`, `SettingsService`,
