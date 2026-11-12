@@ -179,7 +179,8 @@ struct LibraryAndTrashModelTests {
         try FakeFormat.file(title: "One").write(to: directory.file("b.fake"))
         try FakeFormat.file(title: "Two").write(to: nested.appendingPathComponent("a.epub"))
         try Data("junk".utf8).write(to: directory.file("notes.txt"))
-        let files = await LibraryModel.expand(directory.url, supportedExtensions: ["fake", "epub"])
+        try FakeFormat.file(title: "Hidden").write(to: directory.file(".hidden.fake"))
+        let files = ImportCandidates.expand(directory.url, supportedExtensions: ["fake", "epub"])
         #expect(files.map(\.lastPathComponent) == ["b.fake", "a.epub"])  // depth-first, sorted per directory
     }
 

@@ -82,7 +82,7 @@ import GlossCore
         importStatus = nil
         defer { importing = false; importStatus = nil }
         for url in urls {
-            let files = await Self.expand(url, supportedExtensions: services.formats.supportedExtensions)
+            let files = ImportCandidates.expand(url, supportedExtensions: services.formats.supportedExtensions)
             for file in files {
                 importStatus = "reading \(file.lastPathComponent)…"
                 importingFile = file
@@ -115,27 +115,6 @@ import GlossCore
         lastImportedIDs = imported.map(\.id)
         await reload()
         return imported
-    }
-
-    /// Recursively expands a folder into readable files.
-    static func expand(_ url: URL, supportedExtensions: [String]) async -> [URL] {
-        var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue else {
-            return [url]
-        }
-        let extensions = Set(supportedExtensions)
-        var result: [URL] = []
-        var queue = [url]
-        while let directory = queue.popLast() {
-            guard let contents = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isDirectoryKey]) else { continue }
-            for item in contents.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
-                var childIsDirectory: ObjCBool = false
-                FileManager.default.fileExists(atPath: item.path, isDirectory: &childIsDirectory)
-                if childIsDirectory.boolValue { queue.append(item) }
-                else if extensions.contains(item.pathExtension.lowercased()) { result.append(item) }
-            }
-        }
-        return result
     }
 
     static func describe(_ error: any Error) -> String {
