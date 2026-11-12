@@ -16,9 +16,11 @@ if ! swift test --skip-build >"$log" 2>&1; then
 fi
 grep -E "^✔ Test run with" "$log" | awk '{tests += $5; suites += $8} END {printf "✔ %d swift tests in %d suites\n", tests, suites}'
 
-if [ -f web/package.json ]; then
+if [ -f web/pnpm-lock.yaml ]; then
   ( cd web
-    [ -d node_modules ] || npm install --silent --no-audit --no-fund >/dev/null
-    npm test --silent ) || { echo "✘ js tests failed"; exit 1; }
+    pnpm install --frozen-lockfile --silent >/dev/null
+    pnpm --silent test && pnpm --silent check-build ) || { echo "✘ web checks failed (typecheck, tests or stale build output)"; exit 1; }
+elif [ -f web/package.json ]; then
+  echo "✘ web/ has no pnpm-lock.yaml (pnpm is the package manager)"; exit 1
 fi
 echo "✔ all checks passed"

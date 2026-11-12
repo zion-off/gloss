@@ -35,8 +35,13 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
 - **D-014 foliate-js, vendored at a pinned commit** — required by the brief; vendored (not fetched)
   so CFI resolution can never change under existing notes. The PDF.js vendor folder is dropped
   because PDFs use PDFKit.
-- **D-015 jsdom as a test-only Node dev dependency** — lets the bridge tests drive the real vendored
+- **D-015 jsdom as a test-only dev dependency** — lets the bridge tests drive the real vendored
   `epubcfi.js` against a DOM under Node; it never ships in the app.
+- **D-017 Web code is TypeScript with pnpm (user requirement).** JavaScript only where TypeScript is
+  impossible: vendored foliate-js (must stay byte-identical, D-014) and `tsc` output for the web view.
+  The output is committed rather than built by a SwiftPM plugin so `swift build` never needs Node,
+  and `pnpm check-build` catches stale output. Tests run the `.ts` sources directly under Node 22's
+  type stripping, so the sources use erasable syntax only (`erasableSyntaxOnly`).
 - **D-016 No terminal UI dependency** — `GlossTerminal` is ~300 lines of ANSI styling, honouring
   `NO_COLOR` and non-TTY output; not worth a dependency.
 
@@ -125,9 +130,9 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   `0078ce7`, `d1a1c5c`, verified with `scripts/verify-commits.sh`): they were split from one green
   check. History is not rewritten (commit policy). Since then each slice is checked before its own
   commit and ranges are verified with `scripts/verify-commits.sh`.
-- **P-002 `ce7a2c2` was not committed by the lead.** It appeared at 21:10:52 UTC with the repo
-  identity while two sub-agents were running, holding exactly the lead's finished GlossNotes slice
-  (same 7 files, tests green). Its content is correct, so it stays (no history rewriting); the
-  sub-agents were told to run no git commands. `scripts/check.sh` also runs the JS tests once
+- **P-002 `ce7a2c2` has no confirmed author.** It appeared at 21:10:52 UTC with the repo identity,
+  holding exactly the lead's finished GlossNotes slice (same 7 files, tests green). The bridge agent
+  confirmed it ran no git write commands; the subject's style matches the lead's own, so a retried
+  lead command is the likeliest source. Its content is correct, so it stays (no history rewriting). `scripts/check.sh` also runs the JS tests once
   `web/` exists, so Swift slices committed while the bridge work is in progress are checked with
   `swift build --build-tests && swift test` instead.

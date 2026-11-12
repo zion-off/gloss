@@ -62,9 +62,10 @@ Every macOS-only source file is wrapped in `#if os(macOS)`. The targets stay in 
 Linux (where they compile to empty modules), so the package always resolves and the Linux
 compiler still parses the Mac code.
 
-The JS half of the EPUB engine lives in `Sources/GlossReaderEPUB/Resources/reader/`:
-`foliate/` (vendored, pinned), `bridge/*.js` (pure, Node-tested in `web/test/`) and
-`glue.js` + `index.html` (the WKWebView wiring, unverified on Linux).
+The web half of the EPUB engine is TypeScript in `web/src/` (`bridge/*.ts`, pure and tested
+under Node in `web/test/`; `glue.ts`, the WKWebView wiring, unverified on Linux). `pnpm build`
+compiles it into `Sources/GlossReaderEPUB/Resources/reader/` next to `index.html`, `reader.css`
+and `foliate/` (vendored foliate-js, pinned).
 
 ## 3. Domain model (GlossCore)
 
@@ -254,7 +255,7 @@ the hit.
 - PDF: `PDFView` over an in-memory `PDFDocument`. Highlights and link markers are drawn by a
   `PDFPageOverlayViewProvider`, never written into the file.
 - Reader events (`relocated`, `selection`, `markerActivated`, …) and commands share one JSON
-  protocol (`GlossReaderBridge` in Swift, `bridge/protocol.js` in JS) with shared fixtures
+  protocol (`GlossReaderBridge` in Swift, `web/src/bridge/protocol.ts` in TypeScript) with shared fixtures
   under `Tests/Fixtures/bridge/` tested on both sides.
 
 ## 9. App layer (macOS)

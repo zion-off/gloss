@@ -9,7 +9,7 @@ checklist for the first sessions on a Mac. Commits that touched these files carr
 ```sh
 swift build                 # Linux + Mac targets
 swift test                  # Linux-testable suites (run on macOS too)
-(cd web && npm install && npm test)
+(cd web && pnpm install --frozen-lockfile && pnpm test)
 scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (dev only)
 ```
 

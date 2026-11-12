@@ -3,7 +3,7 @@
 The EPUB engine is foliate-js running in a `WKWebView`. Swift and JS talk through one small JSON
 protocol. Both sides implement it and are tested against the same fixtures:
 
-- JS: `Sources/GlossReaderEPUB/Resources/reader/bridge/protocol.js`, tested under Node in `web/test/`.
+- TypeScript: `web/src/bridge/protocol.ts` (compiled into `Resources/reader/bridge/`), tested under Node in `web/test/`.
 - Swift: `GlossReaderBridge` (`ReaderCommand`, `ReaderEvent`), tested in `Tests/GlossReaderBridgeTests/`.
 - Fixtures: `Tests/Fixtures/bridge/commands/<type>.json` and `Tests/Fixtures/bridge/events/<type>.json`,
   one valid envelope per message type. Both test suites load every fixture.
