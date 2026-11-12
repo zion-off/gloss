@@ -1,0 +1,9 @@
+{
+  "payload" : {
+    "cfi" : null,
+    "section" : 3,
+    "text" : "whale"
+  },
+  "type" : "revealSearchHit",
+  "v" : 1
+}

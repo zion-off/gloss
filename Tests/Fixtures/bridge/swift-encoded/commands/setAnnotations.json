@@ -1,0 +1,19 @@
+{
+  "payload" : {
+    "highlights" : [
+      {
+        "cfi" : "epubcfi(/6/8!/4/2/1:3,/4/2/1:9)",
+        "color" : "blue",
+        "id" : "01m78xptr8fa4r6vwtr0f789s9"
+      }
+    ],
+    "markers" : [
+      {
+        "cfi" : "epubcfi(/6/8!/4/2/1:3,/4/2/1:9)",
+        "id" : "01m78xptr8fa4r6vwtr0f789t0"
+      }
+    ]
+  },
+  "type" : "setAnnotations",
+  "v" : 1
+}

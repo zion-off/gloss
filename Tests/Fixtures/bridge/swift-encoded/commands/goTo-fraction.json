@@ -1,0 +1,10 @@
+{
+  "payload" : {
+    "flash" : false,
+    "target" : {
+      "fraction" : 0.5
+    }
+  },
+  "type" : "goTo",
+  "v" : 1
+}

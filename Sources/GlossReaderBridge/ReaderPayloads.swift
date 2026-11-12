@@ -133,9 +133,12 @@ public struct ReaderTocItem: Codable, Hashable, Sendable {
 
 // MARK: Command payloads
 
+// Nullable command fields are always sent, as JSON null when empty: the JS validator requires
+// the key (docs/READER_BRIDGE.md), and synthesized Codable would leave nil keys out.
+
 public struct ReaderOpenPayload: Codable, Hashable, Sendable {
     public var url: String
-    /// The CFI to return to, or nil to start at the beginning.
+    /// The CFI to return to, or nil to start at the beginning (sent as null).
     public var position: String?
     public var appearance: ReaderAppearance
 
@@ -143,6 +146,15 @@ public struct ReaderOpenPayload: Codable, Hashable, Sendable {
         self.url = url
         self.position = position
         self.appearance = appearance
+    }
+
+    private enum CodingKeys: String, CodingKey { case url, position, appearance }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(url, forKey: .url)
+        try container.encode(position, forKey: .position)
+        try container.encode(appearance, forKey: .appearance)
     }
 }
 
@@ -239,7 +251,9 @@ public struct ReaderSearchPayload: Codable, Hashable, Sendable {
 }
 
 public struct ReaderRevealSearchHitPayload: Codable, Hashable, Sendable {
+    /// Sent as null when unknown.
     public var cfi: String?
+    /// The spine index to search in; sent as null when unknown.
     public var section: Int?
     public var text: String
 
@@ -247,6 +261,15 @@ public struct ReaderRevealSearchHitPayload: Codable, Hashable, Sendable {
         self.cfi = cfi
         self.section = section
         self.text = text
+    }
+
+    private enum CodingKeys: String, CodingKey { case cfi, section, text }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(cfi, forKey: .cfi)
+        try container.encode(section, forKey: .section)
+        try container.encode(text, forKey: .text)
     }
 }
 

@@ -1,0 +1,30 @@
+{
+  "payload" : {
+    "appearance" : {
+      "colors" : {
+        "background" : "#f8f1e3",
+        "foreground" : "#3b2f1e",
+        "highlights" : {
+          "blue" : "rgba(96, 138, 188, 0.35)",
+          "green" : "rgba(98, 165, 122, 0.35)",
+          "pink" : "rgba(216, 128, 149, 0.35)",
+          "purple" : "rgba(154, 111, 181, 0.35)",
+          "yellow" : "rgba(240, 199, 56, 0.35)"
+        },
+        "marker" : "rgba(59, 47, 30, 0.45)"
+      },
+      "css" : ":root { color-scheme: light; }\nhtml { color: #3b2f1e; background: #f8f1e3; }\nbody { font-size: 17px; line-height: 1.6;\n       font-family: -apple-system, 'Iowan Old Style', Georgia, serif; }\np, li { text-align: justify; }\na { color: inherit; }\nimg, svg { max-width: 100%; }",
+      "flow" : "paginated",
+      "layout" : {
+        "gap" : 0.06,
+        "margin" : 48,
+        "maxColumnCount" : 2,
+        "maxInlineSize" : 720
+      }
+    },
+    "position" : null,
+    "url" : "gloss-reader://app/book/01m78xptr8fa4r6vwtr0f789s9"
+  },
+  "type" : "open",
+  "v" : 1
+}

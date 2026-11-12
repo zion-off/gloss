@@ -1,0 +1,10 @@
+{
+  "payload" : {
+    "flash" : false,
+    "target" : {
+      "href" : "text/ch001.xhtml"
+    }
+  },
+  "type" : "goTo",
+  "v" : 1
+}
