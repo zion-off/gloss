@@ -37,6 +37,16 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   because PDFs use PDFKit.
 - **D-015 jsdom as a test-only dev dependency** — lets the bridge tests drive the real vendored
   `epubcfi.js` against a DOM under Node; it never ships in the app.
+- **D-060 The bridge is one JSON protocol with shared fixtures.** Commands and events are one
+  envelope each (`{v, type, payload}`), decoded by a tagged-union enum per side; unknown types throw
+  rather than degrade silently, so version skew is loud. `Tests/Fixtures/bridge/` is the contract:
+  the Node suite and the Swift suite both decode every fixture and round-trip it.
+- **D-061 Reader settings live in the settings store as one JSON blob** (`reader.settings`), a
+  Codable `ReaderSettings`. One key keeps load/save atomic; the settings UI edits the struct.
+- **D-062 The bridge carries presentation, the store carries truth.** Events map into core values
+  (`ReaderEventMapping`): selections become `Passage`s, relocations become `ReadingPosition`s, and
+  the annotation payload is derived from `[Highlight]` and `[LinkedPassage]` — the Mac layer never
+  interprets raw JSON.
 - **D-017 Web code is TypeScript with pnpm (user requirement).** JavaScript only where TypeScript is
   impossible: vendored foliate-js (must stay byte-identical, D-014) and `tsc` output for the web view.
   The output is committed rather than built by a SwiftPM plugin so `swift build` never needs Node,
