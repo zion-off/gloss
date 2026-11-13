@@ -41,8 +41,12 @@ import GlossReaderBridge
 
     /// Opens a notes page at a range (a marker click). Set by the app model.
     public var openNote: @MainActor (PageID, Range<Int>?) async -> Void = { _, _ in }
-    /// Opens a web link from the book. Set by the Mac layer (NSWorkspace).
+    /// Opens a web link from the book. Set by the Mac layer (NSWorkspace). Only schemes in
+    /// `externalSchemes` get here: a book must not open files or launch apps.
     public var openExternal: @MainActor (URL) -> Void = { _ in }
+
+    /// Link schemes a book may hand to the system.
+    public static let externalSchemes: Set<String> = ["http", "https", "mailto"]
 
     private let services: GlossServices
     private weak var driver: (any ReaderDriving)?
@@ -140,7 +144,7 @@ import GlossReaderBridge
             guard isShowingBook else { return }
             await activate(highlights: highlightIDs, markers: markerIDs, anchor: anchor)
         case .externalLink(let url):
-            guard isShowingBook else { return }
+            guard isShowingBook, let scheme = url.scheme?.lowercased(), Self.externalSchemes.contains(scheme) else { return }
             openExternal(url)
         case .failed(let message):
             errorMessage = message

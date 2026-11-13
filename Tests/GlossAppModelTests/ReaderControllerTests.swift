@@ -184,6 +184,12 @@ struct ReaderControllerTests {
         #expect(controller.errorMessage == "the reader can't go there")
         await controller.handle(.externalLink(URL(string: "https://example.com")!))
         #expect(opened == [URL(string: "https://example.com")!])
+        // Only web and mail links leave the book: no files, no app launches.
+        for link in ["file:///Applications/Calculator.app", "x-apple.systempreferences:", "gloss://book/x", "javascript:alert(1)"] {
+            await controller.handle(.externalLink(URL(string: link)!))
+        }
+        await controller.handle(.externalLink(URL(string: "MAILTO:camus@example.com")!))
+        #expect(opened == [URL(string: "https://example.com")!, URL(string: "MAILTO:camus@example.com")!])
         await controller.handle(.failed("open: 404"))
         #expect(controller.errorMessage == "open: 404")
     }
