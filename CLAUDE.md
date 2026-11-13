@@ -94,6 +94,21 @@ builds and verifies the Mac-only parts later, in batches.
 - Toolchain on the VM: Swift 6.4.2 at `/opt/swift`, system SQLite 3.45.1 (FTS5 enabled),
   Node 22, pnpm 12.
 
+### Working on a Mac
+
+The repo was built on the Linux VM above; on a Mac the real SDK is the authority.
+
+- `swift build` compiles the Mac targets for real (Xcode 16.3+ / Swift 6.1+, macOS 14+). A
+  compile error most likely means a stub disagreed with the real SDK: fix the code, the stub in
+  `scripts/mac-stubs/` and `docs/MAC_API_NOTES.md` together, so the Linux check keeps its meaning
+  (D-099). Zero warnings still applies — the real compiler's warnings count now.
+- `scripts/check.sh` works on a Mac too; it skips the stub type-check there (the real build
+  already type-checks). The stub round stays for the Linux VM — do not delete it.
+- `scripts/run-mac.sh` builds `build/gloss.app` (development only, ad hoc signing).
+- `docs/MACOS_HANDOFF.md` is the checklist for the first sessions; mark each check verified or
+  failed, and fix what it finds in the usual slices (portable logic + tests on Linux where
+  possible). `[mac-unverified]` subjects stay as they are — never rewrite history.
+
 Useful commands:
 
 ```sh

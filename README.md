@@ -64,13 +64,15 @@ Every command takes `--json`, and `--library` (or `GLOSS_LIBRARY`) points at ano
 ## Building
 
 You need Swift 6.1 or later. The app needs macOS 14 or later; everything else also builds on
-Linux.
+Linux. On a Mac, use Xcode 16.3 or later; the web view needs Node 22 with pnpm
+(`corepack enable` picks up the pinned version).
 
 ```sh
-swift build                   # everything (the Mac targets build as stubs on Linux)
-swift test                    # the Linux-testable suites
+swift build                   # everything (on Linux the Mac targets build as stubs; on a Mac, for real)
+swift test                    # the portable suites (they run on macOS too)
 scripts/check.sh              # what must pass before a commit: build with zero warnings, tests,
-                              # the Mac type-check, the cli smoke test, the web bridge tests
+                              # the Mac type-check (on Linux; a Mac build needs no stubs),
+                              # the cli smoke test, the web bridge tests
 scripts/run-mac.sh            # on a Mac: builds build/gloss.app (development only) and opens it
 ```
 
