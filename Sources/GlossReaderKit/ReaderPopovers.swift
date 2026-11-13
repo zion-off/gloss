@@ -119,8 +119,10 @@ struct ReaderPopoverContent: View {
                         }
                 }
                 .buttonStyle(.plain)
-                .help("\(colour.rawValue) highlight")
-                .accessibilityLabel(Text("\(colour.rawValue) highlight"))
+                // Built from data, not a localization key: verbatim, so nothing in it is read as a
+                // format specifier (review 6).
+                .help(Text(verbatim: "\(colour.rawValue) highlight"))
+                .accessibilityLabel(Text(verbatim: "\(colour.rawValue) highlight"))
                 .accessibilityAddTraits(colour == current ? .isSelected : [])
             }
         }

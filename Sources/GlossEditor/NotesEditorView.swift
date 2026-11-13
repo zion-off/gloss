@@ -86,7 +86,7 @@ struct FormatBarView: View {
                         .frame(width: 26, height: 24)
                 }
                 .buttonStyle(.borderless)
-                .help("\(item.title) (\(item.shortcutLabel))")
+                .help(Text(verbatim: "\(item.title) (\(item.shortcutLabel))"))
                 .foregroundStyle(model.activeFormats.contains(item.id) ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color.primary))
                 .accessibilityLabel(Text(item.title))
             }
@@ -134,7 +134,7 @@ struct SlashMenuView: View {
                         }
                         .buttonStyle(.plain)
                         .background(index == menu.selectedIndex ? AnyShapeStyle(Color.accentColor.opacity(0.2)) : AnyShapeStyle(Color.clear))
-                        .accessibilityLabel(Text("\(item.title), \(item.subtitle)"))
+                        .accessibilityLabel(Text(verbatim: "\(item.title), \(item.subtitle)"))
                     }
                 }
                 .padding(4)
