@@ -189,11 +189,9 @@ public struct MainWindow: View {
     /// (D-150, D-157).
     @ToolbarContentBuilder private var toolbar: some ToolbarContent {
         ToolbarItem(placement: .navigation) { backForward }
-        // On macOS 26 the system title is placed explicitly, right after the chevrons (an early
-        // build once drew the title before them).
-        if #available(macOS 26.0, *) {
-            DefaultToolbarItem(kind: .title, placement: .navigation)
-        }
+        // No `DefaultToolbarItem(kind: .title)`: on macOS 26 it drew an empty glass capsule of its
+        // own while `navigationTitle` drew the title beside it (D-158). The system title already
+        // follows the navigation items.
         // The trailing cluster, flush right like Finder's, after the system title: `.automatic`
         // items, a flexible spacer first on macOS 26 (D-156), search last (D-157).
         if #available(macOS 26.0, *) {

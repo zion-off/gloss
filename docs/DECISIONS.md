@@ -594,3 +594,7 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   the custom title item are gone, and on macOS 26 `DefaultToolbarItem(kind: .title, placement:
   .navigation)` puts the system title right after back/forward explicitly. The `.automatic`
   trailing items and the flexible spacer (D-156) stay, search last.
+- **D-158 No `DefaultToolbarItem(kind: .title)`.** Added in D-157 to pin the system title after
+  back/forward; on macOS 26 it rendered as an empty glass pill between the chevrons and the title
+  (the title text itself is drawn by `navigationTitle`). The system title follows the navigation
+  items on its own, so the item is gone (the `.title` stub stays, verified).

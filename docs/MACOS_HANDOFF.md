@@ -336,7 +336,8 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
 - **System title restored (D-157), unverified — D-156 alone didn't move anything (00:46 build):**
   the toolbar should read, left to right: [sidebar toggle] [back|forward] title ……… [import ring]
   [sort | layout picker | empty trash] [search], the last group flush against the right edge. The
-  title is the system's own (no custom title item), placed after the chevrons. If it still
+  title is the system's own (no custom title item), placed after the chevrons, with no empty pill
+  between them (D-158: the default title item that drew one is gone). If it still
   bunches, say whether the title shows at all and where (before/after the chevrons, centred), and
   whether the window's right half of the toolbar is empty.
 - **Trailing cluster flush right (D-156), unverified — the 00:42 build still had search on the
