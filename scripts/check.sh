@@ -20,6 +20,8 @@ if ! swift test --skip-build >"$log" 2>&1; then
 fi
 grep -E "^✔ Test run with" "$log" | awk '{tests += $5; suites += $8} END {printf "✔ %d swift tests in %d suites\n", tests, suites}'
 
+python3 scripts/mac-visibility.py || exit 1
+
 if [ -x scripts/cli-smoke.sh ]; then
   scripts/cli-smoke.sh || exit 1
 fi
