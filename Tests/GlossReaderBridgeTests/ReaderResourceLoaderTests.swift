@@ -31,7 +31,8 @@ final class ReaderResourceLoaderTests {
         let page = await load("gloss-reader://app/index.html")
         #expect(page.statusCode == 200)
         #expect(page.body == Data("<!doctype html>".utf8))
-        #expect(page.headers == ["Content-Type": "text/html; charset=utf-8", "Content-Length": "15", "Cache-Control": "no-store"])
+        #expect(page.headers == ["Content-Type": "text/html; charset=utf-8", "Content-Length": "15", "Cache-Control": "no-store",
+                                 "X-Content-Type-Options": "nosniff"])
 
         let script = await load("gloss-reader://app/foliate/view.js")
         #expect(script.statusCode == 200)
@@ -58,7 +59,8 @@ final class ReaderResourceLoaderTests {
         let response = await loader.response(for: ReaderResourceRouter.bookURL(document.id))
         #expect(response.statusCode == 200)
         #expect(response.body == bytes)
-        #expect(response.headers == ["Content-Type": "application/epub+zip", "Content-Length": String(bytes.count), "Cache-Control": "no-store"])
+        #expect(response.headers == ["Content-Type": "application/epub+zip", "Content-Length": String(bytes.count), "Cache-Control": "no-store",
+                                     "X-Content-Type-Options": "nosniff"])
     }
 
     @Test("trashed books, other formats and unknown ids are not served")

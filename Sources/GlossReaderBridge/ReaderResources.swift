@@ -60,9 +60,12 @@ public struct ReaderResourceRouter: Sendable {
     public static let bookMimeType = "application/epub+zip"
 
     /// Response headers. Nothing is cached: the web view's data store is non-persistent anyway,
-    /// and book bytes must never outlive the session.
+    /// and book bytes must never outlive the session. `nosniff` keeps WebKit to the declared
+    /// type: `script-src 'self'` covers `/book/<id>` too, and a book must not be able to load
+    /// another imported file as a script (review 3).
     public static func headers(mimeType: String, length: Int) -> [String: String] {
-        ["Content-Type": mimeType, "Content-Length": String(length), "Cache-Control": "no-store"]
+        ["Content-Type": mimeType, "Content-Length": String(length), "Cache-Control": "no-store",
+         "X-Content-Type-Options": "nosniff"]
     }
 }
 

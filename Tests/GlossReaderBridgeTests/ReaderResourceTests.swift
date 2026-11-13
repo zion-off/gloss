@@ -34,10 +34,11 @@ struct ReaderResourceTests {
         }
     }
 
-    @Test("responses are never cached")
+    @Test("responses are never cached and never sniffed")
     func headers() {
         #expect(ReaderResourceRouter.headers(mimeType: "text/html", length: 12)
-                == ["Content-Type": "text/html", "Content-Length": "12", "Cache-Control": "no-store"])
+                == ["Content-Type": "text/html", "Content-Length": "12", "Cache-Control": "no-store",
+                    "X-Content-Type-Options": "nosniff"])
     }
 
     @Test("the reader page declares the policy, with the import map's real hash")
