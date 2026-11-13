@@ -5,7 +5,9 @@ import GlossNotes
 /// Maps the editor's semantic `TextStyle`s onto system fonts and colours, so light/dark mode,
 /// Increase Contrast and Dynamic Type come from the system rather than our own palette. The
 /// buffer is the raw markdown; these attributes are presentation only and never saved.
-@MainActor struct NotesEditorTheme {
+///
+/// A class: `baseFont` caches the system fonts it resolves (review 5).
+@MainActor final class NotesEditorTheme {
     /// The font a run draws with, before bold/italic traits.
     enum FontSpec: Hashable {
         case body
@@ -14,6 +16,8 @@ import GlossNotes
     }
 
     private var fonts: [FontSpec: NSFont] = [:]
+
+    init() {}
 
     func baseFont(_ spec: FontSpec) -> NSFont {
         if let cached = fonts[spec] { return cached }

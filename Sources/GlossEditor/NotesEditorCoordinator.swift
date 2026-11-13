@@ -11,6 +11,7 @@ import GlossNotes
 @MainActor
 final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
     private let model: NotesEditorModel
+    private let notesTheme = NotesTheme.standard
     private let theme = NotesEditorTheme()
     private weak var textView: NotesTextView?
     private weak var scrollView: NSScrollView?
@@ -119,11 +120,16 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
         if model.page?.id != displayedPageID {
             displayedPageID = model.page?.id
             install(model.text)
-        } else if textView.string != model.text {
+        } else if textView.string != model.text, let storage = textView.textStorage {
             // A change from elsewhere (the cli, another window): keep the model's selection.
+            // Not undoable — the user didn't make it — and it must clear any coalescing with
+            // what came before (review 5).
+            textView.undoManager?.removeAllActions()
+            textView.breakUndoCoalescing()
             let selection = NSRange(model.selection)
-            textView.textStorage.replaceCharacters(in: NSRange(location: 0, length: textView.string.utf16.count),
-                                                   with: model.text)
+            storage.beginEditing()
+            storage.replaceCharacters(in: NSRange(location: 0, length: storage.length), with: model.text)
+            storage.endEditing()
             textView.setSelectedRange(selection)
             restyle()
         }
@@ -146,8 +152,13 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
     }
 
     private func install(_ text: String) {
-        guard let textView else { return }
-        textView.textStorage.replaceCharacters(in: NSRange(location: 0, length: textView.string.utf16.count), with: text)
+        guard let textView, let storage = textView.textStorage else { return }
+        // The old page's undo history must not survive the switch: replaying it would edit the
+        // new page's buffer (review 5).
+        textView.undoManager?.removeAllActions()
+        storage.beginEditing()
+        storage.replaceCharacters(in: NSRange(location: 0, length: storage.length), with: text)
+        storage.endEditing()
         textView.setSelectedRange(NSRange(location: 0, length: 0))
         restyle()
         textView.scroll(NSPoint(x: 0, y: 0))
@@ -230,12 +241,11 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
 
     /// Applies the model's edit through the view's change APIs, so undo records it as one step.
     func apply(_ result: EditResult) {
-        guard let textView else { return }
-        let text = textView.string
-        guard let edit = result.coalesced(in: text) else { return }
+        guard let textView, let storage = textView.textStorage else { return }
+        guard let edit = result.coalesced(in: textView.string) else { return }
         let range = NSRange(edit.range)
         guard textView.shouldChangeText(in: range, replacementString: edit.replacement) else { return }
-        textView.textStorage.replaceCharacters(in: range, with: edit.replacement)
+        storage.replaceCharacters(in: range, with: edit.replacement)
         textView.didChangeText()
         textView.setSelectedRange(NSRange(result.selection))
     }
@@ -260,18 +270,17 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
     private func restyle() {
         guard let textView else { return }
         let length = model.text.utf16.count
-        let runs = theme.runs(for: model.spans, length: length)
+        let runs = notesTheme.runs(for: model.spans, length: length)
         let changed = StyledRunDiff.changedRanges(from: lastRuns, to: runs)
         lastRuns = runs
         guard !changed.isEmpty else { return }
 
-        let storage = textView.textStorage
+        guard let storage = textView.textStorage else { return }
         storage.beginEditing()
         defer { storage.endEditing() }
         for range in changed {
             for run in runs where run.range.overlaps(range) {
-                storage.setAttributes(theme.attributes(for: run.style),
-                                       range: NSRange(run.range.clamped(to: 0..<max(length, 1))))
+                storage.setAttributes(theme.attributes(for: run.style), range: NSRange(run.range))
             }
             applyLinkAttributes(in: range)
         }
@@ -280,8 +289,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
     /// Clickable links: the `.link` attribute over each link's label (the value is the
     /// destination; gloss destinations route through the app).
     private func applyLinkAttributes(in range: Range<Int>) {
-        guard let textView else { return }
-        let storage = textView.textStorage
+        guard let textView, let storage = textView.textStorage else { return }
         for link in LinkScanner.links(in: model.document) where link.labelRange.overlaps(range) {
             guard let url = URL(string: link.destination) else { continue }
             storage.addAttribute(.link, value: url, range: NSRange(link.labelRange))
