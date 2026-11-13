@@ -12,6 +12,13 @@ struct OverlayGeometryTests {
         #expect(OverlayGeometry.flipUp(OverlayRect(x: 0, y: 380, width: 1, height: 20), inHeight: 400).minY == 0)
     }
 
+    @Test("a rect's centre lines")
+    func centres() {
+        let rect = OverlayRect(x: 10, y: 100, width: 50, height: 12)
+        #expect(rect.midX == 35)
+        #expect(rect.midY == 106)
+    }
+
     @Test("clamping keeps the overlay inside, centring when there's no room")
     func clamp() {
         #expect(OverlayGeometry.clampCenter(20, width: 100, in: 500) == 58)

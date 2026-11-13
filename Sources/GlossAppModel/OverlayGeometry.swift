@@ -19,6 +19,8 @@ public struct OverlayRect: Hashable, Sendable {
     public var maxX: Double { x + width }
     public var minY: Double { y }
     public var maxY: Double { y + height }
+    public var midX: Double { x + width / 2 }
+    public var midY: Double { y + height / 2 }
 }
 
 /// Geometry for overlays anchored to text, in pure math so it's Linux-tested.
