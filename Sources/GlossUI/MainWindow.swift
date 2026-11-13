@@ -19,20 +19,26 @@ public struct MainWindow: View {
     @State private var reveal: NotesReveal?
     @State private var unsavedFailure: String?
     @State private var commands: WindowCommands
+    @State private var exportActions: ExportActions
     /// The reader's engine session lives with the window, so hiding the reader keeps the book.
     @State private var readerHost = ReaderSessionHost()
 
     /// - Parameter prepare: once-per-launch setup to await before the first book shows
     ///   (reading settings, routine upkeep); every window calls it, the root runs it once.
-    public init(services: GlossServices, engines: ReadingEngineRegistry,
+    /// - Parameter export: the root's export model; nil leaves the File menu's export and
+    ///   print items disabled rather than broken (tests and slices that don't export).
+    public init(services: GlossServices, engines: ReadingEngineRegistry, export: ExportModel? = nil,
                 prepare: @escaping @MainActor () async -> Void) {
         self.engines = engines
         self.prepare = prepare
-        let app = AppModel(services: services)
+        let app = AppModel(services: services, export: export)
         let commands = WindowCommands()
         commands.bind(app)
+        let exportActions = ExportActions()
+        exportActions.bind(app)
         _app = State(initialValue: app)
         _commands = State(initialValue: commands)
+        _exportActions = State(initialValue: exportActions)
     }
 
     public var body: some View {
@@ -65,7 +71,9 @@ public struct MainWindow: View {
         .glossSearch(model: app.search)
         .quickSwitcher(app: app, isPresented: Binding(get: { commands.showsSwitcher },
                                                        set: { commands.showsSwitcher = $0 }))
+        .exportFailureAlert(app: app)
         .focusedSceneValue(\.windowCommands, commands)
+        .focusedSceneValue(\.exportActions, exportActions)
         .task { await run() }
         .task(id: app.workspace.readerFocus) { await app.showReaderFocus() }
         .task(id: app.bookSidebarSubjects) {
@@ -111,6 +119,7 @@ public struct MainWindow: View {
                 NotesPane(app: app, reveal: reveal, unsavedFailure: $unsavedFailure,
                           commands: commands)
                     .frame(minWidth: 280)
+                    .notesExportMenu(actions: exportActions)
             }
         }
     }

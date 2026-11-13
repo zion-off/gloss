@@ -340,6 +340,11 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   window models), and its `ExportModel` wraps the `ExportService` the composition root builds —
   the same wiring the cli's root has. Views only see `ExportModel`, so no view constructs a
   service and no new Mac-target dependency is needed beyond GlossAppModel itself.
+- **D-134 Print renders the html export in an offscreen WKWebView.** The html exporter was built
+  for exactly this ("export as PDF through the system print dialog"), so ⌘P (File › print…,
+  replacing the empty print group) exports the open page with its subpages to html, loads it into
+  a non-persistent offscreen web view, waits for `didFinish`, and runs `printOperation(with:)` —
+  whose print panel carries the pdf menu.
 - **D-135 Finder double-clicks are imports, duplicates open the existing copy.** A file URL
   arriving through `onOpenURL` is classified by the registered formats' extensions and goes
   through the one import entry point, `LibraryModel.importFiles`; `lastDuplicates` records what

@@ -15,7 +15,7 @@
 #if canImport(FoundationNetworking)
 @_exported import FoundationNetworking  // URLRequest, URLResponse: part of Foundation on Darwin
 #endif
-import UniformTypeIdentifiers
+import UniformTypeIdentifiers  // UTType (NSSavePanel.allowedContentTypes)
 
 // MARK: - Darwin Foundation / CoreGraphics (not in swift-corelibs-foundation)
 
@@ -167,6 +167,8 @@ open class NSWorkspace: NSObject {
         public static let ok = ModalResponse(1)
         /// appkit/nsapplication/modalresponse/cancel
         public static let cancel = ModalResponse(0)
+        /// appkit/nsapplication/modalresponse/ok — the Swift name is `OK`
+        public static let OK = ModalResponse(1)
     }
 }
 
@@ -184,10 +186,40 @@ open class NSWorkspace: NSObject {
     open var prompt: String! { get { "" } set {} }
     /// appkit/nssavepanel/beginsheetmodal(for:completionhandler:) (macOS 10.6). The docs show
     /// no isolation on the handler; it runs on the main thread (AppKit), so the stub — like
-    /// other AppKit completions here — models it as @MainActor.
+    /// other AppKit completions here — models it as @MainActor. The page also lists the
+    /// `async` overload (`func beginSheetModal(for:) async -> NSApplication.ModalResponse`).
     open func beginSheetModal(for window: NSWindow, completionHandler handler: @escaping @MainActor (NSApplication.ModalResponse) -> Void) {}
+    /// appkit/nssavepanel/beginsheetmodal(for:) — the async overload from the same docs page.
+    open func beginSheetModal(for window: NSWindow) async -> NSApplication.ModalResponse { .cancel }
     /// appkit/nssavepanel/runmodal()
     open func runModal() -> NSApplication.ModalResponse { fatalError() }
+    /// appkit/nssavepanel/namefieldstringvalue
+    open var nameFieldStringValue: String { get { "" } set {} }
+    /// appkit/nssavepanel/cancreatedirectories
+    open var canCreateDirectories: Bool { get { true } set {} }
+    /// appkit/nssavepanel/url — `var url: URL? { get }`
+    open var url: URL? { nil }
+}
+
+/// appkit/nsprintinfo — `class NSPrintInfo` (the docs pages carry no availability; AppKit since
+/// 10.0). `NSPrintInfo()` has no initializer page of its own (NSObject's `init` reaches it).
+open class NSPrintInfo {
+    /// appkit/nsprintinfo/shared
+    public class var shared: NSPrintInfo { get { fatalError() } set {} }
+}
+
+/// appkit/nsprintoperation — `@MainActor class NSPrintOperation`
+@MainActor open class NSPrintOperation {
+    /// appkit/nsprintoperation/init(view:printinfo:)
+    public init(view: NSView, printInfo: NSPrintInfo) {}
+    /// appkit/nsprintoperation/run() — "Runs the print operation on the current thread."
+    @discardableResult public func run() -> Bool { false }
+    /// appkit/nsprintoperation/runmodal(for:delegate:didrun:contextinfo:)
+    public func runModal(for docWindow: NSWindow, delegate: Any?, didRun didRunSelector: Selector?, contextInfo: UnsafeMutableRawPointer?) {}
+    /// appkit/nsprintoperation/showsprintpanel
+    public var showsPrintPanel: Bool { get { true } set {} }
+    /// appkit/nsprintoperation/jobtitle
+    public var jobTitle: String? { get { nil } set {} }
 }
 
 /// appkit/nsopenpanel — `class NSOpenPanel`

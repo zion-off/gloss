@@ -1,7 +1,9 @@
 #if os(macOS)
 import Foundation
+import GlossAppModel
 import GlossCore
 import GlossEPUB
+import GlossExport
 import GlossPDF
 import GlossReaderBridge
 import GlossReaderEPUB
@@ -19,6 +21,8 @@ struct CompositionFailure: Error {
 @MainActor final class AppRoot {
     let services: GlossServices
     let engines: ReadingEngineRegistry
+    /// Export and print for the windows: the same service the cli wires (D-133).
+    let export: ExportModel
     let libraryURL: URL
     private let appearance: AppearanceSource
     private var prepared = false
@@ -37,12 +41,14 @@ struct CompositionFailure: Error {
         let formats = FormatRegistry([EPUBFormat(), PDFFormat()])
             .adding(coverExtractor: PDFKitCoverRenderer(), for: .pdf)
         let services = GlossServices(store: store, blobs: store.blobs, formats: formats)
-        return .success(AppRoot(services: services, readerDirectory: readerDirectory, libraryURL: url))
+        let export = ExportModel(service: ExportService(store: store))
+        return .success(AppRoot(services: services, export: export, readerDirectory: readerDirectory, libraryURL: url))
     }
 
-    private init(services: GlossServices, readerDirectory: URL, libraryURL: URL) {
+    private init(services: GlossServices, export: ExportModel, readerDirectory: URL, libraryURL: URL) {
         let appearance = AppearanceSource()
         self.services = services
+        self.export = export
         self.libraryURL = libraryURL
         self.appearance = appearance
         self.engines = ReadingEngineRegistry([

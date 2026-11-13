@@ -29,10 +29,16 @@ public protocol WKURLSchemeTask: NSObjectProtocol {
 @MainActor public protocol WKNavigationDelegate: NSObjectProtocol {
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void)
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView)
+    /// webkit/wknavigationdelegate/webview(_:didfinish:) (macOS 10.10+) — `WKNavigation!`
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!)
+    /// webkit/wknavigationdelegate/webview(_:didfail:witherror:) (macOS 10.10+) — `WKNavigation!`
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error)
 }
 extension WKNavigationDelegate {
     public func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void) {}
     public func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {}
+    public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {}
+    public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {}
 }
 
 /// webkit/wkuidelegate
@@ -104,6 +110,10 @@ public enum WKNavigationActionPolicy: Int, Sendable { case cancel, allow, downlo
     open var isInspectable: Bool { get { false } set {} }
     @discardableResult open func load(_ request: URLRequest) -> WKNavigation? { nil }
     @discardableResult open func reload() -> WKNavigation? { nil }
+    /// webkit/wkwebview/loadhtmlstring(_:baseurl:) (macOS 10.10+)
+    @discardableResult open func loadHTMLString(_ string: String, baseURL: URL?) -> WKNavigation? { nil }
+    /// webkit/wkwebview/printoperation(with:) (macOS 11.0+)
+    open func printOperation(with printInfo: NSPrintInfo) -> NSPrintOperation { NSPrintOperation(view: self, printInfo: printInfo) }
     /// webkit/wkwebview/callasyncjavascript(_:arguments:in:contentworld:) — async, macOS 12.0+
     @discardableResult @MainActor @preconcurrency open func callAsyncJavaScript(_ functionBody: String, arguments: [String: Any] = [:], in frame: WKFrameInfo? = nil, contentWorld: WKContentWorld) async throws -> Any? { nil }
     @discardableResult @MainActor @preconcurrency open func evaluateJavaScript(_ javaScript: String, in frame: WKFrameInfo? = nil, contentWorld: WKContentWorld) async throws -> Any? { nil }

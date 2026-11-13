@@ -1,6 +1,8 @@
 #if os(macOS)
 import SwiftUI
+import GlossAppModel
 import GlossEditor
+import GlossExport
 import GlossUI
 
 /// The app's entry point. `AppRoot.load()` is the composition root (CLAUDE.md, "Dependency
@@ -13,7 +15,8 @@ struct GlossApp: App {
         WindowGroup {
             switch root {
             case .success(let root):
-                MainWindow(services: root.services, engines: root.engines, prepare: { await root.prepare() })
+                MainWindow(services: root.services, engines: root.engines, export: root.export,
+                           prepare: { await root.prepare() })
             case .failure(let failure):
                 ContentUnavailableView("gloss couldn't open your library", systemImage: "exclamationmark.triangle",
                                        description: Text(verbatim: failure.message))
@@ -21,7 +24,8 @@ struct GlossApp: App {
         }
         .commands { NotesFormatCommands()
             GlossWindowCommands()
-            LibraryCommands() }
+            LibraryCommands()
+            GlossExportCommands() }
     }
 }
 #else

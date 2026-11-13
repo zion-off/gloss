@@ -273,6 +273,22 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
 - Opening a book from the sheet opens it in this window (reader + notes follow, today's both-
   panes behaviour).
 
+### `Sources/GlossUI/ExportCommands.swift` (milestone 12)
+
+- File menu: "export book's notes…", "export this page…", "export page and subpages…" after
+  "new"; enabled only with a book/page open. Each runs the export, then a save panel with the
+  default file name from the exporter ("Camus.md"); ⌘S is NOT taken (save is autosave).
+- The notes pane's context menu carries the two page exports.
+- File › print notes… (⌘P) replaces the empty print group: it exports the open page with its
+  subpages to html, loads it into an offscreen non-persistent WKWebView, waits for
+  `didFinish` (5s timeout), and runs `printOperation(with: NSPrintInfo.shared)` as a modal on
+  the key window. Check: the print panel appears **as a sheet on the window**, the preview
+  shows the notes with the print stylesheet, several pages paginate, and the panel's PDF menu
+  saves a working PDF. If the panel misbehaves, the fallback is `operation.run()`.
+  **If the first page comes out blank**, the web view hadn't laid out at `didFinish` — wait a
+  beat (or poll `webView.isLoading`) before printing.
+- A failed export/print shows the alert from `ExportModel.failure` ("couldn't export…").
+
 ### `Sources/GlossEditor/` (milestone 10)
 
 - `NotesEditorTheme.swift` — system fonts and colours only; check light/dark, Increase Contrast
