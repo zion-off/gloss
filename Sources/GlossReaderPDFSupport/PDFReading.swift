@@ -128,14 +128,74 @@ public struct PDFAnnotationLayout: Hashable, Sendable {
 
     /// The highlights and markers under a point on a page (page space).
     public func hit(x: Double, y: Double, on page: Int, slop: Double = 2) -> (highlights: [HighlightID], markers: [LinkTargetID]) {
-        var highlights: [HighlightID] = [], markers: [LinkTargetID] = []
-        for mark in marks(on: page) where mark.rects.contains(where: { $0.contains(x: x, y: y, slop: slop) }) {
+        let hit = Self.hit(marks(on: page), x: x, y: y, slop: slop)
+        return (hit?.highlights ?? [], hit?.markers ?? [])
+    }
+
+    /// What a click at a point (page space) hits among one page's marks, or nil for nothing.
+    public static func hit(_ marks: [Mark], x: Double, y: Double, slop: Double = 2) -> Hit? {
+        var hit = Hit(highlights: [], markers: [], rect: PDFPageRect(x: x, y: y, width: 1, height: 1))
+        var anchored = false
+        for mark in marks {
+            guard let rect = mark.rects.first(where: { $0.contains(x: x, y: y, slop: slop) }) else { continue }
+            if !anchored { hit.rect = rect; anchored = true }
             switch mark.kind {
-            case .highlight(let id, _): if !highlights.contains(id) { highlights.append(id) }
-            case .marker(let id): if !markers.contains(id) { markers.append(id) }
+            case .highlight(let id, _): if !hit.highlights.contains(id) { hit.highlights.append(id) }
+            case .marker(let id): if !hit.markers.contains(id) { hit.markers.append(id) }
             }
         }
-        return (highlights, markers)
+        return anchored ? hit : nil
+    }
+
+    /// A click on marks: everything under it, and the first hit rect (where a popover anchors).
+    public struct Hit: Hashable, Sendable {
+        public var highlights: [HighlightID]
+        public var markers: [LinkTargetID]
+        public var rect: PDFPageRect
+    }
+}
+
+/// A PDF's outline as the reader's table of contents, walked through accessors so it runs
+/// without PDFKit. A PDF's outline comes from the file, so it may be huge, deep or even cyclic:
+/// the walk is bounded in depth and in the number of nodes it visits.
+public enum PDFOutlineTOC {
+    public static func entries<Node>(root: Node?, maxDepth: Int = 4, maxNodes: Int = 2000,
+                                     childCount: (Node) -> Int, child: (Node, Int) -> Node?,
+                                     label: (Node) -> String?, page: (Node) -> Int?) -> [ReaderTocEntry] {
+        guard let root else { return [] }
+        var budget = maxNodes
+        func walk(_ node: Node, depth: Int) -> [ReaderTocEntry] {
+            guard depth < maxDepth else { return [] }
+            var result: [ReaderTocEntry] = []
+            for index in 0..<max(childCount(node), 0) {
+                guard budget > 0 else { break }
+                budget -= 1
+                guard let item = child(node, index) else { continue }
+                let children = walk(item, depth: depth + 1)
+                let title = label(item)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                if !title.isEmpty, let target = page(item), target >= 0 {
+                    result.append(ReaderTocEntry(label: title, target: PDFReaderPositions.locator(page: target), children: children))
+                } else {
+                    // Nowhere to go (no title, or a destination PDFKit couldn't resolve): its
+                    // children move up instead of all pointing at page 1.
+                    result.append(contentsOf: children)
+                }
+            }
+            return result
+        }
+        return walk(root, depth: 0)
+    }
+}
+
+/// Finding a search hit's words on one page, so a hit lands on its own occurrence.
+public enum PDFTextMatch {
+    /// The UTF-16 range of `text` in `pageText` (case- and diacritic-insensitive), or nil.
+    public static func range(of text: String, in pageText: String) -> Range<Int>? {
+        let needle = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return nil }
+        let found = (pageText as NSString).range(of: needle, options: [.caseInsensitive, .diacriticInsensitive])
+        guard found.location != NSNotFound, found.length > 0 else { return nil }
+        return found.location..<(found.location + found.length)
     }
 }
 

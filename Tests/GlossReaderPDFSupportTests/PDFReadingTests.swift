@@ -67,6 +67,94 @@ struct PDFReadingTests {
         #expect(layout.hit(x: 130, y: 205, on: 3).highlights.isEmpty)        // other page
     }
 
+    @Test("a click on one page's marks reports what it hit and the rect to anchor a popover to")
+    func markHit() {
+        let marks = [
+            PDFAnnotationLayout.Mark(kind: .highlight(h1, .yellow), rects: [PDFPageRect(x: 0, y: 0, width: 10, height: 10),
+                                                                            PDFPageRect(x: 100, y: 200, width: 50, height: 10)]),
+            PDFAnnotationLayout.Mark(kind: .marker(m1), rects: [PDFPageRect(x: 120, y: 200, width: 60, height: 10)]),
+        ]
+        let hit = PDFAnnotationLayout.hit(marks, x: 130, y: 205)
+        #expect(hit?.highlights == [h1] && hit?.markers == [m1])
+        // The anchor is the first mark's rect that was hit, not its first rect.
+        #expect(hit?.rect == PDFPageRect(x: 100, y: 200, width: 50, height: 10))
+        #expect(PDFAnnotationLayout.hit(marks, x: 170, y: 205)?.rect == PDFPageRect(x: 120, y: 200, width: 60, height: 10))
+        #expect(PDFAnnotationLayout.hit(marks, x: 500, y: 500) == nil)
+        #expect(PDFAnnotationLayout.hit([], x: 0, y: 0) == nil)
+    }
+
+    /// An outline node for the walk: children by index, a title and a page.
+    final class Node {
+        let label: String?
+        let page: Int?
+        var children: [Node]
+        init(_ label: String?, page: Int?, _ children: [Node] = []) {
+            self.label = label
+            self.page = page
+            self.children = children
+        }
+    }
+
+    func toc(_ root: Node?, maxDepth: Int = 4, maxNodes: Int = 2000) -> [ReaderTocEntry] {
+        PDFOutlineTOC.entries(root: root, maxDepth: maxDepth, maxNodes: maxNodes,
+                              childCount: { $0.children.count }, child: { $1 < $0.children.count ? $0.children[$1] : nil },
+                              label: \.label, page: \.page)
+    }
+
+    @Test("the outline becomes a nested table of contents of page locators")
+    func outline() {
+        let root = Node(nil, page: nil, [
+            Node("part one", page: 0, [Node("chapter 1", page: 2), Node("chapter 2", page: 9)]),
+            Node("  part two ", page: 20),
+        ])
+        let entries = toc(root)
+        #expect(entries.map(\.label) == ["part one", "part two"])
+        #expect(entries[0].target == PDFReaderPositions.locator(page: 0))
+        #expect(entries[0].children.map(\.label) == ["chapter 1", "chapter 2"])
+        #expect(entries[0].children[1].target == PDFReaderPositions.locator(page: 9))
+        #expect(toc(nil).isEmpty)
+    }
+
+    @Test("outline entries with nowhere to go hand their children up instead of pointing at page 1")
+    func outlineUnresolved() {
+        let root = Node(nil, page: nil, [
+            Node("broken link", page: nil, [Node("inner", page: 4)]),
+            Node("", page: 6, [Node("under a blank title", page: 7)]),
+            Node("negative", page: -1),
+        ])
+        #expect(toc(root).map(\.label) == ["inner", "under a blank title"])
+    }
+
+    @Test("a deep, wide or cyclic outline stops at the limits")
+    func outlineBounded() {
+        // Depth: only maxDepth levels come out.
+        var deep = Node("level 5", page: 5)
+        for level in (0..<5).reversed() { deep = Node("level \(level)", page: level, [deep]) }
+        let shallow = toc(Node(nil, page: nil, [deep]), maxDepth: 2)
+        #expect(shallow.count == 1 && shallow[0].children.count == 1 && shallow[0].children[0].children.isEmpty)
+
+        // A cycle (a node that is its own child) ends at the node budget.
+        let loop = Node("loop", page: 1)
+        loop.children = [loop]
+        let cyclic = toc(Node(nil, page: nil, [loop]), maxDepth: 1000, maxNodes: 50)
+        #expect(cyclic.count == 1)
+
+        // A node claiming billions of children is cut off by the budget, too.
+        let wide = PDFOutlineTOC.entries(root: 0, maxNodes: 100, childCount: { $0 == 0 ? Int.max : 0 },
+                                         child: { _, index in index + 1 }, label: { "page \($0)" }, page: { $0 })
+        #expect(wide.count == 100)
+    }
+
+    @Test("a search hit's words are found on its own page, ignoring case and accents")
+    func textMatch() {
+        let page = "Le Café de Flore — the café where Camus wrote"
+        #expect(PDFTextMatch.range(of: "cafe", in: page) == 3..<7)
+        #expect(PDFTextMatch.range(of: "  camus ", in: page).map { (page as NSString).substring(with: NSRange(location: $0.lowerBound, length: $0.count)) } == "Camus")
+        #expect(PDFTextMatch.range(of: "sartre", in: page) == nil)
+        #expect(PDFTextMatch.range(of: "   ", in: page) == nil)
+        #expect(PDFTextMatch.range(of: "x", in: "") == nil)
+    }
+
     @Test("selections become passages; empty ones don't")
     func selections() throws {
         let selection = [
