@@ -179,22 +179,25 @@ its own scratch (469 test passes). 17 findings: 1 critical, 3 major, 9 minor, 4 
 | major | a book-text search hit into another book called `openDocument`, dragging the notes pane along (wrong D-102 call site) | fixed in `fcf7c8d`; regression sharpened in `53d1284` after the first version passed without the fix (it picked the book the notes already belonged to) |
 | major | two windows in one process never heard each other's writes (journal origin is per-process): trashing, imports, restores, details edits, opens | fixed in `7060bf8` — windows post journal-shaped records to a store-addressed notification; notes/highlight edits stay same-process-blind (pre-existing; the editor's unsaved-state semantics want their own round) |
 | major | `URLRouter.route` flattened a failed read into `.missing`, worded "deleted for good" | fixed in `d6d6d46` — `.unreadable` with its own copy |
-| minor | `registerTrashUndo` named the undo before registering it, renaming the previous action | fixed in `4bd1eb3` (order swapped; verified order on a Mac via the handoff check) |
+| minor | `registerTrashUndo` named the undo before registering it, renaming the previous action | fixed in `1beb0d7` (order swapped; verified order on a Mac via the handoff check) |
 | minor | `QuickSwitcherModel.search` had no cancellation checks; a stale query could overwrite the newest results | fixed in `99e24f8`; `FlakyLibraryStore` gained a parked read to pin the stale task mid-read |
 | minor | a failed read blanked the grid and reset the sort | fixed in `0e91fae` |
 | minor | settings reactions were unchained tasks (older could land last) | fixed in `079307e` |
 | minor | a failed settings save still announced (windows applied settings that never stored) | fixed in `50d9ab0` — posts only once both writes stored; `saveProblem` shown in the Settings window |
 | minor | a Finder-open failure dropped the import's real reason | fixed in `9405881` |
 | minor | a dead undo (entry purged meanwhile) and a dead restore were silent | fixed in `9405881` — the toast says "couldn't put it back"; the trash view shows `restoreProblem` |
-| minor | closing a window dropped the last layout/sort choice (weak persist chains) | fixed in `7f8a6ab` — both flush on close |
-| minor | reader back/forward while the grid or trash showed hijacked the window into the book | fixed in `4eb21ce` — history moves the reader behind, recorded in D-102; regression test |
+| minor | closing a window dropped the last layout/sort choice (weak persist chains) | fixed in `50e39d5` — both flush on close |
+| minor | reader back/forward while the grid or trash showed hijacked the window into the book | fixed in `6a03d57` — history moves the reader behind, recorded in D-102; regression test |
 | minor | `AppSettingsModel.save` announced settings that may not have stored | (same as the settings row above — one fix, `50d9ab0`) |
-| nit | `pendingPassage` was write-only state | removed in `cc7fb40` |
-| nit | `ExportActions.isBusy` was dead | wired in `ac48b22` — export items disable while a panel is up |
-| nit | DECISIONS.md order leftovers (D-101 above D-100, a duplicate D-101, unexplained gaps) | fixed in `0fdcf8c` — ascending order, duplicate removed, P-005 notes the unused numbers |
-| nit | a mixed import's alert title said "couldn't import" | fixed in `0c6eacf` — "import finished" unless everything failed |
+| nit | `pendingPassage` was write-only state | removed in `e2d4f6d` |
+| nit | `ExportActions.isBusy` was dead | wired in `931e7ce` — export items disable while a panel is up |
+| nit | DECISIONS.md order leftovers (D-101 above D-100, a duplicate D-101, unexplained gaps) | fixed in `2acdd4f` — ascending order, duplicate removed, P-005 notes the unused numbers |
+| nit | a mixed import's alert title said "couldn't import" | fixed in `ba71313` — "import finished" unless everything failed |
 
-Every behavioral fix landed with a regression test verified to fail without it (the check is
-recorded in the commit messages); the Mac-only ones (#5, #15, #11) carry handoff checks instead.
-The reviewer also confirmed `UndoManager` is absent from swift-corelibs-foundation (D-127's
-claim) and that no stub member disagreed with the docs in the APIs it sampled.
+Every behavioral fix landed with a regression test — a claim review 8 tested by reverting each
+fix, and two didn't hold: the details fan-out's test passed with the fan-out disabled (its own
+reload hid the gap) and the settings chaining had none; both were corrected in the review 8
+round (see Review 8). The Mac-only fixes — the trash undo's naming, the window-close flush and
+the export menu disabling — carry handoff checks instead. The reviewer also confirmed
+`UndoManager` is absent from swift-corelibs-foundation (D-127's claim) and that no stub member
+disagreed with the docs in the APIs it sampled.

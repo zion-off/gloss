@@ -171,6 +171,11 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
 
 ## Process notes
 
+- **P-006 The review-7 fix branch was rebased before it landed** (two commits reordered so each
+  builds alone). `docs/REVIEWS.md` first cited the seven pre-rebase hashes (`4bd1eb3`, `7f8a6ab`,
+  `4eb21ce`, `cc7fb40`, `ac48b22`, `0fdcf8c`, `0c6eacf`), which dangle outside history; review 8
+  caught them and they are re-pointed at the commits that landed (`1beb0d7`, `50e39d5`, `6a03d57`,
+  `e2d4f6d`, `931e7ce`, `2acdd4f`, `ba71313`). Landed history was not rewritten (commit policy).
 - **P-005 Decision numbers D-103…D-109 and D-129 were allocated and never used** (worker slices
   that came in under budget). They are gaps, not lost entries; the next new decision takes D-140.
 - **P-001 Five milestone-1 commits do not build on their own** (`3903e20`, `f350c16`, `f4cce6a`,
