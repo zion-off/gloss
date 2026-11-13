@@ -7,6 +7,12 @@ import GlossNotes
 /// text drawing entirely. Not main-actor isolated: neither is `NSTextLayoutFragment`, whose
 /// `draw(at:in:)` this overrides.
 final class SubpageRowFragment: NSTextLayoutFragment {
+    /// The row spans the whole fragment, not just the (hidden) text's width: TextKit clips drawing
+    /// to this rect, in the fragment's own coordinates.
+    override var renderingSurfaceBounds: CGRect {
+        CGRect(origin: .zero, size: layoutFragmentFrame.size)
+    }
+
     var row: SubpageRow?
     /// The text view's appearance when the fragment was made (light, dark, high contrast).
     var appearance: NSAppearance?
@@ -26,9 +32,10 @@ final class SubpageRowFragment: NSTextLayoutFragment {
     }
 
     private func drawRow(_ row: SubpageRow, at point: CGPoint) {
-        let frame = layoutFragmentFrame
-        let origin = CGPoint(x: point.x + frame.origin.x, y: point.y + frame.origin.y)
-        let bounds = CGRect(origin: origin, size: frame.size)
+        // `point` is already where this fragment's origin lands in the context: adding the
+        // frame's own origin on top pushed the row down by the paragraph's offset in the page,
+        // out of the clip, so every row but one at the very top was invisible.
+        let bounds = CGRect(origin: point, size: layoutFragmentFrame.size)
 
         // The icon: a document glyph; a plain rounded rect if symbols are unavailable.
         let iconRect = CGRect(x: bounds.minX + 2, y: bounds.midY - 8, width: 16, height: 16)
