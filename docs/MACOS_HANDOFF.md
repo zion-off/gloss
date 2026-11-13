@@ -139,7 +139,7 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
        turns a second one, and flicking again straight away turns the next page.
     2. Swipe at the last page of a chapter: a blank page slides in, then the next chapter appears at
        its start (backwards: the previous chapter at its end). At the very first/last page nothing moves.
-    3. Two-finger vertical swipe: one page per swipe (down = next). A mouse wheel: one page per notch.
+    3. Two-finger vertical swipe: nothing happens (pages slide sideways). A mouse wheel: one page per notch.
     4. Arrow keys, Page Up/Down, Space and Shift-Space turn with a ~300 ms slide; ↑/↓ turn too. With
        System Settings › Accessibility › Display › Reduce motion on, turns cut instead of sliding.
     5. Scrolled flow: trackpad and wheel scroll natively with momentum, ↑/↓ scroll by lines.

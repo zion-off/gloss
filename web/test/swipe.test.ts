@@ -24,11 +24,11 @@ test('resting before the lift settles without a push; a touch without movement d
     assert.deepEqual(t.feed('cancel', 0, 0, 700, true), [])
 })
 
-test('a vertical gesture, or one that cannot drag, turns once per gesture', () => {
+test('a vertical gesture does nothing; one that cannot drag turns once per gesture', () => {
     const t = makeSwipeTracker()
     t.feed('begin', 0, 0, 0, true)
     const actions = [0, 1, 2, 3, 4].flatMap(i => t.feed('change', 1, 12, i * 8, true))
-    assert.deepEqual(actions, [{ kind: 'turn', axis: 'y', forward: true }])
+    assert.deepEqual(actions, [])
     assert.deepEqual(t.feed('end', 0, 0, 50, true), [])
     t.feed('begin', 0, 0, 100, false)
     const back = [0, 1, 2, 3].flatMap(i => t.feed('change', -12, 0, 100 + i * 8, false))

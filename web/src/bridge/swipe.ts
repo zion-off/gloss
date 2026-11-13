@@ -9,8 +9,10 @@
 //   then one `settle` with the lift velocity (px/ms), which foliate's `snap` turns into the
 //   nearest page, pushed by the velocity (so a short flick turns, a slow half drag decides by
 //   distance);
-// - vertical, or a renderer that can't be dragged: a single `turn` once the gesture has moved
-//   far enough, like a wheel.
+// - vertical: ignored. Pages slide sideways, so a vertical swipe turning one would contradict the
+//   motion (and a page of a paginated book has nothing to scroll vertically);
+// - a renderer that can't be dragged: a single horizontal `turn` once the gesture has moved far
+//   enough, like a wheel.
 
 export type SwipePhase = 'begin' | 'change' | 'end' | 'cancel'
 
@@ -59,6 +61,7 @@ export const makeSwipeTracker = (): SwipeTracker => {
             g.samples.push({ time, delta })
             return [{ kind: 'drag', delta }]
         }
+        if (g.axis === 'y') return []
         g.distance += delta
         if (g.turned || Math.abs(g.distance) < TURN_DISTANCE) return []
         g.turned = true
