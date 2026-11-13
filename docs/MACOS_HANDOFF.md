@@ -132,6 +132,11 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
 - `NotesEditorCoordinator.swift` — the fragment delegate is `nonisolated` with
   `MainActor.assumeIsolated` (TextKit lays out on the main thread); it must never be hit from a
   background layout pass. If it ever crashes there, the rows snapshot needs a lock instead.
+- `NotesHover.swift` + the text view's tracking area — resting the pointer on a passage link shows
+  its quote, label and book in a transient popover (120 ms rest, one lookup per link, cancelled on
+  move). Check: the popover anchors to the link's line, closes on click/scroll/leave, and nothing
+  shows over web or page links. `characterIndex(for:)` (used for clicks) and the
+  `NSTrackingArea(rect: .zero, … .inVisibleRect …)` pattern are standard but unverified in the notes.
 - `Sources/GlossMac/MainWindow.swift` — the editor pane: page loads, the unsaved-changes alert,
   breadcrumbs, and the reveal (a marker click selects the link line and scrolls to it). The split
   layout switches with the workspace setting; the real split view is milestone 11.

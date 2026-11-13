@@ -20,6 +20,8 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
     private var displayedSubpageRows: [SubpageRow] = []
     private var displayedSpans: [StyleSpan] = []
     private var lastRevealToken: UUID?
+    private let hover = NotesHoverPopover()
+    private var hoverTask: Task<Void, Never>?
     let actions: NotesEditorActions
 
     /// A `gloss://` link was clicked (the window routes it).
@@ -56,6 +58,8 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
         textView.backgroundColor = .textBackgroundColor
         textView.onTextClick = { [weak self] index in self?.textClicked(at: index) }
         textView.onFocusChange = { [weak self] focused in self?.actions.isEditing = focused }
+        textView.onHover = { [weak self] point in self?.pointerMoved(to: point) }
+        textView.onHoverEnd = { [weak self] in self?.hover.close() }
 
         let scrollView = NSScrollView()
         scrollView.documentView = textView
@@ -77,6 +81,33 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
         NotificationCenter.default.removeObserver(self)
         textView?.delegate = nil
         actions.isEditing = false
+        hoverTask?.cancel()
+        hover.close()
+    }
+
+    // MARK: Hover
+
+    /// Resting the pointer on a passage link shows its passage. One lookup per link, not per
+    /// pixel: the task is cancelled and replaced when the link under the pointer changes.
+    private func pointerMoved(to point: NSPoint) {
+        guard let textView else { return }
+        let index = textView.characterIndexForInsertion(at: point)
+        guard index != NSNotFound else { hover.close(); return }
+        // The whole link (label + destination) under the pointer, if it's a passage link.
+        guard let scanned = LinkScanner.link(at: index, in: model.document),
+              case .passage(let target)? = GlossLink(string: scanned.destination) else { hover.close(); return }
+        // The anchor: the link's first line, in this view's coordinates.
+        let range = NSRange(scanned.range)
+        let screenRect = textView.firstRect(forCharacterRange: range, actualRange: nil)
+        let windowRect = textView.window.map { $0.convertFromScreen(screenRect) } ?? screenRect
+        let anchor = textView.convert(windowRect, from: nil)
+
+        hoverTask?.cancel()
+        hoverTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(120))  // a rest, not a pass-through
+            guard !Task.isCancelled, let self, let preview = await self.model.preview(at: index) else { return }
+            self.hover.show(preview, for: target, of: self.textView ?? NSView(), anchor: anchor)
+        }
     }
 
     // MARK: Subpage rows
