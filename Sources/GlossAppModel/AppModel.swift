@@ -88,7 +88,13 @@ import GlossReaderBridge
             let settings = note.userInfo?[glossReaderSettingsKey] as? ReaderSettings
             MainActor.assumeIsolated {
                 guard let self else { return }
-                self.settingsTask = Task { await self.applySettingsChange(settings) }
+                // Chained, like every other write in the app: two saves landing close together
+                // apply in the order they were saved, so the newest settings win (review 7).
+                let previous = self.settingsTask
+                self.settingsTask = Task {
+                    await previous?.value
+                    await self.applySettingsChange(settings)
+                }
             }
         }
         self.settingsToken = SettingsObserverToken(observer: observer)
