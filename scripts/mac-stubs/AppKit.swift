@@ -357,6 +357,15 @@ open class NSImage: NSObject {
     public convenience init?(data: Data) { fatalError() }
     open var tiffRepresentation: Data? { nil }
     open func draw(in rect: NSRect) {}
+    /// appkit/nsimage/size
+    open var size: NSSize { get { .zero } set {} }
+    /// appkit/nsimage/withsymbolconfiguration(_:) (macOS 11.0)
+    @discardableResult open func withSymbolConfiguration(_ configuration: NSImage.SymbolConfiguration) -> NSImage? { nil }
+    /// appkit/nsimage/symbolconfiguration-swift.class (macOS 11.0)
+    open class SymbolConfiguration: NSObject {
+        /// symbolconfiguration-swift.class/init(pointsize:weight:)
+        public convenience init(pointSize: CGFloat, weight: NSFont.Weight) { self.init() }
+    }
 }
 
 /// appkit/nsbitmapimagerep

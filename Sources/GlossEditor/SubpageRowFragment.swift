@@ -31,10 +31,12 @@ final class SubpageRowFragment: NSTextLayoutFragment {
     var row: SubpageRow?
     /// The text view's appearance when the fragment was made (light, dark, high contrast).
     var appearance: NSAppearance?
+    /// The notes' body font (the editor theme's), so the title matches the text around it.
+    var font: NSFont = NSFont.preferredFont(forTextStyle: .body)
 
     /// The row's title as drawn (live, not the label in the text).
-    static func titleAttributes(trashed: Bool) -> [NSAttributedString.Key: Any] {
-        [ .font: NSFont.preferredFont(forTextStyle: .body),
+    static func titleAttributes(font: NSFont, trashed: Bool) -> [NSAttributedString.Key: Any] {
+        [ .font: font,
           .foregroundColor: trashed ? NSColor.tertiaryLabelColor : NSColor.labelColor,
           .strikethroughStyle: NSNumber(value: trashed ? NSUnderlineStyle.single.rawValue : 0) ]
     }
@@ -54,31 +56,37 @@ final class SubpageRowFragment: NSTextLayoutFragment {
 
         // The hover block is the text view's (`NotesTextView.hoverRowRect`, a view of its own): a
         // fragment's rendering is cached and doesn't repaint when the pointer moves.
-        // The icon: a document glyph; a plain rounded rect if symbols are unavailable.
-        let iconRect = CGRect(x: bounds.minX + 2, y: bounds.midY - 8, width: 16, height: 16)
-        if let image = NSImage(systemSymbolName: "doc.text", accessibilityDescription: nil) {
+        // The icon: a document glyph at the text's size, in a slot a little wider than it, drawn at
+        // its own aspect (a square rect squished it); a plain rounded rect if symbols are missing.
+        let slot = CGRect(x: bounds.minX + 2, y: bounds.minY, width: (font.pointSize * 1.5).rounded(), height: bounds.height)
+        if let symbol = NSImage(systemSymbolName: "doc.text", accessibilityDescription: nil) {
+            let image = symbol.withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: font.pointSize, weight: .regular)) ?? symbol
+            let size = image.size
             // A symbol drawn as is comes out black; tint a copy with the (resolved) label colour.
             let color: NSColor = row.isTrashed ? .tertiaryLabelColor : .secondaryLabelColor
-            let tinted = NSImage(size: iconRect.size, flipped: false) { rect in
+            let tinted = NSImage(size: size, flipped: false) { rect in
                 image.draw(in: rect)
                 color.set()
                 rect.fill(using: .sourceAtop)
                 return true
             }
-            tinted.draw(in: iconRect)
+            tinted.draw(in: CGRect(x: slot.midX - size.width / 2, y: slot.midY - size.height / 2,
+                                   width: size.width, height: size.height))
         } else {
             NSColor.tertiaryLabelColor.setFill()
-            NSBezierPath(roundedRect: iconRect, xRadius: 3, yRadius: 3).fill()
+            let side = font.pointSize
+            NSBezierPath(roundedRect: CGRect(x: slot.midX - side / 2, y: slot.midY - side / 2, width: side, height: side),
+                         xRadius: 3, yRadius: 3).fill()
         }
 
-        let title = NSAttributedString(string: row.title, attributes: Self.titleAttributes(trashed: row.isTrashed))
+        let title = NSAttributedString(string: row.title, attributes: Self.titleAttributes(font: font, trashed: row.isTrashed))
         // Centred on the row like the icon (drawing in the whole row's rect puts it at the top).
         let height = title.size().height
-        let textRect = CGRect(x: iconRect.maxX + 6, y: bounds.midY - height / 2,
-                              width: max(bounds.width - iconRect.width - 40, 0), height: height)
+        let textRect = CGRect(x: slot.maxX + 6, y: bounds.midY - height / 2,
+                              width: max(bounds.width - slot.width - 40, 0), height: height)
         title.draw(with: textRect, options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
         if row.isTrashed == false {
-            let chevron = NSAttributedString(string: "›", attributes: Self.titleAttributes(trashed: false))
+            let chevron = NSAttributedString(string: "›", attributes: Self.titleAttributes(font: font, trashed: false))
             let size = chevron.size()
             chevron.draw(at: CGPoint(x: bounds.maxX - size.width - 6, y: bounds.midY - size.height / 2))
         }

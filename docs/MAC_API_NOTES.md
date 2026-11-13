@@ -741,6 +741,9 @@ enum OrderingMode { case below, out, above }                 // NSWindow.Orderin
 var minimumLineHeight: CGFloat { get set }                   // NSMutableParagraphStyle, 10.0; "regardless of the font size"
 var maximumLineHeight: CGFloat { get set }                   // NSMutableParagraphStyle, 10.0; 0 = no limit
 var lineBreakMode: NSLineBreakMode { get set }               // NSMutableParagraphStyle, 10.0; `.byClipping` keeps a paragraph on one line
+convenience init(pointSize: CGFloat, weight: NSFont.Weight)  // NSImage.SymbolConfiguration (symbolconfiguration-swift.class), 11.0
+func withSymbolConfiguration(_ configuration: NSImage.SymbolConfiguration) -> NSImage?   // NSImage, 11.0
+var size: NSSize { get set }                                 // NSImage
 ```
 
 ---

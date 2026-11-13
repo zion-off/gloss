@@ -520,6 +520,10 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
     5. Put the caret at the row's end (arrow keys): the row's markdown never appears or wraps.
     6. If the block draws over the row's title rather than under it, TextKit draws text beneath
        its subviews here; it is translucent, so still fine, but note it.
+    7. Click a row: the block vanishes at once (not ~0.5 s later, after the subpage opened).
+    8. The row's icon isn't squished (the symbol at its own aspect, sized from the body font), and
+       its title is exactly the size of the notes text around it. All plain notes text is now the
+       system body font (it was the text system's Helvetica 12 fallback): check it reads like Notes.
 - `NotesEditorCoordinator.swift` — the fragment delegate is `nonisolated` and builds the fragment
   there (TextKit's classes aren't main-actor isolated); only the read of the model's rows uses
   `MainActor.assumeIsolated`. It must never be hit from a background layout pass; if it ever crashes

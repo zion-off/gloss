@@ -58,7 +58,11 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         // No background of its own: the notes are written straight onto the window's sheet.
         textView.drawsBackground = false
         textView.onTextClick = { [weak self] index in self?.textClicked(at: index) ?? false }
-        textView.onRowClick = { [weak self] row in self?.openPage?(row.pageID) }
+        textView.onRowClick = { [weak self] row in
+            // The block goes the moment the row is clicked, not when the next page has loaded.
+            self?.setRowHover(nil)
+            self?.openPage?(row.pageID)
+        }
         textView.onFocusChange = { [weak self] focused in self?.actions.focusChanged(focused) }
         textView.onHover = { [weak self] point in self?.pointerMoved(to: point) }
         textView.onHoverEnd = { [weak self] in self?.endHover(); self?.setRowHover(nil) }
@@ -149,11 +153,14 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
             // a fragment draws: carry it along (dark mode drew black on black). AppKit objects,
             // touched here on the main thread only.
             nonisolated(unsafe) var appearance: NSAppearance?
+            nonisolated(unsafe) var font: NSFont?
             fragment.row = MainActor.assumeIsolated {
                 appearance = textView?.effectiveAppearance
+                font = theme.baseFont(.body)
                 return SubpageRows.row(covering: paragraph, in: model.subpageRows)
             }
             fragment.appearance = appearance
+            if let font { fragment.font = font }
         }
         return fragment
     }
@@ -228,6 +235,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         // The old page's undo history must not survive the switch: replaying it would edit the
         // new page's buffer (review 5).
         textView.undoManager?.removeAllActions()
+        setRowHover(nil)  // another page's rows: the old block must not linger
         storage.beginEditing()
         storage.replaceCharacters(in: NSRange(location: 0, length: storage.length), with: text)
         storage.endEditing()

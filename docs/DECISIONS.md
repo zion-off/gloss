@@ -506,3 +506,7 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   fragment's typographic bounds, container width), clicks and hover hit that rect
   (`NotesTextView.rowHit`), and the hover block is a hit-transparent subview placed below the
   text's.
+  Follow-ups: every run now carries a font (plain runs fell back to Helvetica 12, so the row's
+  body-font title looked bigger than the notes); the row's icon is the symbol configured at the
+  body font's size and drawn at its own aspect; the hover block clears on a row click and when
+  another page's text is installed.

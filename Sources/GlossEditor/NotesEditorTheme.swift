@@ -43,7 +43,9 @@ import GlossNotes
         var font = baseFont(style.font ?? .body)
         if style.bold == true { font = Self.withTraits(font, .bold) }
         if style.italic == true { font = Self.withTraits(font, .italic) }
-        if style.font != nil || style.bold != nil || style.italic != nil { attributes[.font] = font }
+        // Always a font: a run without one draws in the text system's default (Helvetica 12),
+        // which is why plain notes text and a subpage row's title (body font) differed in size.
+        attributes[.font] = font
 
         switch style.color {
         case .text?: break
