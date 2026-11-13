@@ -33,7 +33,7 @@ public struct TrashToast: Equatable, Sendable {
 
     public init(services: GlossServices,
                 dismissDelay: Duration = .seconds(6),
-                sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }) {
+                sleep: @escaping @Sendable (Duration) async throws -> Void = taskSleep) {
         self.services = services
         self.dismissDelay = dismissDelay
         self.sleep = sleep

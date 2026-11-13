@@ -468,3 +468,9 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   page and vertical swipes are ignored (pages slide sideways); the paginator gets `animated` (unless reduce motion). Reason: DOM wheel events carry
   no phase, so the page can't tell a lift from momentum or one swipe from the next — that is why a
   page-per-gesture wheel handler felt wrong. Gesture logic lives in `web/src/bridge/swipe.ts` (tested).
+- **D-143 Debounced models sleep through a named function, never a default-argument closure.**
+  `AppSettingsModel` and `DeletionModel` defaulted `sleep` to `{ try await Task.sleep(for: $0) }`;
+  Swift 6.2.3 miscompiles that closure in a `@MainActor` init's default argument, so cancelling the
+  pending save (any second settings change) aborted in `swift_task_dealloc` ("freed pointer was not
+  the last allocation", crash reports of 2026-11-13). `taskSleep(_:)` (GlossAppModel) replaces it;
+  a test drives quick changes with the real sleep (it reproduced the abort on macOS).

@@ -48,7 +48,7 @@ public let glossReaderSettingsKey = "readerSettings"
 
     public init(services: GlossServices,
                 saveDelay: Duration = .milliseconds(400),
-                sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }) {
+                sleep: @escaping @Sendable (Duration) async throws -> Void = taskSleep) {
         self.services = services
         self.saveDelay = saveDelay
         self.sleep = sleep

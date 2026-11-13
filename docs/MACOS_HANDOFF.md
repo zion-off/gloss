@@ -411,6 +411,10 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
 - A book opened after a change starts with it (AppRoot's appearance source follows the same
   notification). Settings saved while a book is mid-open (between click and `.opened`) apply
   at the next open — check the theme doesn't stick stale in that window.
+- **Crash fixed (D-143):** changing any setting twice within 400 ms aborted the app in
+  `AppSettingsModel.scheduleSave` (`swift_task_dealloc`). Drag a slider back and forth and click
+  through every theme quickly: no crash, and the book follows. Undo toasts (trash two things
+  quickly) use the same sleep — check they still dismiss after ~6 s.
 - Check the 420 pt width feels right, labels don't truncate, and dragging a slider saves once
   (no flicker of the picker's checkmark).
 

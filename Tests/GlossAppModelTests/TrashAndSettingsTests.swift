@@ -373,6 +373,20 @@ struct AppSettingsModelTests {
                 == [styler.appearance(for: night).colors.background,
                     styler.appearance(for: light).colors.background])
     }
+
+    @Test("quick changes with the real sleep cancel the pending save without crashing (D-143)")
+    func quickChangesWithTheRealSleep() async throws {
+        let lib = TestLibrary()
+        let settings = AppSettingsModel(services: lib.services, saveDelay: .milliseconds(50))
+        await settings.load()
+        for size in 15...19 {
+            settings.reader.fontSize = Double(size)
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        try await Task.sleep(for: .milliseconds(300))
+        let stored = try await ReaderSettingsStore(settings: lib.services.settings).load()
+        #expect(stored.fontSize == 19)
+    }
 }
 
 @MainActor
