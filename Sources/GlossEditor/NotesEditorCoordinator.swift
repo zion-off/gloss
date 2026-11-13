@@ -101,7 +101,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
         let document = content.documentRange
         let lower = content.offset(from: document.location, to: elementRange.location)
         let upper = content.offset(from: document.location, to: elementRange.endLocation)
-        return model.subpageRows.first { $0.lineRange.contains(lower) && $0.lineRange.contains(upper - 1) }
+        return SubpageRows.row(covering: lower..<upper, in: model.subpageRows)
     }
 
     /// Rows changed without the text changing (a rename from another window): rebuild the

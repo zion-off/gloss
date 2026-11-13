@@ -188,4 +188,19 @@ struct LinkGestureTests {
         let atEnd = LinkGesture.quoteInsertion(of: passage, target: target, into: "a", caret: nil)
         #expect(atEnd.body.hasSuffix("[↗](gloss://passage/\(target))\n"))
     }
+
+    @Test("the row covering a paragraph matches by overlap, terminator or not")
+    func rowCovering() {
+        let row = SubpageRow(lineRange: 4..<19, pageID: PageID(GlossID(high: 1, low: 1)), title: "t", isTrashed: false)
+        // The paragraph's element range without its newline, with it, and the bare line.
+        for range in [4..<19, 4..<20, 5..<18] {
+            #expect(SubpageRows.row(covering: range, in: [row])?.lineRange == 4..<19, "\(range)")
+        }
+        // Neighbouring paragraphs don't match, and degenerate ranges match nothing.
+        for range in [0..<4, 19..<25, 7..<7] {
+            #expect(SubpageRows.row(covering: range, in: [row]) == nil, "\(range)")
+        }
+        #expect(SubpageRows.row(covering: 4..<20, in: []) == nil)
+    }
 }
+
