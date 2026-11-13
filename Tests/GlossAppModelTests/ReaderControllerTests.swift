@@ -361,6 +361,35 @@ struct ReaderControllerTests {
         #expect(controller.isShowingBook)
     }
 
+    @Test("a failed position read doesn't open the book at the start")
+    func failedPositionRead() async throws {
+        let memory = TestLibrary()
+        let flaky = FlakyLibraryStore(memory.store)
+        let services = GlossServices(store: flaky, blobs: memory.blobs, formats: memory.services.formats,
+                                     ids: memory.services.ids, time: memory.clock)
+        let (book, _) = try await memory.book()
+        try await services.library.savePosition(Locator(scheme: FakeFormat.scheme, value: "saved"),
+                                                progression: 0.4, label: nil, of: book.id)
+        let controller = ReaderController(services: services)
+        let driver = FakeDriver()
+        controller.attach(driver)
+        await controller.handle(.ready)
+
+        flaky.failsReads = true
+        await controller.open(book)
+        #expect(driver.calls.isEmpty)
+        #expect(controller.errorMessage == "couldn't open the book just now")
+
+        flaky.failsReads = false
+        await controller.retryOpen()
+        #expect(driver.opens == [book.id])
+        await controller.handle(.opened(toc: [], openID: driver.lastOpenID))
+        await controller.handle(.relocated(location("start", 0.01)))
+        await controller.flushPosition()
+        // The saved position was never clobbered by a fallback open at the start.
+        #expect(try await services.library.position(of: book.id)?.locator.value == "start")
+    }
+
     @Test("a failed open doesn't wedge the reader: the same book opens again")
     func failedOpen() async throws {
         let lib = TestLibrary()

@@ -105,7 +105,15 @@ import GlossReaderBridge
         toc = []
         location = nil
         pendingFocus = locator
-        let saved = locator == nil ? (try? await services.library.position(of: document.id))?.locator : nil
+        // A failed read proves nothing: opening at the start would let the first relocation
+        // overwrite the real saved position (review 4). Don't open; the user can retry.
+        let saved: Locator?
+        do {
+            saved = locator == nil ? try await services.library.position(of: document.id)?.locator : nil
+        } catch {
+            errorMessage = "couldn't open the book just now"
+            return
+        }
         guard request == openRequests else { return }  // a newer open or a close took over
         pendingOpen = (document, locator ?? saved)
         if isReady { await performPendingOpen() }
