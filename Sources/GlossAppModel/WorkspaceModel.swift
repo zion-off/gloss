@@ -44,8 +44,6 @@ public struct ReaderFocus: Hashable, Sendable {
 
     /// Where the reader pane should be right now (the engine reacts to changes).
     public private(set) var readerFocus: ReaderFocus?
-    /// A passage link the reader should flash once it lands (set by routing).
-    public private(set) var pendingPassage: LinkTargetID?
     /// A range in the open page the editor should select and scroll to (a marker click).
     public private(set) var pendingNoteReveal: Range<Int>?
 
@@ -150,7 +148,6 @@ public struct ReaderFocus: Hashable, Sendable {
         } else {
             try await showBook(document.id, locator: target.passage.locator)
         }
-        pendingPassage = id
     }
 
     /// The notes pane follows the book when it changes.
@@ -169,7 +166,6 @@ public struct ReaderFocus: Hashable, Sendable {
         try await services.library.markOpened(id)
         readerHistory.visit(ReaderFocus(documentID: id, locator: locator))
         readerFocus = readerHistory.current
-        pendingPassage = nil
     }
 
     /// The notes pane alone: shows a book's main page and records it in the notes' history.
@@ -218,7 +214,6 @@ public struct ReaderFocus: Hashable, Sendable {
         if document == nil {
             page = nil
             readerFocus = nil
-            pendingPassage = nil
             if sidebar.showsBook { sidebar = .library(nil) }
         } else if case .page(let id) = sidebar, page?.id != id {
             sidebar = .book  // the selected page went

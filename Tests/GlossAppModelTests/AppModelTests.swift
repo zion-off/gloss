@@ -75,7 +75,6 @@ struct WorkspaceModelTests {
         let workspace = WorkspaceModel(services: lib.services)
         try await workspace.openPassage(target.id)
         #expect(workspace.document?.id == book.id)
-        #expect(workspace.pendingPassage == target.id)
         #expect(workspace.readerFocus?.locator == Locator(scheme: FakeFormat.scheme, value: "c"))
     }
 
@@ -135,7 +134,6 @@ struct RoutingTests {
         #expect(await app.follow(GlossLink.page(child.id)) == .routed(.page(child.id, book.id)))
         #expect(app.workspace.page?.id == child.id)
         #expect(await app.follow(GlossLink.passage(target.id)) == .routed(.passage(target.id, book.id)))
-        #expect(app.workspace.pendingPassage == target.id)
 
         let stranger = PageID(GlossID(high: 9, low: 9))
         #expect(await app.follow(GlossLink.page(stranger)) == .missing)

@@ -29,7 +29,6 @@ struct IndependentPanesTests {
         #expect(outcome == .routed(.passage(target.id, b.id)))
         #expect(app.workspace.document?.id == b.id)
         #expect(app.workspace.page?.id == aRoot.id)
-        #expect(app.workspace.pendingPassage == target.id)
         #expect(app.workspace.readerFocus?.locator == target.passage.locator)
         // The reader has somewhere to go back to; the notes didn't move.
         #expect(app.workspace.canGoBackInReader)
@@ -120,7 +119,6 @@ struct IndependentPanesTests {
         await app.open(.passage(target.id))
         #expect(app.workspace.document?.id == b.id)
         #expect(app.workspace.page?.id == bRoot.id)
-        #expect(app.workspace.pendingPassage == target.id)
         await app.open(.page(aRoot.id))
         #expect(app.workspace.document?.id == a.id)
         #expect(app.workspace.page?.id == aRoot.id)
