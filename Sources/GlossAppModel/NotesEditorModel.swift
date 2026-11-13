@@ -29,6 +29,25 @@ import GlossNotes
         case failed(String)
     }
 
+    /// Keys whose meaning depends on the editor's state (the text view maps its command selectors
+    /// onto these: `insertNewline:`, `insertTab:`, `insertBacktab:`, `cancelOperation:`,
+    /// `moveUp:`, `moveDown:`).
+    public enum KeyCommand: Sendable {
+        case newline, tab, backtab, cancel, up, down
+    }
+
+    /// What the text view should do with a key command.
+    public enum KeyOutcome: Equatable, Sendable {
+        /// Let the text view do its default.
+        case passThrough
+        /// The model took it (the slash menu moved or closed); do nothing else.
+        case handled
+        /// Apply this edit through the text view's change APIs.
+        case apply(EditResult)
+        /// Run the selected slash command (`confirmSlashMenu()`) and apply its result.
+        case confirmSlashMenu
+    }
+
     public enum EditorError: Error, Equatable, Sendable {
         /// The open page's text couldn't be saved (the reason), so it wasn't replaced.
         case unsavedChanges(String)
@@ -156,6 +175,28 @@ import GlossNotes
 
     public func run(_ command: any MarkdownEditCommand) -> EditResult? {
         command.edit(document, selection: selection)
+    }
+
+    /// Decides a key command: the open slash menu takes Return, Tab, Escape and the arrows;
+    /// otherwise Return continues lists and quotes and Tab indents list items.
+    public func keyCommand(_ command: KeyCommand) -> KeyOutcome {
+        if let menu = slashMenu, !menu.items.isEmpty {
+            switch command {
+            case .up: moveSlashSelection(by: -1); return .handled
+            case .down: moveSlashSelection(by: 1); return .handled
+            case .newline, .tab: return .confirmSlashMenu
+            case .cancel: dismissSlashMenu(); return .handled
+            case .backtab: return .handled
+            }
+        }
+        let result: EditResult?
+        switch command {
+        case .newline: result = returnKey()
+        case .tab: result = tabKey(shift: false)
+        case .backtab: result = tabKey(shift: true)
+        case .cancel, .up, .down: result = nil
+        }
+        return result.map(KeyOutcome.apply) ?? .passThrough
     }
 
     /// Return: continue or end a list or quote; nil means "insert a plain newline".

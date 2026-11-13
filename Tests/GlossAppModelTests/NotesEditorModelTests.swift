@@ -303,5 +303,36 @@ struct NotesEditorModelTests {
         try await model.load(root, discardingUnsaved: true)
         #expect(model.page?.id == root.id && model.saveState == .saved)
     }
+
+    @Test("key commands drive the slash menu when it's open, lists otherwise")
+    func keyCommands() async throws {
+        let lib = TestLibrary()
+        let (_, root) = try await lib.book()
+        let model = editor(lib)
+        try await model.load(root)
+
+        model.textDidChange("- item", selection: 6..<6)
+        guard case .apply(let continued) = model.keyCommand(.newline) else { Issue.record("expected a list edit"); return }
+        apply(continued, to: model)
+        #expect(model.text == "- item\n- ")
+        #expect(model.keyCommand(.up) == .passThrough)
+        #expect(model.keyCommand(.cancel) == .passThrough)
+        model.textDidChange("plain", selection: 5..<5)
+        #expect(model.keyCommand(.newline) == .passThrough)
+        #expect(model.keyCommand(.tab) == .passThrough)
+
+        model.textDidChange("/", selection: 1..<1)
+        let first = try #require(model.slashMenu?.selectedIndex)
+        #expect(model.keyCommand(.down) == .handled)
+        #expect(model.slashMenu?.selectedIndex == first + 1)
+        #expect(model.keyCommand(.up) == .handled)
+        #expect(model.slashMenu?.selectedIndex == first)
+        #expect(model.keyCommand(.newline) == .confirmSlashMenu)
+        #expect(model.keyCommand(.tab) == .confirmSlashMenu)
+        #expect(model.keyCommand(.backtab) == .handled)
+        #expect(model.keyCommand(.cancel) == .handled)
+        #expect(model.slashMenu == nil)
+        #expect(model.keyCommand(.newline) == .passThrough)  // dismissed: Return is a newline again
+    }
 }
 
