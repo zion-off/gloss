@@ -34,6 +34,9 @@ import GlossCore
 
     public var availableShelves: [LibraryShelf] { shelves }
 
+    /// The source list's symbol for a shelf (its format names it).
+    public func symbol(of shelf: LibraryShelf) -> String { services.formats.symbol(of: shelf) }
+
     public func reload() async {
         reloadGeneration += 1
         let generation = reloadGeneration

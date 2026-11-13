@@ -20,6 +20,7 @@ public struct FakeFormat: DocumentFormat, TextExtracting, CoverExtracting {
     public var kind: DocumentKind { Self.kind }
     public var badge: String { "fake" }
     public var shelf: LibraryShelf { .books }
+    public var shelfSymbol: String { "book" }
     public var fileExtensions: [String] { ["fake"] }
 
     public func sniff(_ prefix: Data) -> Bool { prefix.starts(with: Data("FAKEDOC".utf8)) }

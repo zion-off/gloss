@@ -15,6 +15,7 @@ public struct PDFFormat: DocumentFormat, TextExtracting {
     public var kind: DocumentKind { .pdf }
     public var badge: String { "pdf" }
     public var shelf: LibraryShelf { .pdfs }
+    public var shelfSymbol: String { "doc.richtext" }
     public var fileExtensions: [String] { ["pdf"] }
 
     /// `%PDF-` anywhere in the first 1024 bytes (some files carry junk before the header).

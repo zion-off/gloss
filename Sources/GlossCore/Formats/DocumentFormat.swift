@@ -45,11 +45,18 @@ public protocol DocumentFormat: Sendable {
     /// The badge on covers ("epub", "pdf").
     var badge: String { get }
     var shelf: LibraryShelf { get }
+    /// The SF Symbol name for its shelf in the app's source list ("book", "doc.richtext"); plain
+    /// data, so the core stays UI-free. Defaults to "doc".
+    var shelfSymbol: String { get }
     /// Lowercase extensions without the dot.
     var fileExtensions: [String] { get }
     /// True if the first bytes of a file look like this format.
     func sniff(_ prefix: Data) -> Bool
     func readMetadata(from data: Data) throws -> ImportedMetadata
+}
+
+extension DocumentFormat {
+    public var shelfSymbol: String { "doc" }
 }
 
 /// Formats whose text can be extracted for search.
@@ -92,6 +99,10 @@ public struct FormatRegistry: Sendable {
     }
 
     public func shelf(of kind: DocumentKind) -> LibraryShelf? { format(for: kind)?.shelf }
+    /// The symbol of a shelf: its first format's.
+    public func symbol(of shelf: LibraryShelf) -> String {
+        formats.first { $0.shelf == shelf }?.shelfSymbol ?? "doc"
+    }
     public func badge(of kind: DocumentKind) -> String { format(for: kind)?.badge ?? kind.rawValue }
 
     public func textExtractor(for kind: DocumentKind) -> (any TextExtracting)? {

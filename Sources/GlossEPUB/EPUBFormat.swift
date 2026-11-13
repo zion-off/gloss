@@ -19,6 +19,7 @@ public struct EPUBFormat: DocumentFormat, TextExtracting, CoverExtracting {
     public var kind: DocumentKind { .epub }
     public var badge: String { "epub" }
     public var shelf: LibraryShelf { .books }
+    public var shelfSymbol: String { "book" }
     public var fileExtensions: [String] { ["epub"] }
 
     /// A ZIP whose first entry is the `mimetype` file, as the spec requires; or any ZIP with a

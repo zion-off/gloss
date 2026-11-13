@@ -135,6 +135,10 @@ struct LibraryTests {
         #expect(try await lib.services.library.entries(shelf: .books).count == 1)
         #expect(try await lib.services.library.entries(shelf: .pdfs).first?.document.title == "other")
         #expect(lib.services.formats.shelves == [.books, .pdfs])
+        // Shelves take their first format's symbol; a format that names none gets "doc".
+        #expect(lib.services.formats.symbol(of: .books) == "book")
+        #expect(lib.services.formats.symbol(of: .pdfs) == "doc")
+        #expect(lib.services.formats.symbol(of: LibraryShelf("comics")) == "doc")
     }
 
     @Test("editing details keeps the root page title in step only if it was untouched")
