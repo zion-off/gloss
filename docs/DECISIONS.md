@@ -534,3 +534,10 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   appearance to its open EPUB and AppRoot's appearance source updates for later opens. The sample
   page inside Settings is the live preview: it reads the model's draft values and shows theme,
   size, spacing, margins (half scale) and columns/flow.
+- **D-150 Back/forward is its own toolbar item, a navigation-style `ControlGroup`.** Packed with
+  the title into one `HStack` item whose shared background was hidden (macOS 26), the chevrons
+  lost the system's grouped capsule and floated apart. Now the pair is a `ToolbarItem(.navigation)`
+  holding `ControlGroup { back; forward }.controlGroupStyle(.navigation)` (macOS 12; "a separated
+  momentary segmented control" on macOS), and the title is a second `.navigation` item declared
+  after it, only its background hidden on macOS 26. macOS 14 keeps the system title, which the
+  docs place after navigation items.

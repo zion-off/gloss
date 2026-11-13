@@ -261,6 +261,12 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
   14 pt per level. If rows still shift, the collapsible `Section(isExpanded:)` headers are the
   next suspect.
 - The title bar follows the detail column: the shelf's name, "library", "trash", or the book's title.
+- **Back/forward look like Finder's (D-150), unverified:** the toolbar reads [sidebar toggle]
+  [back|forward as one grouped pair] [title] … [layout picker] [search]. The pair is the system's
+  navigation control group: one capsule (glass on macOS 26), system chevrons close together,
+  hover highlight per half, a disabled half greyed out; tooltips "back (⌘[)" / "forward (⌘])",
+  and ⌘[ / ⌘] still work. The title has no capsule of its own and appears once. Opening a book
+  still collapses the sidebar; on macOS 14 the system title sits after the pair.
 
 ### `Sources/GlossUI/LibraryGrid.swift` + `LibraryFeatures.swift` + `LibraryCommands.swift` (milestone 12)
 

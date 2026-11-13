@@ -917,6 +917,9 @@ nonisolated func formStyle<S>(_ style: S) -> some View where S : FormStyle      
 nonisolated static var grouped: GroupedFormStyle { get }                                                            // formstyle/grouped; struct GroupedFormStyle, macOS 13.0
 nonisolated func labelsHidden() -> some View                                                                        // view/labelshidden(), macOS 10.15
 nonisolated func progressViewStyle<S>(_ style: S) -> some View where S : ProgressViewStyle                          // view/progressviewstyle(_:), macOS 11.0
+nonisolated func controlGroupStyle<S>(_ style: S) -> some View where S : ControlGroupStyle                          // view/controlgroupstyle(_:), macOS 12.0
+@MainActor static var navigation: NavigationControlGroupStyle { get }                                               // controlgroupstyle/navigation, macOS 12.0; "on macOS, a separated momentary segmented control"
+static let navigation: ToolbarItemPlacement                                                                          // docs: "places navigation items in the leading edge of the toolbar ahead of the inline title"
 nonisolated static var circular: CircularProgressViewStyle { get }                                                  // progressviewstyle/circular, macOS 11.0
 nonisolated init<V>(value: V?, total: V = 1.0) where Label == EmptyView, CurrentValueLabel == EmptyView, V : BinaryFloatingPoint   // ProgressView init(value:total:), macOS 11.0
 nonisolated func lineSpacing(_ lineSpacing: CGFloat) -> some View                                                   // view/linespacing(_:), macOS 10.15

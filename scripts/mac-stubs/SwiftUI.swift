@@ -800,6 +800,11 @@ extension PrimitiveButtonStyle where Self == DefaultButtonStyle { public static 
 /// macOS 14.0+
 extension PrimitiveButtonStyle where Self == AccessoryBarButtonStyle { public static var accessoryBar: AccessoryBarButtonStyle { .init() } }
 
+/// swiftui/controlgroupstyle; controlgroupstyle/navigation — `NavigationControlGroupStyle` (macOS 12.0)
+public protocol ControlGroupStyle {}
+public struct NavigationControlGroupStyle: ControlGroupStyle { public init() {} }
+extension ControlGroupStyle where Self == NavigationControlGroupStyle { @MainActor public static var navigation: NavigationControlGroupStyle { .init() } }
+
 /// swiftui/progressviewstyle; progressviewstyle/circular — `CircularProgressViewStyle` (macOS 11.0)
 public protocol ProgressViewStyle {}
 public struct CircularProgressViewStyle: ProgressViewStyle { public init() {} }
@@ -888,6 +893,8 @@ extension View {
     nonisolated public func buttonStyle<S: PrimitiveButtonStyle>(_ style: S) -> some View { _Modified(self) }
     nonisolated public func buttonStyle<S: ButtonStyle>(_ style: S) -> some View { _Modified(self) }
     nonisolated public func pickerStyle<S: PickerStyle>(_ style: S) -> some View { _Modified(self) }
+    /// view/controlgroupstyle(_:) (macOS 12.0)
+    nonisolated public func controlGroupStyle<S: ControlGroupStyle>(_ style: S) -> some View { _Modified(self) }
     /// view/progressviewstyle(_:) (macOS 11.0)
     nonisolated public func progressViewStyle<S: ProgressViewStyle>(_ style: S) -> some View { _Modified(self) }
     /// view/formstyle(_:) (macOS 13.0)

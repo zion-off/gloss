@@ -182,18 +182,19 @@ public struct MainWindow: View {
     }()
 
     /// Back and forward, then the title, on the leading edge (Finder, Safari); the layout switch
-    /// right beside the search field on the trailing side. The leading part is one item so the
-    /// order can't be shuffled by the system.
+    /// right beside the search field on the trailing side. Back/forward is its own item, a
+    /// `ControlGroup` in the navigation style, so the system draws Finder's grouped pair (one
+    /// capsule, system chevrons, hover and disabled states); the title is a second navigation
+    /// item after it, without a capsule of its own (D-150).
     @ToolbarContentBuilder private var toolbar: some ToolbarContent {
+        ToolbarItem(placement: .navigation) { backForward }
         if Self.titleInToolbar {
             if #available(macOS 26.0, *) {
-                ToolbarItem(placement: .navigation) { leadingBar(withTitle: true) }
+                ToolbarItem(placement: .navigation) { titleLabel }
                     .sharedBackgroundVisibility(.hidden)
             } else {
-                ToolbarItem(placement: .navigation) { leadingBar(withTitle: true) }
+                ToolbarItem(placement: .navigation) { titleLabel }
             }
-        } else {
-            ToolbarItem(placement: .navigation) { leadingBar(withTitle: false) }
         }
         // Only while the book is on screen: on the library or the trash there is no reader to lay out.
         if case .book = app.workspace.detail {
@@ -209,18 +210,20 @@ public struct MainWindow: View {
         }
     }
 
-    private func leadingBar(withTitle: Bool) -> some View {
-        HStack(spacing: 12) {
-            ControlGroup {
-                Button { commands.goBack() } label: { Label("back", systemImage: "chevron.left") }
-                    .disabled(!commands.canGoBack)
-                    .help("back (⌘[)")
-                Button { commands.goForward() } label: { Label("forward", systemImage: "chevron.right") }
-                    .disabled(!commands.canGoForward)
-                    .help("forward (⌘])")
-            }
-            if withTitle { Text(verbatim: title).font(.headline).lineLimit(1) }
+    private var backForward: some View {
+        ControlGroup {
+            Button { commands.goBack() } label: { Label("back", systemImage: "chevron.left") }
+                .disabled(!commands.canGoBack)
+                .help("back (⌘[)")
+            Button { commands.goForward() } label: { Label("forward", systemImage: "chevron.right") }
+                .disabled(!commands.canGoForward)
+                .help("forward (⌘])")
         }
+        .controlGroupStyle(.navigation)
+    }
+
+    private var titleLabel: some View {
+        Text(verbatim: title).font(.headline).lineLimit(1)
     }
 
     /// Stays on the page the editor still shows (its unsaved text intact): the workspace goes
