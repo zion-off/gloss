@@ -230,8 +230,10 @@ the hit.
 - Buffer = the raw markdown string. Styling is presentation only.
 - `GlossMarkdown` tokenizes into blocks and inlines with UTF-16 ranges (so they map directly
   onto `NSRange`). `StylingRule`s turn the tree into `StyleSpan`s with semantic roles
-  (`heading(1)`, `strong`, `syntax`, `passageLink`, …). The Mac editor maps roles to
-  attributes through a theme. Syntax spans belong to an element; the editor dims syntax
+  (`heading(1)`, `strong`, `syntax`, `passageLink`, …). `NotesTheme` (GlossNotes) maps roles to
+  semantic `TextStyle`s on layers and flattens overlapping spans into `StyledRun`s;
+  `StyledRunDiff` finds what a selection move changed. The Mac editor only turns a run's style into
+  attributes (system fonts and colours). Syntax spans belong to an element; the editor dims syntax
   everywhere and shows it at full strength for the element under the cursor
   (`SyntaxReveal`).
 - Format bar and shortcuts call `MarkdownEditCommand`s that return `TextEdit`s plus a new
