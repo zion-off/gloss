@@ -236,3 +236,49 @@ public enum PDFSelectionMapping {
                        progression: PDFReaderPositions.progression(page: first.page, pageCount: pageCount))
     }
 }
+
+/// Passages the CLI pinned by their words (`pdf-quote`, D-190), turned into the passage locators the
+/// engine draws and jumps to: the words are found in PDFKit's page text (context first, then the
+/// occurrence; `QuoteAnchor.resolve`), PDFKit measures their lines, and the result is remembered
+/// while the document is open. Other locators pass through untouched.
+public struct PDFQuoteResolver: Sendable {
+    private var cache: [String: Locator?] = [:]
+
+    public init() {}
+
+    /// The passage locator for a quote locator (nil when its words aren't on its page); any other
+    /// locator as it is.
+    public mutating func resolve(_ locator: Locator, pageText: (Int) -> String?,
+                                 lineRects: (Int, Range<Int>) -> [PDFPageRect]) -> Locator? {
+        guard let quote = PDFQuoteLocator(locator: locator) else { return locator }
+        if let known = cache[locator.value] { return known }
+        var resolved: Locator?
+        if let text = pageText(quote.page), let range = quote.quote.resolve(in: text) {
+            let rects = lineRects(quote.page, range)
+            if !rects.isEmpty {
+                resolved = PDFPassageLocator(pages: [.init(page: quote.page, ranges: [[range.lowerBound, range.count]],
+                                                           rects: rects.map(\.values))]).locator
+            }
+        }
+        cache[locator.value] = .some(resolved)
+        return resolved
+    }
+
+    /// Annotations with quote locators resolved; markers and highlights whose words can't be found
+    /// are left out (no mark beats a wrong one).
+    public mutating func resolve(_ annotations: ReaderAnnotations, pageText: (Int) -> String?,
+                                 lineRects: (Int, Range<Int>) -> [PDFPageRect]) -> ReaderAnnotations {
+        ReaderAnnotations(
+            highlights: annotations.highlights.compactMap { mark in
+                resolve(mark.locator, pageText: pageText, lineRects: lineRects).map { .init(id: mark.id, locator: $0, color: mark.color) }
+            },
+            markers: annotations.markers.compactMap { mark in
+                resolve(mark.locator, pageText: pageText, lineRects: lineRects).map { .init(id: mark.id, locator: $0) }
+            })
+    }
+
+    /// Where to go when a quote's words can't be found: its page.
+    public static func fallback(for locator: Locator) -> Locator? {
+        PDFQuoteLocator(locator: locator).map { PDFReaderPositions.locator(page: $0.page) }
+    }
+}

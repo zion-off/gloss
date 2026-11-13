@@ -26,6 +26,8 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
     /// The overlays PDFKit is showing, by page index: a new set of annotations reaches the
     /// pages already on screen through these (PDFKit only asks for an overlay once per page).
     private var overlays: [Int: PDFPageOverlay] = [:]
+    /// Passages pinned by their words (`gloss link`), found in this document's pages.
+    private var quotes = PDFQuoteResolver()
 
     init(library: LibraryService, appearance: ReaderAppearance,
          deliver: @escaping @MainActor @Sendable (ReaderEngineEvent) async -> Void) {
@@ -75,6 +77,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
             return
         }
         overlays = [:]
+        quotes = PDFQuoteResolver()
         self.document = pdf
         pageCount = pdf.pageCount
         pdfView.document = pdf
@@ -93,10 +96,16 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
         pageCount = 0
         annotations = PDFAnnotationLayout(.init())
         overlays = [:]
+        quotes = PDFQuoteResolver()
         pdfView.document = nil
     }
 
     func go(to locator: Locator, flash: Bool) async throws {
+        if let fallback = PDFQuoteResolver.fallback(for: locator) {
+            // Words the page doesn't have (any more) still land on their page, unflashed.
+            guard let passage = resolvedQuote(locator) else { return try await go(to: fallback, flash: false) }
+            return try await go(to: passage, flash: flash)
+        }
         let target = try PDFReaderTarget(locator)
         guard let pdf = document, let page = pdf.page(at: clamped(target.pageIndex)) else { return }
         switch target {
@@ -116,7 +125,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
     }
 
     func show(_ annotations: ReaderAnnotations) async throws {
-        self.annotations = PDFAnnotationLayout(annotations)
+        self.annotations = PDFAnnotationLayout(resolvingQuotes(in: annotations))
         // PDFKit asks for each page's overlay once; the pages on screen get the new marks here
         // (a link made with ⌘K must show its marker without scrolling away and back, review 6).
         for (index, overlay) in overlays {
@@ -151,6 +160,31 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
     }
 
     private func clamped(_ index: Int) -> Int { min(max(index, 0), max(pageCount - 1, 0)) }
+
+    // MARK: Quote locators
+
+    /// The passage locator for a `pdf-quote` locator: its words found in the page's text, their
+    /// lines measured by PDFKit (the portable resolver does the rest and remembers it).
+    private func resolvedQuote(_ locator: Locator) -> Locator? {
+        guard let pdf = document else { return nil }
+        return quotes.resolve(locator, pageText: { pdf.page(at: $0)?.string }, lineRects: { Self.lineRects(in: pdf, page: $0, range: $1) })
+    }
+
+    private func resolvingQuotes(in annotations: ReaderAnnotations) -> ReaderAnnotations {
+        guard let pdf = document else { return annotations }
+        return quotes.resolve(annotations, pageText: { pdf.page(at: $0)?.string },
+                              lineRects: { Self.lineRects(in: pdf, page: $0, range: $1) })
+    }
+
+    /// One rect per line of a UTF-16 range of a page's text, in page space.
+    private static func lineRects(in pdf: PDFDocument, page index: Int, range: Range<Int>) -> [PDFPageRect] {
+        guard index >= 0, index < pdf.pageCount, let page = pdf.page(at: index),
+              let selection = page.selection(for: NSRange(location: range.lowerBound, length: range.count)) else { return [] }
+        return selection.selectionsByLine().compactMap { line in
+            guard line.pages.first === page else { return nil }
+            return pageRect(line.bounds(for: page))
+        }
+    }
 
     // MARK: PDFViewDelegate
 

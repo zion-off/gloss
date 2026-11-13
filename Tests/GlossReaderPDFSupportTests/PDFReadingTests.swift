@@ -177,3 +177,37 @@ struct PDFReadingTests {
         #expect(PDFSelectionMapping.passage(from: [PDFPageSelection(page: 0, ranges: [0..<2], rects: [], text: "  \n")], pageCount: 3) == nil)
     }
 }
+
+@Suite("pdf quote locators")
+struct PDFQuoteResolverTests {
+    @Test("quote markers become passage locators on their own occurrence, once; unfound ones drop out")
+    func resolve() throws {
+        // PDFKit breaks lines where the extractor put spaces, and the page has the words twice.
+        let pageText = "the white whale\nand then the white\nwhale again"
+        let anchor = QuoteAnchor(text: "the white whale", prefix: "and then", suffix: "again", occurrence: 1)
+        let quote = PDFQuoteLocator(page: 2, quote: anchor).locator
+        let missing = PDFQuoteLocator(page: 2, quote: QuoteAnchor(text: "a fish")).locator
+        let cfi = Locator(scheme: LocatorScheme("epubcfi"), value: "x")
+        var measured: [Range<Int>] = []
+        var resolver = PDFQuoteResolver()
+        let annotations = ReaderAnnotations(markers: [
+            .init(id: LinkTargetID(GlossID(high: 1, low: 1)), locator: quote),
+            .init(id: LinkTargetID(GlossID(high: 1, low: 2)), locator: missing),
+            .init(id: LinkTargetID(GlossID(high: 1, low: 3)), locator: cfi),
+        ])
+        let rects = { (_: Int, range: Range<Int>) -> [PDFPageRect] in
+            measured.append(range)
+            return [PDFPageRect(x: 1, y: 2, width: 3, height: 4)]
+        }
+        let resolved = resolver.resolve(annotations, pageText: { $0 == 2 ? pageText : nil }, lineRects: rects)
+        #expect(resolved.markers.count == 2)
+        let passage = try #require(PDFPassageLocator(locator: resolved.markers[0].locator))
+        #expect(passage.pages == [.init(page: 2, ranges: [[25, 15]], rects: [[1, 2, 3, 4]])])
+        #expect(resolved.markers[1].locator == cfi)
+        // Cached: drawing again measures nothing new.
+        _ = resolver.resolve(annotations, pageText: { $0 == 2 ? pageText : nil }, lineRects: rects)
+        #expect(measured == [25..<40])
+        #expect(PDFQuoteResolver.fallback(for: missing) == PDFReaderPositions.locator(page: 2))
+        #expect(PDFQuoteResolver.fallback(for: cfi) == nil)
+    }
+}

@@ -235,6 +235,17 @@ gloss link "<epub title>" --text "a second thought" --quote "<a phrase that appe
      and following the link lands at the start of its section without a flash; no error alert.
   8. A CFI-made link and a CLI-made link to the same words show as one underline (the same CFI);
      the marker popover lists both notes.
+- PDF (`PDFReaderSession` `resolvedQuote`, `PDFQuoteResolver`): `gloss page write "<pdf title>" "see this"`,
+  `gloss link "<pdf title>" --text "this" --quote "<words on page 3>" --page 3`.
+  1. The marker underline appears under the quoted words on page 3 within a second, on every line
+     the quote spans, at several zoom levels; it stays put when scrolling away and back.
+  2. Clicking the link in the notes scrolls the passage's first line to the top and flashes it.
+  3. Clicking the marker opens the notes page with the link selected; hover in the notes shows the
+     quote and "page 3".
+  4. A quote whose words PDFKit's page text breaks or hyphenates differently from gloss's extractor
+     (a ligature like "ﬁ", a line break inside the quote) still marks the words.
+  5. A quote that isn't on its page (edit `link_targets` by hand): no marker; the link jumps to the
+     page without a flash.
 
 ### `Sources/GlossReaderKit/ReaderPopovers.swift` + `ReaderPane.swift` (milestone 11)
 
