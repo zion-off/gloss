@@ -83,6 +83,7 @@ import GlossReaderBridge
     public func close() async {
         openRequests += 1
         document = nil
+        errorMessage = nil
         pendingOpen = nil
         pendingFocus = nil
         stopShowingBook()
@@ -101,6 +102,7 @@ import GlossReaderBridge
         openRequests += 1
         let request = openRequests
         self.document = document
+        errorMessage = nil  // a stale error must not speak for this open (review 4)
         stopShowingBook()
         toc = []
         location = nil

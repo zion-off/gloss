@@ -427,6 +427,7 @@ struct ReaderControllerTests {
         await controller.open(a)
         await controller.handle(.openFailed("a's open failed", openID: driver.lastOpenID))
         await controller.open(b)
+        #expect(controller.errorMessage == nil)  // a's failure doesn't speak for b
         // A's failure was queued before B's open: it must not cancel B's.
         await controller.handle(.openFailed("a's open failed", openID: 1))
         await controller.handle(.opened(toc: [], openID: driver.lastOpenID))
