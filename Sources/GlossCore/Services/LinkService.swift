@@ -1,4 +1,5 @@
 import Foundation
+import GlossMarkdown
 
 /// What a `gloss://` link points at right now.
 public enum LinkResolution: Hashable, Sendable {
@@ -28,6 +29,24 @@ public struct PassagePreview: Hashable, Sendable {
     public var label: String?
     public var documentID: DocumentID
     public var documentTitle: String
+}
+
+/// What `LinkService.link` did to a page.
+public struct NotesLinkResult: Hashable, Sendable {
+    public enum Change: Hashable, Sendable {
+        /// The words became a new link.
+        case linked
+        /// The words were inside a link to `from`, which now points at the passage.
+        case relinked(from: String)
+        /// The words already linked to this passage; nothing was written.
+        case alreadyLinked
+    }
+
+    public var page: Page
+    public var target: LinkTarget
+    public var change: Change
+    /// The whole link (`[words](gloss://passage/…)`) in the page's body, UTF-16.
+    public var range: Range<Int>
 }
 
 /// Link targets: creating them for passages, resolving links in both directions.
@@ -117,6 +136,46 @@ public struct LinkService: Sendable {
         try await store.read { tx in
             guard let target = try tx.linkTargets.linkTarget(id), let document = try tx.documents.document(target.documentID) else { return nil }
             return PassagePreview(quote: target.passage.quote, label: target.passage.label, documentID: document.id, documentTitle: document.title)
+        }
+    }
+
+    /// Wraps words of a page in a link to a passage (`gloss link`), creating or reusing the
+    /// passage's target (D-026), in one write. `range` is where the caller found `text` in the
+    /// body; if the page changed since, nothing is written. Words already linked to this target
+    /// stay as they are; words inside another link re-point it, as the editor's gesture does.
+    public func link(_ range: Range<Int>, expecting text: String, in pageID: PageID, to passage: Passage,
+                     in documentID: DocumentID) async throws -> NotesLinkResult {
+        let now = time.now()
+        let id: LinkTargetID = ids.make()
+        return try await store.write { tx in
+            guard var page = try tx.pages.page(pageID) else { throw GlossError.notFound("that page") }
+            guard page.trash == nil else { throw GlossError.inTrash("that page") }
+            let document = MarkdownParser.standard.parse(page.body)
+            guard range.upperBound <= document.text.length, document.text[range] == text else {
+                throw GlossError.notAllowed("the page changed while gloss was linking — try again")
+            }
+            guard let match = NotesTextFinder.match(at: range, in: document) else {
+                throw GlossError.notAllowed("links need a few words on one line, outside code")
+            }
+            let target = try LinkService.target(for: passage, in: documentID, id: id, tx: tx, now: now)
+            let destination = GlossLink.passage(target.id).string
+            if match.linkDestination == destination {
+                let link = document.allInlines.first { $0.kind == .link && $0.contentRange.contains(range.lowerBound) }
+                return NotesLinkResult(page: page, target: target, change: .alreadyLinked, range: link?.range ?? range)
+            }
+            guard let edit = WrapInLink(destination: destination).edit(document, selection: range) else {
+                throw GlossError.notAllowed("links need a few words on one line, outside code")
+            }
+            page.body = edit.apply(to: page.body)
+            page.updatedAt = now
+            try PageService.save(page, in: tx, now: now)
+            let saved = MarkdownParser.standard.parse(page.body)
+            let link = saved.allInlines.first {
+                $0.kind == .link && $0.destination == destination && $0.contentRange.lowerBound <= edit.selection.lowerBound
+                    && edit.selection.lowerBound <= $0.contentRange.upperBound
+            }
+            let change: NotesLinkResult.Change = match.linkDestination.map { .relinked(from: $0) } ?? .linked
+            return NotesLinkResult(page: page, target: target, change: change, range: link?.range ?? edit.selection)
         }
     }
 

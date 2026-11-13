@@ -11,9 +11,11 @@ import GlossMemoryStore
 ///     first chapter text
 ///     ===
 ///     second chapter text
-public struct FakeFormat: DocumentFormat, TextExtracting, CoverExtracting {
+public struct FakeFormat: DocumentFormat, TextExtracting, CoverExtracting, QuoteLocating {
     public static let kind = DocumentKind("fake")
     public static let scheme = LocatorScheme("fake")
+    /// Quote locators: `<chunk value>|<anchor JSON>`.
+    public static let quoteScheme = LocatorScheme("fake-quote")
 
     public init() {}
 
@@ -41,6 +43,20 @@ public struct FakeFormat: DocumentFormat, TextExtracting, CoverExtracting {
         return parts[1].components(separatedBy: "\n===\n").enumerated().map { index, text in
             TextChunk(locator: Locator(scheme: Self.scheme, value: "section-\(index)"), label: "chapter \(index + 1)", text: text)
         }
+    }
+
+    public var partName: String { "chapter" }
+
+    public func partNumber(of chunk: TextChunk) -> Int? {
+        chunk.locator.value.split(separator: "-").last.flatMap { Int($0) }.map { $0 + 1 }
+    }
+
+    public func quoteLocator(for anchor: QuoteAnchor, in chunk: TextChunk) -> Locator? {
+        guard chunk.locator.scheme == Self.scheme else { return nil }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let json = (try? encoder.encode(anchor)).map { String(decoding: $0, as: UTF8.self) } ?? ""
+        return Locator(scheme: Self.quoteScheme, value: chunk.locator.value + "|" + json)
     }
 
     public func extractCover(from data: Data) throws -> CoverImage? {

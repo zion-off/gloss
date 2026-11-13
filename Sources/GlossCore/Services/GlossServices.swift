@@ -14,6 +14,8 @@ public struct GlossServices: Sendable {
     public let pages: PageService
     public let highlights: HighlightService
     public let links: LinkService
+    /// Finding passages in a book's text to link to without a reader (`gloss link`).
+    public let passages: PassageFinder
     public let linkMaintenance: LinkMaintenance
     public let trash: TrashService
     public let search: SearchService
@@ -35,6 +37,7 @@ public struct GlossServices: Sendable {
         pages = PageService(store: store, ids: ids, time: time)
         highlights = HighlightService(store: store, ids: ids, time: time)
         links = LinkService(store: store, ids: ids, time: time)
+        passages = PassageFinder(store: store, blobs: blobs, formats: formats)
         linkMaintenance = LinkMaintenance(store: store, time: time)
         trash = TrashService(store: store, ids: ids, time: time, handlers: trashHandlers)
         search = SearchService(store: store, sources: searchSources)

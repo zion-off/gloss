@@ -1,0 +1,181 @@
+[
+  {
+    "name": "a unique match",
+    "source": "Call me Ishmael. Some years ago",
+    "anchor": {
+      "text": "Some years",
+      "prefix": "",
+      "suffix": "",
+      "occurrence": 0
+    },
+    "expected": [
+      17,
+      27
+    ]
+  },
+  {
+    "name": "spaces and line breaks differ",
+    "source": "Call me\n\nIshmael",
+    "anchor": {
+      "text": "me Ishmael",
+      "prefix": "",
+      "suffix": "",
+      "occurrence": 0
+    },
+    "expected": [
+      5,
+      16
+    ]
+  },
+  {
+    "name": "no space between blocks in the reader",
+    "source": "the end.Chapter two",
+    "anchor": {
+      "text": "end. Chapter",
+      "prefix": "",
+      "suffix": "",
+      "occurrence": 0
+    },
+    "expected": [
+      4,
+      15
+    ]
+  },
+  {
+    "name": "context picks the middle of three",
+    "source": "the whale. the whale. the whale.",
+    "anchor": {
+      "text": "the whale",
+      "prefix": "the whale.",
+      "suffix": ". the whale.",
+      "occurrence": 1
+    },
+    "expected": [
+      11,
+      20
+    ]
+  },
+  {
+    "name": "the occurrence breaks ties without context",
+    "source": "ab ab ab",
+    "anchor": {
+      "text": "ab",
+      "prefix": "",
+      "suffix": "",
+      "occurrence": 2
+    },
+    "expected": [
+      6,
+      8
+    ]
+  },
+  {
+    "name": "context beats a stale occurrence",
+    "source": "x ab y ab z",
+    "anchor": {
+      "text": "ab",
+      "prefix": "y",
+      "suffix": "z",
+      "occurrence": 0
+    },
+    "expected": [
+      7,
+      9
+    ]
+  },
+  {
+    "name": "case-insensitive fallback",
+    "source": "The Whale",
+    "anchor": {
+      "text": "the whale",
+      "prefix": "",
+      "suffix": "",
+      "occurrence": 0
+    },
+    "expected": [
+      0,
+      9
+    ]
+  },
+  {
+    "name": "ligatures and curly quotes",
+    "source": "the ﬁrst “word” don’t",
+    "anchor": {
+      "text": "first \"word\" don't",
+      "prefix": "",
+      "suffix": "",
+      "occurrence": 0
+    },
+    "expected": [
+      4,
+      21
+    ]
+  },
+  {
+    "name": "soft hyphens",
+    "source": "extra­ordinary",
+    "anchor": {
+      "text": "extraordinary",
+      "prefix": "",
+      "suffix": "",
+      "occurrence": 0
+    },
+    "expected": [
+      0,
+      14
+    ]
+  },
+  {
+    "name": "the ends when the middle differs",
+    "source": "It was the best of times, it was [fig. 1] the worst of times, it was the age of wisdom",
+    "anchor": {
+      "text": "It was the best of times, it was the worst of times, it was the age of wisdom",
+      "prefix": "",
+      "suffix": "",
+      "occurrence": 0
+    },
+    "expected": [
+      0,
+      86
+    ]
+  },
+  {
+    "name": "nothing to find",
+    "source": "nothing here",
+    "anchor": {
+      "text": "whale",
+      "prefix": "",
+      "suffix": "",
+      "occurrence": 0
+    },
+    "expected": null
+  },
+  {
+    "name": "astral characters count two units",
+    "source": "a 😀 b whale",
+    "anchor": {
+      "text": "whale",
+      "prefix": "",
+      "suffix": "",
+      "occurrence": 0
+    },
+    "expected": [
+      7,
+      12
+    ]
+  },
+  {
+    "name": "accents written two ways",
+    "source": "café society",
+    "anchor": {
+      "text": "café society",
+      "prefix": "",
+      "suffix": "",
+      "occurrence": 0
+    },
+    "expected": [
+      0,
+      13
+    ]
+  }
+]
