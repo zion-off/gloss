@@ -929,9 +929,7 @@ nonisolated init(_ sizing: SpacerSizing = .flexible, placement: ToolbarItemPlace
 // ToolbarDefaultItemKind.title — macOS 15.0, "the title and subtitle shown in title bar"; toolbar(removing:) takes it (macOS 14.0 per the SDK interface)
 nonisolated init(kind: ToolbarDefaultItemKind, placement: ToolbarItemPlacement = .automatic)                        // DefaultToolbarItem, macOS 26.0; ToolbarDefaultItemKind.search, macOS 26.0
 nonisolated func sharedBackgroundVisibility(_ visibility: Visibility) -> some ToolbarContent                         // ToolbarContent, macOS 26.0 (stub returns Self)
-var accessibilityReduceMotion: Bool { get }                                                                          // EnvironmentValues, macOS 10.15
-static func easeOut(duration: TimeInterval) -> Animation                                                            // Animation, macOS 10.15
-func withAnimation<Result>(_ animation: Animation? = .default, _ body: () throws -> Result) rethrows -> Result     // macOS 10.15; Animation.smooth, macOS 10.15 per docs
+func withAnimation<Result>(_ animation: Animation? = .default, _ body: () throws -> Result) rethrows -> Result     // macOS 10.15
 static var minimize: SearchToolbarBehavior                                                                           // NOT available on macOS (iOS/iPadOS/Catalyst/visionOS 26 only) — gloss emulates it (D-152)
 @MainActor static var navigation: NavigationControlGroupStyle { get }                                               // controlgroupstyle/navigation, macOS 12.0; "on macOS, a separated momentary segmented control"
 static let navigation: ToolbarItemPlacement                                                                          // docs: "places navigation items in the leading edge of the toolbar ahead of the inline title"

@@ -608,3 +608,6 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   field; `SearchMotion` is `.easeOut(duration: 0.18)`, still nothing under Reduce Motion. The same
   transaction carries the detail column's swap to and from the results, and nothing else delays
   it (the 120 ms debounce is for running the query, not for showing the field).
+- **D-161 (supersedes the animation parts of D-153 and D-160) The search has no transition.** The
+  user wants the icon, the field and the results to switch instantly: the `withAnimation` wrappers
+  and `SearchMotion` are gone, and nothing animates the detail column's swap to the results.

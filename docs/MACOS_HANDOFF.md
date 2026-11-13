@@ -350,12 +350,9 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
 - **Search always right-most, animated (D-153), unverified:** in the library ([sort][search]),
   the trash ([empty trash][search]) and a book ([layout picker][search]), with the import ring
   before them while importing, search is the right-most item, collapsed or expanded. Clicking the
-  icon and folding it back (Escape on an empty field, choosing a result) animate with the smooth
-  curve; with Reduce Motion on they cut. Whether NSToolbar animates the swap of the button for the
-  field is the system's call: if it just pops, that's the limit of system parts (note it), not a
-  regression. "empty trash" still asks "empty the trash?" before emptying.
-- **Quick search transition (D-160), unverified:** opening and closing the search (icon ↔ field,
-  results ↔ previous view) takes under a fifth of a second; Reduce Motion cuts it.
+  icon and folding it back switch instantly (D-161: no transition, deliberately). "empty trash" still asks "empty the trash?" before emptying.
+- **No search transition (D-161), unverified:** opening and closing the search (icon ↔ field,
+  results ↔ previous view) switches instantly, deliberately, with no fade or slide.
 - **A way back from search (D-159), unverified:** search "whale", click a blank area of the
   results (the field loses focus): the toolbar's back button is enabled and leaves the search —
   the field folds back to the icon and the previous view (library or book) returns; forward is
