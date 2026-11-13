@@ -47,7 +47,7 @@ public struct ReaderResourceLoader: Sendable {
     public func response(for url: URL) async -> ReaderResponse {
         switch router.route(url) {
         case .readerFile(let path, let mimeType):
-            return readerFile(path, mimeType: mimeType)
+            return await readerFile(path, mimeType: mimeType)
         case .book(let id):
             return await book(id)
         case .notFound:
@@ -55,14 +55,16 @@ public struct ReaderResourceLoader: Sendable {
         }
     }
 
-    private func readerFile(_ path: String, mimeType: String) -> ReaderResponse {
+    private func readerFile(_ path: String, mimeType: String) async -> ReaderResponse {
         // The router refused `..`, empty and hidden segments, so the path stays inside the directory.
         let file = readerDirectory.appendingPathComponent(path, isDirectory: false)
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: file.path, isDirectory: &isDirectory), !isDirectory.boolValue else {
             return .notFound
         }
-        guard let data = try? Data(contentsOf: file) else { return .serverError }
+        // Off the main actor: the scheme handler calls this while serving (review 4).
+        let data = await Task.detached(priority: .userInitiated) { try? Data(contentsOf: file) }.value
+        guard let data else { return .serverError }
         return .ok(data, mimeType: mimeType)
     }
 
