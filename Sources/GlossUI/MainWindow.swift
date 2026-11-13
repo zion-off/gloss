@@ -108,9 +108,13 @@ public struct MainWindow: View {
         }
         .onDisappear {
             // The window is going away: nothing will fire the debounced save or the position
-            // write anymore. Flush both so up to half a second of typing isn't lost (review 5).
+            // write anymore. Flush both so up to half a second of typing isn't lost (review 5),
+            // and the layout and sort choices too — their persist chains hold the window weakly,
+            // so the last ⌥⌘1/2/3 or sort click would otherwise die with it (review 7).
             Task { await app.notes.flushSave() }
             Task { await app.reader.flushPosition() }
+            Task { await app.workspace.flushLayoutPersistence() }
+            Task { await app.library.flushSortPersistence() }
         }
     }
 
