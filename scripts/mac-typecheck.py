@@ -15,6 +15,10 @@ compiler never sees their bodies. This script compiles them for real:
 3. The targets are compiled in dependency order against the portable modules `swift build`
    already built (`.build/debug`) and the stand-ins.
 
+It also checks that every module a Mac target imports is one of its declared dependencies in
+Package.swift (or an Apple framework): the compiler here sees every module, SwiftPM on a Mac
+doesn't.
+
 What it proves: our own code is consistent across modules (names, labels, types, isolation)
 and calls the Apple APIs as declared in the stubs. What it can't: behaviour, and anything the
 stubs get wrong — a stub is only as good as the documentation it was copied from.
@@ -26,6 +30,7 @@ status 1 on any error.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -60,6 +65,36 @@ MODULE_MAPS = [
     CHECKOUTS / "swift-crypto/Sources/CXKCP/include/module.modulemap",
     CHECKOUTS / "swift-crypto/Sources/CCryptoBoringSSL/include/module.modulemap",
 ]
+
+# Modules a Mac target may import without declaring them: the SDK's.
+SYSTEM_MODULES = {"Foundation", "FoundationNetworking", "AppKit", "SwiftUI", "WebKit", "PDFKit",
+                  "UniformTypeIdentifiers", "Observation", "Dispatch", "CoreGraphics", "QuartzCore"}
+IMPORT = re.compile(r"^\s*(?:@\w+(?:\([^)]*\))?\s+)*import\s+(?:(?:struct|class|enum|protocol|func|var|let|typealias)\s+)?(\w+)")
+
+
+def undeclared_imports() -> list[str]:
+    """`import X` lines in Mac targets whose X isn't a declared dependency."""
+    dump = subprocess.run(["swift", "package", "dump-package"], cwd=ROOT, capture_output=True, text=True)
+    if dump.returncode != 0:
+        return [f"swift package dump-package failed: {dump.stderr.strip()[:200]}"]
+    declared = {}
+    for target in json.loads(dump.stdout)["targets"]:
+        names = set()
+        for dependency in target["dependencies"]:
+            for kind in ("byName", "target", "product"):
+                if kind in dependency:
+                    names.add(dependency[kind][0])
+        declared[target["name"]] = names
+    problems = []
+    for target, _ in MAC_TARGETS:
+        for path in sorted((ROOT / "Sources" / target).rglob("*.swift")):
+            for number, line in enumerate(path.read_text().split("\n"), start=1):
+                match = IMPORT.match(line)
+                if match and match.group(1) not in SYSTEM_MODULES | declared.get(target, set()):
+                    problems.append(f"{path.relative_to(ROOT)}:{number}: imports {match.group(1)}, "
+                                    f"which isn't a dependency of {target} in Package.swift")
+    return problems
+
 
 SELECTOR_SHIM = """
 // Added by scripts/mac-typecheck.py: `#selector(m)` becomes `_glossSelector(m)`, which still
@@ -116,6 +151,11 @@ def run(args: list[str], scratch_to_repo: dict[str, str]) -> bool:
 def main() -> int:
     if not (BUILD / "GlossAppModel.swiftmodule").exists():
         print("✘ mac typecheck: run `swift build` first")
+        return 1
+    problems = undeclared_imports()
+    if problems:
+        print("\n".join(problems))
+        print("✘ mac typecheck: Mac targets import modules they don't depend on")
         return 1
     shutil.rmtree(OUT, ignore_errors=True)
     (OUT / "modules").mkdir(parents=True)
