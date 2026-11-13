@@ -254,6 +254,33 @@ struct AppSettingsModelTests {
         #expect(try await lib.services.settings.value(TrashSettings.retentionDays) == nil)
     }
 
+    @Test("a failed save announces nothing and says so (review 7)")
+    func failedSaveIsHonest() async throws {
+        let clock = ManualTimeSource()
+        let base = InMemoryLibraryStore(origin: "test", time: clock)
+        let flaky = FlakyLibraryStore(base)
+        let blobs = InMemoryBlobStore()
+        let services = GlossServices(store: flaky, blobs: blobs, formats: FormatRegistry([FakeFormat()]),
+                                     ids: SequentialIDGenerator(), time: clock)
+        let settings = AppSettingsModel(services: services, sleep: { _ in })
+        await settings.load()
+        let posts = Note<Int>(0)
+        let token = NotificationCenter.default.addObserver(forName: .glossSettingsChanged, object: settings, queue: nil) { [posts] _ in
+            posts.value! += 1
+        }
+        defer { NotificationCenter.default.removeObserver(token) }
+        flaky.failsWrites = true  // the settings write itself fails
+        settings.retentionDays = 90
+        await settings.flushSave()
+        #expect(posts.value == 0)  // nothing stored: nothing announced
+        #expect(settings.saveProblem != nil)  // and the Settings window gets to say so
+        flaky.failsWrites = false
+        settings.retentionDays = 7
+        await settings.flushSave()
+        #expect(posts.value == 1)
+        #expect(settings.saveProblem == nil)
+    }
+
     @Test("rapid changes save once, and load itself doesn't save")
     func debounce() async throws {
         let lib = TestLibrary()

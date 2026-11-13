@@ -9,6 +9,7 @@ public final class FlakyLibraryStore: LibraryStore, @unchecked Sendable {
     private let base: any LibraryStore
     private let lock = NSLock()
     private var _failsReads = false
+    private var _failsWrites = false
     private var _reads = 0
     private var _parkNextRead = false
     private var parked: CheckedContinuation<Void, Never>?
@@ -21,6 +22,12 @@ public final class FlakyLibraryStore: LibraryStore, @unchecked Sendable {
     public var failsReads: Bool {
         get { lock.withLock { _failsReads } }
         set { lock.withLock { _failsReads = newValue } }
+    }
+
+    /// Writes fail on demand too (a save that must not be announced, review 7).
+    public var failsWrites: Bool {
+        get { lock.withLock { _failsWrites } }
+        set { lock.withLock { _failsWrites = newValue } }
     }
 
     /// Reads attempted so far.
@@ -61,6 +68,7 @@ public final class FlakyLibraryStore: LibraryStore, @unchecked Sendable {
     }
 
     public func write<T: Sendable>(_ work: @escaping @Sendable (any WriteTransaction) throws -> T) async throws -> T {
-        try await base.write(work)
+        if failsWrites { throw ReadFailure() }
+        return try await base.write(work)
     }
 }

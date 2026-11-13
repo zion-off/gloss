@@ -60,6 +60,15 @@ public struct GlossSettingsView: View {
         }
         .frame(width: 420)
         .task { await model.load() }
+        // A save that didn't store says so here rather than pretending it landed (review 7).
+        .overlay(alignment: .bottom) {
+            if let problem = model.saveProblem {
+                Text(verbatim: problem)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .padding(8)
+            }
+        }
     }
 
     /// The picker edits the model's choice directly; the save is the model's didSet.

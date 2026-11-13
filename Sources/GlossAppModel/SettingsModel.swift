@@ -35,6 +35,8 @@ public let glossReaderSettingsKey = "readerSettings"
 
     /// The choices the picker offers (brief 39: 7, 30, 90 days, or never).
     public static let retentionChoices: [Int?] = [7, 30, 90, nil]
+    /// Why the last save didn't store (the Settings window shows it; nil when it did).
+    public private(set) var saveProblem: String?
 
     private let services: GlossServices
     private let saveDelay: Duration
@@ -83,10 +85,17 @@ public let glossReaderSettingsKey = "readerSettings"
     }
 
     private func save() async {
-        try? await services.settings.set(retentionDays, for: TrashSettings.retentionDays)
-        try? await ReaderSettingsStore(settings: services.settings).save(reader)
-        // `object: self` so windows (and tests) can tell this model's saves from another's.
-        NotificationCenter.default.post(name: .glossSettingsChanged, object: self,
-                                        userInfo: [glossReaderSettingsKey: reader])
+        saveProblem = nil
+        do {
+            try await services.settings.set(retentionDays, for: TrashSettings.retentionDays)
+            try await ReaderSettingsStore(settings: services.settings).save(reader)
+            // `object: self` so windows (and tests) can tell this model's saves from another's.
+            // Posted only once both writes stored: a failed save must not make every window
+            // apply settings that never landed (review 7).
+            NotificationCenter.default.post(name: .glossSettingsChanged, object: self,
+                                            userInfo: [glossReaderSettingsKey: reader])
+        } catch {
+            saveProblem = "couldn't save your settings — try again"
+        }
     }
 }
