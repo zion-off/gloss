@@ -1161,6 +1161,17 @@ nonisolated public struct DefaultToolbarItem: ToolbarContent {
     public init(kind: ToolbarDefaultItemKind, placement: ToolbarItemPlacement = .automatic) {}
     public var body: Never { fatalError() }
 }
+/// swiftui/toolbarspacer; toolbarspacer/init(_:placement:) (macOS 26.0)
+@available(macOS 26.0, *)
+nonisolated public struct ToolbarSpacer: ToolbarContent {
+    public init(_ sizing: SpacerSizing = .flexible, placement: ToolbarItemPlacement = .automatic) {}
+    public var body: Never { fatalError() }
+}
+/// swiftui/spacersizing (macOS 26.0)
+@available(macOS 26.0, *)
+public struct SpacerSizing: Sendable {
+    public static let flexible = SpacerSizing(), fixed = SpacerSizing()
+}
 /// swiftui/toolbardefaultitemkind/search (macOS 26.0)
 @available(macOS 26.0, *)
 public struct ToolbarDefaultItemKind: Sendable {

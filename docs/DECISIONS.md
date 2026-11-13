@@ -577,3 +577,10 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   vertical field turns Return into a newline, so the title's binding treats a single typed line
   break as Return (commit, then `NotesEditorActions.focusBody()` puts the caret at the body's
   start) and turns any other line breaks (a paste) into spaces: a title stays one line of text.
+- **D-156 Trailing toolbar items use `.automatic` behind a flexible spacer, not `.primaryAction`.**
+  D-152/D-153 declared them `.primaryAction`, which Apple documents as the toolbar's *leading*
+  edge on macOS, so once search became a plain button it sat with the others right after the
+  title. Now every trailing item (import ring, sort / layout picker / empty trash, search) is
+  `.automatic` ("in order of leading to trailing") and, on macOS 26, a
+  `ToolbarSpacer(.flexible)` declared first pushes the cluster to the right edge, search last.
+  macOS 14/15 keep the system-pinned search field at the right with the `.automatic` items before it.

@@ -922,6 +922,9 @@ init(_ titleKey: LocalizedStringKey, text: Binding<String>, axis: Axis)         
 nonisolated func lineLimit(_ limit: PartialRangeFrom<Int>) -> some View                                             // view/linelimit(_:)-251ko, macOS 13.0
 nonisolated func controlGroupStyle<S>(_ style: S) -> some View where S : ControlGroupStyle                          // view/controlgroupstyle(_:), macOS 12.0
 nonisolated func searchable(text: Binding<String>, isPresented: Binding<Bool>, placement: SearchFieldPlacement = .automatic, prompt: LocalizedStringResource) -> some View   // macOS 14.0
+nonisolated init(_ sizing: SpacerSizing = .flexible, placement: ToolbarItemPlacement = .automatic)                 // ToolbarSpacer, macOS 26.0; SpacerSizing.flexible / .fixed
+// ToolbarItemPlacement.primaryAction — docs: "In macOS … the location for the primary action is the leading edge of the toolbar"
+// ToolbarItemPlacement.automatic — docs: "In macOS … places items in the current toolbar section in order of leading to trailing"
 nonisolated init(kind: ToolbarDefaultItemKind, placement: ToolbarItemPlacement = .automatic)                        // DefaultToolbarItem, macOS 26.0; ToolbarDefaultItemKind.search, macOS 26.0
 nonisolated func sharedBackgroundVisibility(_ visibility: Visibility) -> some ToolbarContent                         // ToolbarContent, macOS 26.0 (stub returns Self)
 var accessibilityReduceMotion: Bool { get }                                                                          // EnvironmentValues, macOS 10.15

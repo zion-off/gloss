@@ -333,6 +333,13 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
   doesn't take focus, move that `searchable` to the detail column (keeping the condition). On
   macOS 14/15 the standard always-visible field stays. There is no ⌘F for it: ⌘F is the notes
   editor's find bar.
+- **Trailing cluster flush right (D-156), unverified — the 00:42 build still had search on the
+  left:** search is at the window's right edge like Finder's, collapsed and expanded; directly to
+  its left the sort menu (library), layout picker (book) or "empty trash" (trash), and the import
+  ring left of that while importing; back/forward and the title stay on the left with empty
+  toolbar between. On macOS 14/15 the standard field is at the right with the others just left of
+  it. If the cluster still sits after the title, the flexible `ToolbarSpacer` isn't taking effect
+  in this toolbar: report what the toolbar shows.
 - **Search always right-most, animated (D-153), unverified:** in the library ([sort][search]),
   the trash ([empty trash][search]) and a book ([layout picker][search]), with the import ring
   before them while importing, search is the right-most item, collapsed or expanded. Clicking the

@@ -199,18 +199,25 @@ public struct MainWindow: View {
                 ToolbarItem(placement: .navigation) { titleLabel }
             }
         }
+        // The trailing cluster, flush right like Finder's: `.primaryAction` is the toolbar's LEADING
+        // edge on macOS (its docs), which is why search and the layout picker sat right after the
+        // title. `.automatic` items run leading to trailing after the navigation items, and on
+        // macOS 26 a flexible spacer in front pushes them to the right edge (D-156).
+        if #available(macOS 26.0, *) {
+            ToolbarSpacer(.flexible, placement: .automatic)
+        }
         // An import's progress, like Safari's downloads or Mail's activity, wherever the window is
         // (a Finder or gloss:// import can run while a book is open), D-148.
         if app.library.importing {
-            ToolbarItem(placement: .primaryAction) { ImportActivity(library: app.library) }
+            ToolbarItem(placement: .automatic) { ImportActivity(library: app.library) }
         }
         // The sort menu only on the library, right before the search (D-152).
         if case .library = app.workspace.detail {
-            ToolbarItem(placement: .primaryAction) { LibrarySortMenu(app: app) }
+            ToolbarItem(placement: .automatic) { LibrarySortMenu(app: app) }
         }
         // Only while the book is on screen: on the library or the trash there is no reader to lay out.
         if case .book = app.workspace.detail {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem(placement: .automatic) {
                 Picker("layout", selection: Binding(get: { commands.layout }, set: { commands.layout = $0 })) {
                     Label("reader and notes", systemImage: "rectangle.split.2x1").tag(SplitLayout.split)
                     Label("reader only", systemImage: "book").tag(SplitLayout.readerOnly)
@@ -221,7 +228,7 @@ public struct MainWindow: View {
             }
         }
         if case .trash = app.workspace.detail {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem(placement: .automatic) {
                 Button("empty trash", role: .destructive) { app.presentation.confirmsEmptyTrash = true }
                     .disabled(app.trash.items.isEmpty)
             }
@@ -232,9 +239,9 @@ public struct MainWindow: View {
         // D-152.
         if #available(macOS 26.0, *) {
             if app.search.showsResults {
-                DefaultToolbarItem(kind: .search, placement: .primaryAction)
+                DefaultToolbarItem(kind: .search, placement: .automatic)
             } else {
-                ToolbarItem(placement: .primaryAction) { SearchToolbarButton(model: app.search) }
+                ToolbarItem(placement: .automatic) { SearchToolbarButton(model: app.search) }
             }
         }
     }
