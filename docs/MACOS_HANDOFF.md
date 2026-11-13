@@ -233,7 +233,8 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
 - Import progress while the library isn't the visible detail (a book is open): the status line
   isn't visible then — acceptable, but check the import still completes and the grid updates
   when you go back to it.
-- Two windows: import from one; the other's grid follows within a second (its change poll).
+- Two windows: import from one; the other's grid follows at once (windows in one process hear
+  each other's writes, review 7 — trashing, restores, details edits and opens included).
 ### `Sources/GlossUI/SearchPane.swift` + `MainWindow.swift` (milestone 12)
 
 - The toolbar search field (brief 31): `.searchable` in the toolbar, scope menu via
@@ -369,6 +370,19 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
 - Success reports with a "show in finder" button (Finder opens with the file selected);
   failure says why. The command acts on the key window — with two windows open, it works from
   whichever is key.
+
+### `Sources/GlossUI/DocumentDetailsSheet.swift` (milestone 12)
+
+- "edit details…" (the grid's and the source list's book-row context menu) opens the sheet: title,
+  author, and the cover (a preview, choose…, drop an image, remove the custom cover).
+- An empty title is refused (the save button disables); unchanged fields are not written; a save
+  refreshes the window's grid, title, source list and the notes editor's breadcrumbs (a rename
+  changes them).
+- The root page's title follows a title change only if it still matched the old one (core rule);
+  check the sidebar's page tree shows the new name.
+- Choosing a cover image (an NSOpenPanel as a sheet on the sheet — nested sheets, see the
+  "APIs I was unsure about" entry) and dropping one both work; "remove" returns to the file's
+  cover, then the generated one. The grid's cover cache invalidates (the new cover shows).
 
 ### `Sources/GlossEditor/` (milestone 10)
 

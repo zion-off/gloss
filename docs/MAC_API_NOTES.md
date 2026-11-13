@@ -987,8 +987,9 @@ nonisolated func animation<V: Equatable>(_ animation: Animation?, value: V) -> s
 
 ## Verified vs UNVERIFIED
 
-- **83 documented entries total; 79 fully verified** from the Apple docs JSON (exact Swift
-  declaration tokens, macOS availability, actor isolation, and discussion notes).
+- **89 documented entries total; 85 fully verified** from the Apple docs JSON (exact Swift
+  declaration tokens, macOS availability, actor isolation, and discussion notes) — the count
+  includes the save/print-panel and accessibility entries review 7's round added.
 - **5 entries carry UNVERIFIED aspects:**
   1. `NSTextView.init(usingTextLayoutManager:)` minimum macOS version — docs metadata omits
      `introducedAt` (likely docs data gap; TextKit 2 siblings are 12.0+).

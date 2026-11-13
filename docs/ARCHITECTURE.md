@@ -294,7 +294,10 @@ Output follows `NO_COLOR`/`CLICOLOR_FORCE` and drops colour and status lines whe
   into, so the reader and the notes can show different books. `BookSidebarModel` lists the reader's
   book's highlights and the notes pane's page outline; `AppModel.select` turns a click into
   navigation, `AppModel.follow` follows a link from the notes, `AppModel.open` a link from outside.
-- `ExternalChangeMonitor` polls the change journal and refreshes models.
+- `ExternalChangeMonitor` polls the change journal and refreshes models; windows in one process
+  hear each other's writes through a store-addressed notification carrying journal-shaped
+  records (review 7) — the journal's origin is per-process, so a second window's monitor never
+  sees the first's.
 - `gloss://` URLs from other apps or `gloss open`, and book files Finder double-clicks, all go
   through one portable door, `AppModel.open(url:)` (D-132): a classifier sorts gloss links from
   registered files from everything else, links route through `URLRouter`, files import through
@@ -307,7 +310,9 @@ Output follows `NO_COLOR`/`CLICOLOR_FORCE` and drops colour and status lines whe
 - **System components first** (D-019). `NavigationSplitView` with a source-list sidebar, a
   standard toolbar with a search field and its scope menu, popovers for marker lists and selection
   commands, sheets for import conflicts and document details, the standard `Settings` scene, and
-  menu commands with standard shortcuts (D-070, D-071). Custom pieces (format bar, slash menu, link
+  menu commands with standard shortcuts (D-070, D-071). The library grid, the trash view with
+  its undo toast, and "back up library…" (a `VACUUM INTO` copy through a save panel) are the same
+  story: portable models, thin views. Custom pieces (format bar, slash menu, link
   chips, subpage rows) use system materials (`.regularMaterial`/`NSVisualEffectView`), the system
   font, SF Symbols, standard animations and full VoiceOver labels.
 - macOS only (D-018): Mac modules use AppKit and SwiftUI directly, with no platform abstraction.
