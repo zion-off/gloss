@@ -45,6 +45,8 @@ public struct TrashService: Sendable {
     public func overview() async throws -> TrashOverview {
         try await store.read { tx in
             let days = try SettingsCodec().value(TrashSettings.retentionDays, in: tx.settings)
+            // `.some(nil)` marks "looked up, no such book" so a missing title is read once, not
+            // per entry (a plain `[DocumentID: String]` can't tell absent from looked-up-empty).
             var titles: [DocumentID: String?] = [:]
             let items = try tx.trash.trashEntries().map { entry -> TrashOverview.Item in
                 var documentTitle: String?
