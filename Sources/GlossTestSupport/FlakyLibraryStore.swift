@@ -10,6 +10,9 @@ public final class FlakyLibraryStore: LibraryStore, @unchecked Sendable {
     private let lock = NSLock()
     private var _failsReads = false
     private var _reads = 0
+    private var _parkNextRead = false
+    private var parked: CheckedContinuation<Void, Never>?
+    private var _parkedReads = 0
 
     public init(_ base: any LibraryStore) {
         self.base = base
@@ -23,9 +26,37 @@ public final class FlakyLibraryStore: LibraryStore, @unchecked Sendable {
     /// Reads attempted so far.
     public var reads: Int { lock.withLock { _reads } }
 
+    /// Parks the next read until `releaseParkedRead()` (race tests: a stale query landing after
+    /// a newer one). The parked read's continuation is stored under the same lock.
+    public var parkNextRead: Bool {
+        get { lock.withLock { _parkNextRead } }
+        set { lock.withLock { _parkNextRead = newValue } }
+    }
+
+    /// Reads parked so far (a test waits for this before releasing).
+    public var parkedReads: Int { lock.withLock { _parkedReads } }
+
+    /// Lets a parked read continue.
+    public func releaseParkedRead() {
+        let continuation = lock.withLock {
+            defer { parked = nil }
+            return parked
+        }
+        continuation?.resume()
+    }
+
     public func read<T: Sendable>(_ work: @escaping @Sendable (any ReadTransaction) throws -> T) async throws -> T {
         lock.withLock { _reads += 1 }
         if failsReads { throw ReadFailure() }
+        if lock.withLock({ _parkNextRead }) {
+            lock.withLock {
+                _parkNextRead = false
+                _parkedReads += 1
+            }
+            await withCheckedContinuation { continuation in
+                lock.withLock { parked = continuation }
+            }
+        }
         return try await base.read(work)
     }
 

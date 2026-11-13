@@ -61,12 +61,16 @@ import GlossCore
                 found.append(Item(kind: .document, title: hit.title, subtitle: hit.subtitle, documentID: id, pageID: nil))
             }
         }
+        // A newer keystroke may have cancelled this query while it read (review 7): a stale
+        // result must never overwrite the newest one.
+        guard !Task.isCancelled else { return }
         if let notes = try? await services.search.search(trimmed, in: .allNotes, limit: 8) {
             for hit in notes.flatMap(\.hits) {
                 guard case .page(let pageID, let documentID, _) = hit.destination else { continue }
                 found.append(Item(kind: .page, title: hit.title, subtitle: hit.subtitle, documentID: documentID, pageID: pageID))
             }
         }
+        guard !Task.isCancelled else { return }
         items = Array(found.prefix(12))
         selectedIndex = 0
     }
