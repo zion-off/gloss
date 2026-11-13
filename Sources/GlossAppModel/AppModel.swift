@@ -56,7 +56,8 @@ import GlossReaderBridge
     struct LocalObserverToken: @unchecked Sendable {
         let observer: (any NSObjectProtocol)?
     }
-    /// Runs the reaction to another window's writes; `flushLocalChanges` waits for it.
+    /// Runs the reaction to another window's writes; `flushLocalChanges` waits for it. Chained
+    /// (review 8), so the task also covers every earlier post it followed.
     private var localChangesTask: Task<Void, Never>?
 
     public init(services: GlossServices, export: ExportModel? = nil) {
@@ -106,7 +107,13 @@ import GlossReaderBridge
                 guard let self else { return }
                 let foreign = records.filter { $0.origin != self.windowID }
                 guard !foreign.isEmpty else { return }
-                self.localChangesTask = Task { await self.handleExternalChanges(foreign) }
+                // Chained, like the settings reaction (review 8): back-to-back posts apply in
+                // the order they arrived, and `flushLocalChanges` waits for the whole chain.
+                let previous = self.localChangesTask
+                self.localChangesTask = Task {
+                    await previous?.value
+                    await self.handleExternalChanges(foreign)
+                }
             }
         }
         self.localToken = LocalObserverToken(observer: local)
