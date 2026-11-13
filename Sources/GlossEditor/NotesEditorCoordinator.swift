@@ -54,7 +54,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         textView.isAutomaticQuoteSubstitutionEnabled = false   // markdown source: no smart quotes
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false
-        textView.textContainerInset = NSSize(width: 0, height: 10)
+        textView.textContainerInset = NSSize(width: 12, height: 10)
         textView.backgroundColor = .textBackgroundColor
         textView.onTextClick = { [weak self] index in self?.textClicked(at: index) ?? false }
         textView.onFocusChange = { [weak self] focused in self?.actions.focusChanged(focused) }

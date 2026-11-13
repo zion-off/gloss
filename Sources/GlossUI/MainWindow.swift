@@ -128,23 +128,16 @@ public struct MainWindow: View {
         
     }
 
-    /// The book, in the Apple way: the reader is an inset card with a soft shadow, and the notes
-    /// are an inspector on the trailing edge (Pages, Keynote, Xcode), whose divider stops under
-    /// the toolbar instead of running through it. "reader only" closes the inspector; "notes only"
-    /// gives the notes the whole column. The reader's session lives in `readerHost`, so showing the
-    /// library and coming back keeps the book where it was.
-    private var book: some View {
-        Group {
-            if app.workspace.layout == .notesOnly {
-                notesPane
-            } else {
-                readerCard
-            }
-        }
-        .inspector(isPresented: Binding(get: { app.workspace.layout == .split },
-                                        set: { commands.layout = $0 ? .split : .readerOnly })) {
-            notesPane
-                .inspectorColumnWidth(min: 280, ideal: 380, max: 640)
+    /// The book: the reader is an inset card with a soft shadow, the notes a flat panel beside it
+    /// with one draggable divider. Both are laid out inside the content area, not as an inspector or
+    /// an NSSplitView, so the toolbar stays one bar across the window and the divider starts below
+    /// it. The reader's session lives in `readerHost`, so showing the library (or another layout)
+    /// and coming back keeps the book where it was.
+    @ViewBuilder private var book: some View {
+        switch app.workspace.layout {
+        case .readerOnly: readerCard
+        case .notesOnly: notesPane
+        case .split: ReaderNotesSplit { readerCard } notes: { notesPane }
         }
     }
 
@@ -178,31 +171,23 @@ public struct MainWindow: View {
         if #available(macOS 15.0, *) { true } else { false }
     }()
 
-    /// Back/forward on the leading edge (Safari, Finder); the layout switch on the trailing side.
+    /// Back and forward, then the title, on the leading edge (Finder, Safari); the layout switch
+    /// right beside the search field on the trailing side. The leading part is one item so the
+    /// order can't be shuffled by the system.
     @ToolbarContentBuilder private var toolbar: some ToolbarContent {
-        ToolbarItem(placement: .navigation) {
-            ControlGroup {
-                Button { commands.goBack() } label: { Label("back", systemImage: "chevron.left") }
-                    .disabled(!commands.canGoBack)
-                    .help("back (⌘[)")
-                Button { commands.goForward() } label: { Label("forward", systemImage: "chevron.right") }
-                    .disabled(!commands.canGoForward)
-                    .help("forward (⌘])")
-            }
-        }
-        // The title follows the chevrons (Finder, Safari): the system puts its own title first, so it
-        // is hidden (HideWindowTitle) and drawn here.
         if Self.titleInToolbar {
             if #available(macOS 26.0, *) {
-                ToolbarItem(placement: .navigation) { Text(verbatim: title).font(.headline).lineLimit(1) }
+                ToolbarItem(placement: .navigation) { leadingBar(withTitle: true) }
                     .sharedBackgroundVisibility(.hidden)
             } else {
-                ToolbarItem(placement: .navigation) { Text(verbatim: title).font(.headline).lineLimit(1) }
+                ToolbarItem(placement: .navigation) { leadingBar(withTitle: true) }
             }
+        } else {
+            ToolbarItem(placement: .navigation) { leadingBar(withTitle: false) }
         }
         // Only while the book is on screen: on the library or the trash there is no reader to lay out.
         if case .book = app.workspace.detail {
-            ToolbarItem {
+            ToolbarItem(placement: .primaryAction) {
                 Picker("layout", selection: Binding(get: { commands.layout }, set: { commands.layout = $0 })) {
                     Label("reader and notes", systemImage: "rectangle.split.2x1").tag(SplitLayout.split)
                     Label("reader only", systemImage: "book").tag(SplitLayout.readerOnly)
@@ -211,6 +196,20 @@ public struct MainWindow: View {
                 .pickerStyle(.segmented)
                 .help("layout (⌥⌘1, ⌥⌘2, ⌥⌘3)")
             }
+        }
+    }
+
+    private func leadingBar(withTitle: Bool) -> some View {
+        HStack(spacing: 12) {
+            ControlGroup {
+                Button { commands.goBack() } label: { Label("back", systemImage: "chevron.left") }
+                    .disabled(!commands.canGoBack)
+                    .help("back (⌘[)")
+                Button { commands.goForward() } label: { Label("forward", systemImage: "chevron.right") }
+                    .disabled(!commands.canGoForward)
+                    .help("forward (⌘])")
+            }
+            if withTitle { Text(verbatim: title).font(.headline).lineLimit(1) }
         }
     }
 
@@ -294,6 +293,8 @@ struct NotesPane: View {
                     }
                 }
         }
+        // One surface from the title down to the text: no bar, no second shade.
+        .background(Color(nsColor: .textBackgroundColor))
         .task(id: app.workspace.page?.id) { await loadPage() }
         .onChange(of: app.notes.page?.id, initial: true) { _, _ in
             commitTitle()  // for the page that was showing, before the field changes hands
@@ -334,7 +335,6 @@ struct NotesPane: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(.bar)
         }
     }
 
@@ -346,9 +346,10 @@ struct NotesPane: View {
             .focused($titleFocused)
             .onSubmit { commitTitle() }
             .onChange(of: titleFocused) { _, focused in if !focused { commitTitle() } }
-            .padding(.horizontal, 12)
-            .padding(.top, 10)
-            .padding(.bottom, 4)
+            .padding(.leading, 17)  // the text's own inset (12 + the line fragment padding)
+            .padding(.trailing, 12)
+            .padding(.top, 14)
+            .padding(.bottom, 2)
     }
 
     private func shownTitle(_ page: Page?) -> String {
@@ -395,4 +396,55 @@ extension View {
     }
 }
 
+
+/// Reader on the left, notes on the right, one divider you can drag. A plain SwiftUI layout rather
+/// than an inspector or `HSplitView`: both cut the window's toolbar in two.
+private struct ReaderNotesSplit<Reader: View, Notes: View>: View {
+    @AppStorage("notes.width") private var storedWidth = 380.0
+    @State private var dragStart: Double?
+    private let reader: Reader
+    private let notes: Notes
+
+    init(@ViewBuilder reader: () -> Reader, @ViewBuilder notes: () -> Notes) {
+        self.reader = reader()
+        self.notes = notes()
+    }
+
+    private static var minNotes: Double { 280 }
+    private static var minReader: Double { 340 }
+
+    var body: some View {
+        GeometryReader { proxy in
+            let widest = max(Self.minNotes, proxy.size.width - Self.minReader)
+            let width = min(max(storedWidth, Self.minNotes), widest)
+            HStack(spacing: 0) {
+                reader
+                divider(current: width, widest: widest)
+                notes.frame(width: width)
+            }
+        }
+    }
+
+    private func divider(current: Double, widest: Double) -> some View {
+        Divider()
+            .overlay {
+                Color.clear
+                    .frame(width: 9)
+                    .contentShape(Rectangle())
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active: NSCursor.resizeLeftRight.set()
+                        case .ended: NSCursor.arrow.set()
+                        }
+                    }
+                    .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                        .onChanged { drag in
+                            let start = dragStart ?? current
+                            dragStart = start
+                            storedWidth = min(max(start - drag.translation.width, Self.minNotes), widest)
+                        }
+                        .onEnded { _ in dragStart = nil })
+            }
+    }
+}
 #endif
