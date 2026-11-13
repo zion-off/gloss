@@ -23,6 +23,7 @@ final class FakeDriver: ReaderDriving {
     var calls: [Call] = []
     var openIDs: [Int] = []
     var failGo = false
+    var failOpen = false
 
     /// The id the engine would echo in `.opened` for the latest open.
     var lastOpenID: Int { openIDs.last ?? 0 }
@@ -30,6 +31,7 @@ final class FakeDriver: ReaderDriving {
     func open(_ document: Document, at position: Locator?, openID: Int) async throws {
         calls.append(.open(document.id, position))
         openIDs.append(openID)
+        if failOpen { throw ReaderDrivingError.notReady }
     }
     func close() async throws { calls.append(.close) }
     func go(to locator: Locator, flash: Bool) async throws {
@@ -413,6 +415,26 @@ struct ReaderControllerTests {
         // While the book is showing there is nothing to retry.
         await controller.retryOpen()
         #expect(driver.opens.count == 2)
+    }
+
+    @Test("an engine that throws during an open doesn't wedge the reader")
+    func throwingOpen() async throws {
+        let lib = TestLibrary()
+        let (book, _) = try await lib.book()
+        let controller = ReaderController(services: lib.services)
+        let driver = FakeDriver()
+        driver.failOpen = true
+        controller.attach(driver)
+        await controller.handle(.ready)
+        await controller.open(book)
+        #expect(controller.errorMessage == "the reader hit a snag")
+        #expect(!controller.isShowingBook)
+
+        driver.failOpen = false
+        await controller.retryOpen()
+        #expect(driver.opens.count == 2)
+        await controller.handle(.opened(toc: [], openID: driver.lastOpenID))
+        #expect(controller.isShowingBook)
     }
 
     @Test("a stale open failure never cancels the open in flight")

@@ -286,6 +286,12 @@ import GlossReaderBridge
             try await driver.open(pending.document, at: pending.locator, openID: openID)
             try await services.library.markOpened(pending.document.id)
         } catch {
+            // The engine threw instead of reporting `.openFailed` (the web content process died
+            // mid-open, a command failed). Unwedge exactly like the event path, or the next
+            // open of the same book short-circuits forever (review 5).
+            guard openID == awaitedOpenID else { return }  // a newer open already took over
+            awaitedOpenID = nil
+            pendingFocus = nil
             errorMessage = Self.describe(error)
         }
     }
