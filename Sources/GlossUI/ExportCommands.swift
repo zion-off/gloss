@@ -164,7 +164,7 @@ public struct GlossExportCommands: Commands {
         CommandGroup(replacing: .printItem) {
             Button("print notes…") { actions?.printPage() }
                 .keyboardShortcut("p", modifiers: .command)
-                .disabled(actions?.canPrint != true)
+                .disabled(actions?.canPrint != true || actions?.isBusy == true)
         }
     }
 }
@@ -192,9 +192,9 @@ extension View {
     public func notesExportMenu(actions: ExportActions?) -> some View {
         contextMenu {
             Button("export this page…") { actions?.exportPage(includeSubpages: false) }
-                .disabled(actions?.canExportPage != true)
+                .disabled(actions?.canExportPage != true || actions?.isBusy == true)
             Button("export page and subpages…") { actions?.exportPage(includeSubpages: true) }
-                .disabled(actions?.canExportPage != true)
+                .disabled(actions?.canExportPage != true || actions?.isBusy == true)
         }
     }
 }

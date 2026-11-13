@@ -281,6 +281,9 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
 - File menu: "export book's notes…", "export this page…", "export page and subpages…" after
   "new"; enabled only with a book/page open. Each runs the export, then a save panel with the
   default file name from the exporter ("Camus.md"); ⌘S is NOT taken (save is autosave).
+- While a save or print panel is up, all five items stay disabled — the three File-menu exports,
+  the notes pane's context-menu exports, and print notes (`ExportActions.isBusy`): check the
+  menus grey out with a panel open and come back when it closes.
 - The notes pane's context menu carries the two page exports.
 - File › print notes… (⌘P) replaces the empty print group: it exports the open page with its
   subpages to html, loads it into an offscreen non-persistent WKWebView, waits for
