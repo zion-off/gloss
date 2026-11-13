@@ -334,5 +334,22 @@ struct NotesEditorModelTests {
         #expect(model.slashMenu == nil)
         #expect(model.keyCommand(.newline) == .passThrough)  // dismissed: Return is a newline again
     }
+
+    @Test("loading the page already shown keeps the editor's newer text")
+    func reloadingSamePage() async throws {
+        let lib = TestLibrary()
+        let (_, root) = try await lib.book()
+        let model = NotesEditorModel(services: lib.services, saveDelay: .seconds(60))
+        try await model.load(root)
+        model.textDidChange("typed, not yet saved", selection: 20..<20)
+        // `root` is the snapshot from before the typing.
+        try await model.load(root)
+        #expect(model.text == "typed, not yet saved")
+        #expect(model.saveState == .pending)
+
+        // Discarding is the explicit way back to the stored text.
+        try await model.load(root, discardingUnsaved: true)
+        #expect(model.text == root.body)
+    }
 }
 

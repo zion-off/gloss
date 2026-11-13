@@ -100,6 +100,10 @@ import GlossNotes
     /// stays and this throws `unsavedChanges`, so the text is never dropped silently. Pass
     /// `discardingUnsaved` once the user chose to let it go.
     public func load(_ page: Page, discardingUnsaved: Bool = false) async throws {
+        // The page already shown keeps the editor's text: the passed value may be older than
+        // what was typed (a "keep editing" after a failed save, a re-selection). External
+        // changes arrive through `pageChangedExternally` instead.
+        if page.id == self.page?.id, !discardingUnsaved { return }
         await flushSave()
         if case .failed(let reason) = saveState, !discardingUnsaved {
             throw EditorError.unsavedChanges(reason)
@@ -175,18 +179,6 @@ import GlossNotes
 
     public func run(_ command: any MarkdownEditCommand) -> EditResult? {
         command.edit(document, selection: selection)
-    }
-
-    /// Applies an edit the view asked for (a format bar button). The view applies the edit
-    /// itself through its change APIs; this only restyles and schedules the save.
-    public func applyExternally(_ result: EditResult) {
-        textDidChange(result.apply(to: text), selection: result.selection)
-    }
-
-    /// Runs the selected slash command for the view (a menu click): the view applies the
-    /// returned edit and opens the page if `/page` made one.
-    public func confirmSlashExternally(itemID: String? = nil) async -> SlashCommandResult? {
-        try? await confirmSlashMenu(itemID: itemID)
     }
 
     /// Decides a key command: the open slash menu takes Return, Tab, Escape and the arrows;
