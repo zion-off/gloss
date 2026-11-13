@@ -8,15 +8,14 @@ import GlossNotes
 import GlossReaderBridge
 import GlossReaderKit
 
-/// One window: the library in the sidebar, the reader in the detail column. Each window has its
-/// own models (AppModel is one window's state) over the shared services, which the composition
-/// root (GlossMac) hands in with the reading engines.
+/// One window: the source list in the sidebar (D-101); the library, the trash or the open book in
+/// the detail column. Each window has its own models (AppModel is one window's state) over the
+/// shared services, which the composition root (GlossMac) hands in with the reading engines.
 public struct MainWindow: View {
     private let engines: ReadingEngineRegistry
     private let prepare: @MainActor () async -> Void
     @State private var app: AppModel
     @State private var started = false
-    @State private var selection: DocumentID?
     @State private var reveal: NotesReveal?
     @State private var unsavedFailure: String?
     @State private var commands: WindowCommands
@@ -37,34 +36,28 @@ public struct MainWindow: View {
 
     public var body: some View {
         NavigationSplitView {
-            LibrarySidebar(library: app.library, selection: $selection)
+            SourceList(app: app)
+                .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 360)
         } detail: {
             if started {
-                // Reader and notes side by side with a draggable divider; the View menu and the
-                // toolbar switch the layout (persisted, shared by all windows).
-                HSplitView {
-                    if app.workspace.layout.showsReader {
-                        ReaderPane(reader: app.reader, engines: engines, host: readerHost,
-                                   addToNotes: { await commands.addToNotes() })
-                            .frame(minWidth: 320)
-                    }
-                    if app.workspace.layout.showsNotes {
-                        NotesPane(app: app, reveal: reveal, unsavedFailure: $unsavedFailure,
-                                  commands: commands)
-                            .frame(minWidth: 280)
-                    }
+                switch app.workspace.detail {
+                case .library:
+                    LibraryList(library: app.library, open: open)
+                case .trash:
+                    ContentUnavailableView("trash", systemImage: "trash")
+                case .book:
+                    book
                 }
             } else {
                 ProgressView()
             }
         }
-        .navigationTitle(app.reader.document?.title ?? "gloss")
+        .navigationTitle(title)
         .toolbar { toolbar }
         .focusedSceneValue(\.windowCommands, commands)
         .task { await run() }
-        .task(id: selection) { await open(selection) }
         .task(id: app.workspace.readerFocus) { await app.showReaderFocus() }
-        .task(id: app.workspace.document?.id) { selection = app.workspace.document?.id }
+        .task(id: app.workspace.document?.id) { await app.showBookSidebar() }
         .task(id: app.workspace.pendingNoteReveal) {
             if let range = app.workspace.pendingNoteReveal, let page = app.workspace.page {
                 reveal = NotesReveal(pageID: page.id, range: range)
@@ -85,6 +78,34 @@ public struct MainWindow: View {
             // write anymore. Flush both so up to half a second of typing isn't lost (review 5).
             Task { await app.notes.flushSave() }
             Task { await app.reader.flushPosition() }
+        }
+    }
+
+    /// Reader and notes side by side with a draggable divider; the View menu and the toolbar
+    /// switch the layout (persisted, shared by all windows). The reader's session lives in
+    /// `readerHost`, so showing the library and coming back keeps the book where it was.
+    private var book: some View {
+        HSplitView {
+            if app.workspace.layout.showsReader {
+                ReaderPane(reader: app.reader, engines: engines, host: readerHost,
+                           addToNotes: { await commands.addToNotes() })
+                    .frame(minWidth: 320)
+            }
+            if app.workspace.layout.showsNotes {
+                NotesPane(app: app, reveal: reveal, unsavedFailure: $unsavedFailure,
+                          commands: commands)
+                    .frame(minWidth: 280)
+            }
+        }
+    }
+
+    /// The window's title follows the detail column: the shelf, the trash, or the book.
+    private var title: String {
+        switch app.workspace.detail {
+        case .library(let shelf?): shelf.rawValue
+        case .library(nil): "library"
+        case .trash: "trash"
+        case .book: app.workspace.document?.title ?? "gloss"
         }
     }
 
@@ -129,6 +150,7 @@ public struct MainWindow: View {
         await app.workspace.loadPersistedLayout()
         app.reader.openExternal = { url in _ = NSWorkspace.shared.open(url) }
         await app.library.reload()
+        await app.trash.reload()  // the source list's badge
         await app.startMonitoringChanges()
         started = true
         while !Task.isCancelled {
@@ -137,20 +159,21 @@ public struct MainWindow: View {
         }
     }
 
-    private func open(_ id: DocumentID?) async {
-        guard let id, id != app.workspace.document?.id else { return }
+    private func open(_ id: DocumentID) async {
         // A book that just went (trashed from the cli) stays unopened; the next poll drops it.
         try? await app.workspace.openDocument(id)
     }
 }
 
-/// The library as a plain source list (the cover grid comes in milestone 12).
-struct LibrarySidebar: View {
+/// The library as a plain list until the cover grid lands; a click opens the book.
+struct LibraryList: View {
     let library: LibraryModel
-    @Binding var selection: DocumentID?
+    let open: @MainActor (DocumentID) async -> Void
 
     var body: some View {
-        List(selection: $selection) {
+        List(selection: Binding<DocumentID?>(get: { nil }, set: { id in
+            if let id { Task { await open(id) } }
+        })) {
             ForEach(library.entries) { entry in
                 VStack(alignment: .leading, spacing: 2) {
                     Text(verbatim: entry.document.title)

@@ -157,6 +157,27 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
   side. SF Symbols `rectangle.split.2x1`, `book`, `note.text`, `chevron.left/right` — standard names,
   but check they render.
 
+### `Sources/GlossUI/SourceList.swift` + `MainWindow.swift` (milestone 12)
+
+- One source list (D-101), `.sidebar` style: "library" (all, books, pdfs with their formats'
+  symbols, trash with a count badge that disappears at zero), then, with a book open, "reading" (the
+  book), "contents", "highlights" and "notes" — the last three collapsible, remembered per window
+  across relaunches (`@SceneStorage`).
+- The detail column follows the selection: a shelf shows the library, the trash shows the trash, the
+  book and anything in it show reader and notes. Click "all", then the book again: the reader must
+  come back where it was without reloading (the session lives in the window).
+- Clicks go through `AppModel.select`, which updates `workspace.sidebar` asynchronously; check the
+  highlight doesn't flicker back to the previous row on a click (a page row awaits the page read
+  first). Clicking empty space must not deselect.
+- A contents entry jumps the reader there; a highlight jumps and flashes it; a page opens it in the
+  notes. Each reveals its pane when the layout hides it (try from "notes only" and "reader only").
+- Highlights: colour dot, two lines of passage, its location label. Right-click › "remove
+  highlight" and the delete key (Edit › Delete via `onDeleteCommand`) both remove it; ⌘Z brings it
+  back and the row returns.
+- Long tables of contents: check scrolling and that nested entries disclose (`OutlineGroup`) and
+  stay disclosed while the reader moves; untitled pages show as "untitled".
+- The title bar follows the detail column: the shelf's name, "library", "trash", or the book's title.
+
 ### `Sources/GlossEditor/` (milestone 10)
 
 - `NotesEditorTheme.swift` — system fonts and colours only; check light/dark, Increase Contrast

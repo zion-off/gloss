@@ -98,6 +98,23 @@ extension State where Value: ExpressibleByNilLiteral {
 }
 extension State: Sendable where Value: Sendable {}
 
+/// swiftui/scenestorage — `var wrappedValue: Value { get nonmutating set }`,
+/// `var projectedValue: Binding<Value> { get }`; the initializers are overloads on one docs page
+/// (`init(wrappedValue:_:)`, told apart by hash suffixes), only the ones gloss uses here.
+@frozen @propertyWrapper public struct SceneStorage<Value>: DynamicProperty {
+    public var wrappedValue: Value { get { fatalError() } nonmutating set {} }
+    public var projectedValue: Binding<Value> { fatalError() }
+    // In the body, not an extension: a property wrapper may not keep the implicit internal init().
+    /// swiftui/scenestorage/init(wrappedValue:_:)-48yjd (macOS 11)
+    public init(wrappedValue: Value, _ key: String) where Value == Bool {}
+    /// swiftui/scenestorage/init(wrappedValue:_:)-3kgmn (macOS 11)
+    public init(wrappedValue: Value, _ key: String) where Value == Int {}
+    /// swiftui/scenestorage/init(wrappedValue:_:)-40fny (macOS 11)
+    public init(wrappedValue: Value, _ key: String) where Value == String {}
+    /// swiftui/scenestorage/init(wrappedValue:_:)-8hd2d (macOS 11)
+    public init(wrappedValue: Value, _ key: String) where Value: RawRepresentable, Value.RawValue == String {}
+}
+
 /// swiftui/binding
 @frozen @propertyWrapper @dynamicMemberLookup public struct Binding<Value> {
     public init(get: @escaping () -> Value, set: @escaping (Value) -> Void) {}
@@ -331,6 +348,56 @@ nonisolated public struct List<SelectionValue: Hashable, Content: View>: View {
 }
 extension List where SelectionValue == Never {
     public init(@ViewBuilder content: () -> Content) {}
+}
+
+/// swiftui/section — `struct Section<Parent, Content, Footer>`, a `View` when all three are.
+nonisolated public struct Section<Parent, Content, Footer> {}
+extension Section: View where Parent: View, Content: View, Footer: View {
+    public var body: Never { fatalError() }
+}
+extension Section where Parent == Text, Content: View, Footer == EmptyView {
+    /// swiftui/section/init(_:content:) (macOS 12) — "Parent is Text and Footer is EmptyView"
+    public init(_ titleKey: LocalizedStringKey, @ViewBuilder content: () -> Content) {}
+    /// swiftui/section/init(_:isExpanded:content:) (macOS 14)
+    public init(_ titleKey: LocalizedStringKey, isExpanded: Binding<Bool>, @ViewBuilder content: () -> Content) {}
+}
+extension Section where Parent: View, Content: View, Footer == EmptyView {
+    /// swiftui/section/init(content:header:) (macOS 10.15)
+    public init(@ViewBuilder content: () -> Content, @ViewBuilder header: () -> Parent) {}
+    /// swiftui/section/init(isExpanded:content:header:) (macOS 14) — "Footer is EmptyView"
+    public init(isExpanded: Binding<Bool>, @ViewBuilder content: () -> Content, @ViewBuilder header: () -> Parent) {}
+}
+extension Section where Parent == EmptyView, Content: View, Footer == EmptyView {
+    /// swiftui/section/init(content:) (macOS 10.15)
+    public init(@ViewBuilder content: () -> Content) {}
+}
+
+/// swiftui/outlinegroup — `struct OutlineGroup<Data, ID, Parent, Leaf, Subgroup> where Data :
+/// RandomAccessCollection, ID : Hashable`
+nonisolated public struct OutlineGroup<Data: RandomAccessCollection, ID: Hashable, Parent, Leaf, Subgroup> {}
+extension OutlineGroup: View where Parent: View, Leaf: View, Subgroup: View {
+    public var body: Never { fatalError() }
+}
+/// "Data conforms to RandomAccessCollection, ID is Data.Element.ID, Parent conforms to View,
+/// Parent is Leaf, Subgroup is DisclosureGroup<Parent, OutlineSubgroupChildren>, and
+/// Data.Element conforms to Identifiable."
+extension OutlineGroup where Data.Element: Identifiable, ID == Data.Element.ID, Parent: View, Parent == Leaf,
+                             Subgroup == DisclosureGroup<Parent, OutlineSubgroupChildren> {
+    /// swiftui/outlinegroup/init(_:children:content:)-4rmem (macOS 11)
+    public init<DataElement>(_ data: Data, children: KeyPath<DataElement, Data?>, @ViewBuilder content: @escaping (DataElement) -> Leaf)
+        where ID == DataElement.ID, DataElement: Identifiable, DataElement == Data.Element {}
+}
+/// swiftui/outlinesubgroupchildren
+nonisolated public struct OutlineSubgroupChildren: View {
+    public var body: Never { fatalError() }
+}
+/// swiftui/disclosuregroup — `struct DisclosureGroup<Label, Content> where Label : View, Content : View`
+nonisolated public struct DisclosureGroup<Label: View, Content: View>: View {
+    /// swiftui/disclosuregroup/init(content:label:) (macOS 11)
+    public init(@ViewBuilder content: @escaping () -> Content, @ViewBuilder label: () -> Label) {}
+    /// swiftui/disclosuregroup/init(isExpanded:content:label:) (macOS 11)
+    public init(isExpanded: Binding<Bool>, @ViewBuilder content: @escaping () -> Content, @ViewBuilder label: () -> Label) {}
+    public var body: Never { fatalError() }
 }
 
 /// swiftui/geometryreader, geometryproxy
@@ -607,6 +674,11 @@ extension PickerStyle where Self == MenuPickerStyle { public static var menu: Me
 extension PickerStyle where Self == InlinePickerStyle { public static var inline: InlinePickerStyle { .init() } }
 extension PickerStyle where Self == RadioGroupPickerStyle { public static var radioGroup: RadioGroupPickerStyle { .init() } }
 
+/// swiftui/liststyle; swiftui/sidebarliststyle (`static var sidebar: SidebarListStyle`, macOS 10.15)
+public protocol ListStyle {}
+public struct SidebarListStyle: ListStyle { public init() {} }
+extension ListStyle where Self == SidebarListStyle { public static var sidebar: SidebarListStyle { .init() } }
+
 // MARK: - View modifiers (all `nonisolated`, per the docs)
 
 extension View {
@@ -708,6 +780,20 @@ extension View {
                                          onCompletion: @escaping (Result<[URL], any Error>) -> Void) -> some View { _Modified(self) }
     nonisolated public func searchable(text: Binding<String>, placement: SearchFieldPlacement = .automatic, prompt: LocalizedStringKey) -> some View { _Modified(self) }
     nonisolated public func inspector<V: View>(isPresented: Binding<Bool>, @ViewBuilder content: () -> V) -> some View { _Modified(self) }
+    /// swiftui/view/liststyle(_:) (macOS 10.15)
+    nonisolated public func listStyle<S: ListStyle>(_ style: S) -> some View { _Modified(self) }
+    /// swiftui/view/badge(_:) overloads: -8adyq (Int, "set the value to zero to hide the badge"),
+    /// -84e43 (LocalizedStringKey?), -6k2u9 (Text?), -6x46k (StringProtocol?) — macOS 12
+    nonisolated public func badge(_ count: Int) -> some View { _Modified(self) }
+    nonisolated public func badge(_ key: LocalizedStringKey?) -> some View { _Modified(self) }
+    nonisolated public func badge(_ label: Text?) -> some View { _Modified(self) }
+    @_disfavoredOverload nonisolated public func badge<S: StringProtocol>(_ label: S?) -> some View { _Modified(self) }
+    /// swiftui/view/contextmenu(menuitems:) (macOS 10.15)
+    nonisolated public func contextMenu<MenuItems: View>(@ViewBuilder menuItems: () -> MenuItems) -> some View { _Modified(self) }
+    /// swiftui/view/ondeletecommand(perform:) (macOS 10.15)
+    nonisolated public func onDeleteCommand(perform action: (() -> Void)?) -> some View { _Modified(self) }
+    /// swiftui/view/navigationsplitviewcolumnwidth(min:ideal:max:) (macOS 13)
+    nonisolated public func navigationSplitViewColumnWidth(min: CGFloat? = nil, ideal: CGFloat, max: CGFloat? = nil) -> some View { _Modified(self) }
 }
 
 public enum TextAlignment: Hashable, Sendable { case leading, center, trailing }

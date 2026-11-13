@@ -793,6 +793,30 @@ nonisolated func accessibilityLabel(_ label: Text) / accessibilityAddTraits(_:) 
 - **UNVERIFIED from the docs JSON:** SwiftUI's `task` modifiers inherit the caller's actor context;
   the SDK interface spells it `@_inheritActorContext`, which the docs drop.
 
+# Milestone 12 additions — the source list (verified 2026-11-13, same method)
+
+Overloads that share a docs path are listed under the page's `otherDeclarations`, each with a
+hash-suffixed path (`init(wrappedValue:_:)-48yjd`); the stubs name that path.
+
+```swift
+@frozen @propertyWrapper struct SceneStorage<Value>                    // 11.0+; wrappedValue { get nonmutating set }, projectedValue: Binding<Value>
+init(wrappedValue: Value, _ key: String) where Value == Bool           // -48yjd; also Int (-3kgmn), String (-40fny), RawRepresentable<String> (-8hd2d), Double, Data, Date, URL
+struct Section<Parent, Content, Footer>                                // View when all three are
+init(_ titleKey: LocalizedStringKey, @ContentBuilder content: () -> Content)                           // 12.0+, Parent == Text, Footer == EmptyView
+init(_ titleKey: LocalizedStringKey, isExpanded: Binding<Bool>, @ContentBuilder content: () -> Content)  // 14.0+, collapsible sidebar section
+init(isExpanded: Binding<Bool>, @ContentBuilder content: () -> Content, @ContentBuilder header: () -> Parent)   // 14.0+, Footer == EmptyView
+init<DataElement>(_ data: Data, children: KeyPath<DataElement, Data?>, @ContentBuilder content: @escaping (DataElement) -> Leaf)
+    // OutlineGroup, -4rmem, 11.0+: ID == Data.Element.ID, Parent == Leaf, Subgroup == DisclosureGroup<Parent, OutlineSubgroupChildren>
+nonisolated struct DisclosureGroup<Label, Content> where Label : View, Content : View   // 11.0+
+static var sidebar: SidebarListStyle { get }                           // ListStyle, 10.15+
+nonisolated func listStyle<S>(_ style: S) -> some View where S : ListStyle
+nonisolated func badge(_ count: Int) -> some View                      // 12.0+ (-8adyq): "set the value to zero to hide the badge"
+nonisolated func contextMenu<MenuItems>(@ContentBuilder menuItems: () -> MenuItems) -> some View   // 10.15+
+nonisolated func onDeleteCommand(perform action: (() -> Void)?) -> some View                       // 10.15+, Edit › Delete and the delete key
+nonisolated func navigationSplitViewColumnWidth(min: CGFloat? = nil, ideal: CGFloat, max: CGFloat? = nil) -> some View   // 13.0+
+nonisolated init<S>(_ title: S, systemImage name: String) where S : StringProtocol   // Label, -2z97t: data, not a localization key
+```
+
 ---
 
 ## Verified vs UNVERIFIED
