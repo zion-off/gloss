@@ -340,16 +340,16 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     // MARK: Overlays
 
     /// Where the overlays anchor: the selection's first line and the caret, in SwiftUI's
-    /// top-left-origin coordinates of the editor's frame (the flip lives in `OverlayGeometry`,
-    /// Linux-tested).
+    /// top-left-origin coordinates of the editor's frame. Whether the scroll view is flipped is
+    /// asked, not assumed (review 6); the conversion lives in `OverlayGeometry`, Linux-tested.
     private func reportSelection() {
         guard let textView, let scrollView else { return }
         let selection = textView.selectedRange()
         let screenRect = textView.firstRect(forCharacterRange: selection, actualRange: nil)
         let windowRect = textView.window.map { $0.convertFromScreen(screenRect) } ?? screenRect
         let inView = scrollView.convert(windowRect, from: nil)
-        let rect = OverlayGeometry.flipUp(OverlayRect(x: inView.minX, y: inView.minY, width: inView.width, height: inView.height),
-                                          inHeight: scrollView.bounds.height)
+        let rect = OverlayGeometry.topLeft(OverlayRect(x: inView.minX, y: inView.minY, width: inView.width, height: inView.height),
+                                           inHeight: scrollView.bounds.height, flipped: scrollView.isFlipped)
         selectionRectChanged?(selection.length > 0 ? rect : nil)
         caretRectChanged?(rect)
     }

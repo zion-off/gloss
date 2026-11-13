@@ -12,6 +12,13 @@ struct OverlayGeometryTests {
         #expect(OverlayGeometry.flipUp(OverlayRect(x: 0, y: 380, width: 1, height: 20), inHeight: 400).minY == 0)
     }
 
+    @Test("a flipped view's rects are already top-left; only an unflipped view's are mirrored")
+    func topLeft() {
+        let rect = OverlayRect(x: 10, y: 100, width: 50, height: 12)
+        #expect(OverlayGeometry.topLeft(rect, inHeight: 400, flipped: true) == rect)
+        #expect(OverlayGeometry.topLeft(rect, inHeight: 400, flipped: false) == OverlayGeometry.flipUp(rect, inHeight: 400))
+    }
+
     @Test("a rect's centre lines")
     func centres() {
         let rect = OverlayRect(x: 10, y: 100, width: 50, height: 12)

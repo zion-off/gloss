@@ -25,11 +25,17 @@ public struct OverlayRect: Hashable, Sendable {
 
 /// Geometry for overlays anchored to text, in pure math so it's Linux-tested.
 ///
-/// AppKit hands out rects in a bottom-left-origin space (a scroll view isn't flipped, and
-/// `firstRect(forCharacterRange:)` converts to window base coordinates). SwiftUI's `.position`
-/// wants top-left-origin coordinates. Every overlay anchor crosses that boundary exactly once,
-/// here (review 5).
+/// AppKit hands out rects in a view's own space, which is bottom-left-origin unless the view is
+/// flipped (and the docs don't promise which a scroll view is). SwiftUI's `.position` wants
+/// top-left-origin coordinates. Every overlay anchor crosses that boundary exactly once, here,
+/// and only after asking the view (reviews 5 and 6).
 public enum OverlayGeometry {
+    /// A rect in an AppKit view's coordinates, in SwiftUI's top-left-origin space: as it is when
+    /// the view is flipped (already top-left), mirrored inside its `height` otherwise.
+    public static func topLeft(_ rect: OverlayRect, inHeight height: Double, flipped: Bool) -> OverlayRect {
+        flipped ? rect : flipUp(rect, inHeight: height)
+    }
+
     /// A rect in AppKit's bottom-left-origin space, flipped into SwiftUI's top-left-origin
     /// space inside a container `height` points tall.
     public static func flipUp(_ rect: OverlayRect, inHeight height: Double) -> OverlayRect {
