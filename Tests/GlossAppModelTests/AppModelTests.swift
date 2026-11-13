@@ -454,6 +454,22 @@ struct ReviewOneAppModelTests {
         #expect(app.notes.text == "from the cli")
     }
 
+    @Test("an external change to another page doesn't refetch the editor's page (review 6)")
+    func externalChangeScopedToPage() async throws {
+        let lib = TestLibrary()
+        let (book, root) = try await lib.book()
+        let other = try await lib.services.pages.createSubpage(under: root.id, title: "elsewhere")
+        let app = AppModel(services: lib.services)
+        try await app.notes.load(root)
+        // The store moves under the editor, but the change record names only the other page:
+        // the editor must not go and reread its own page for it.
+        try await lib.services.pages.updateBody(root.id, to: "written behind the editor's back")
+        let change = ChangeRecord(sequence: 1, entity: ChangeEntity.page, entityID: other.id.stringValue, origin: "cli", date: .testEpoch)
+        await app.handleExternalChanges([change])
+        #expect(app.notes.text.isEmpty)
+        #expect(app.notes.page?.documentID == book.id)
+    }
+
     @Test("the reader follows the workspace focus: the book at its passage, else the saved position")
     func readerFollowsFocus() async throws {
         let lib = TestLibrary()
