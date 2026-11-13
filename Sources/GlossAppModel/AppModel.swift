@@ -19,6 +19,8 @@ import GlossNotes
     public let notes: NotesEditorModel
     /// The open book's highlights and pages in the source list.
     public let bookSidebar: BookSidebarModel
+    /// This window's library presentation state (the details sheet, the import panel).
+    public let presentation = LibraryPresentationModel()
     public var linking: LinkingCoordinator { LinkingCoordinator(services: services, reader: reader) }
     public var changeMonitor: ExternalChangeMonitor?
 

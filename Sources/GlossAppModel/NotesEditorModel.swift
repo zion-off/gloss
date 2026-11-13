@@ -138,6 +138,8 @@ import GlossNotes
             selection = clamp(selection)
         }
         page = fresh
+        // The title may have changed too (a rename, a details edit): keep the crumbs honest.
+        breadcrumbs = (try? await services.pages.breadcrumbs(to: id)) ?? breadcrumbs
         savedLinks = NotesStyler.glossLinks(in: MarkdownParser.standard.parse(fresh.body))
         await refreshContext()
     }
