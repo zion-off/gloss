@@ -854,7 +854,7 @@ func runModal() -> NSApplication.ModalResponse
 var canChooseFiles: Bool / canChooseDirectories: Bool / allowsMultipleSelection: Bool  // NSOpenPanel
 var urls: [URL] { get }                                                                 // NSOpenPanel
 weak var keyWindow: NSWindow? { get }                                                   // NSApplication
-struct ModalResponse { init(_ rawValue: UInt); static let ok, cancel, continue, stop, abort, … }   // NSApplication.ModalResponse
+struct ModalResponse { init(_ rawValue: UInt); static let OK, cancel, continue, stop, abort, … }   // NSApplication.ModalResponse
 init?(filenameExtension: String, conformingTo supertype: UTType = .data)                // UTType, 11.0+ (one page covers both spellings)
 static var image: UTType { get }                                                       // UTType, 11.0+ ("public.image")
 ```
@@ -868,6 +868,8 @@ static var image: UTType { get }                                                
   (URL qualifies on a Mac). corelibs Foundation has no `_ObjectiveCBridgeable`, so the stub
   drops the constraint; `loadObject(ofClass: URL.self)` still compiles line for line on a Mac.
   Only use it with bridged types (URL, String).
+  The real SDK warns about the unused `Progress` it returns (a Mac build, D-099 follow-up), so the
+  stub is not `@discardableResult` and callers write `_ = provider.loadObject(…)`.
 - `NSItemProvider`/`NSItemProviderReading` are Darwin Foundation (corelibs lacks them), so they
   live in the AppKit stub's Darwin section; `canLoadObject(ofClass:)` 10.13+, `loadObject` 10.13+.
 # Milestone 12 additions — search, open quickly, export/print, url handling (verified 2026-11-13, same method)

@@ -95,7 +95,7 @@ private struct CoverWell: View {
                 .frame(width: 96)
                 .onDrop(of: [UTType.fileURL], isTargeted: nil) { providers in
                     guard let provider = providers.first(where: { $0.canLoadObject(ofClass: URL.self) }) else { return false }
-                    provider.loadObject(ofClass: URL.self) { url, _ in
+                    _ = provider.loadObject(ofClass: URL.self) { url, _ in
                         guard let url else { return }
                         Task { @MainActor in await model.chooseCover(from: url) }
                     }

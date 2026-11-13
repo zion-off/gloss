@@ -97,7 +97,7 @@ private struct LibraryFeatures<Content: View>: View {
         guard providers.contains(where: { $0.canLoadObject(ofClass: URL.self) }) else { return false }
         let collector = DropCollector(count: providers.count, app: app)
         for provider in providers {
-            provider.loadObject(ofClass: URL.self) { url, _ in
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in
                 Task { @MainActor in await collector.add(url) }
             }
         }
@@ -159,9 +159,9 @@ private let librarySortTitles: [LibrarySort: String] = [
     static func present(_ panel: NSOpenPanel, onPick: @escaping @MainActor ([URL]) -> Void) {
         if let window = NSApplication.shared.keyWindow {
             panel.beginSheetModal(for: window) { response in
-                if response == .ok { onPick(panel.urls) }
+                if response == .OK { onPick(panel.urls) }
             }
-        } else if panel.runModal() == .ok {
+        } else if panel.runModal() == .OK {
             onPick(panel.urls)
         }
     }

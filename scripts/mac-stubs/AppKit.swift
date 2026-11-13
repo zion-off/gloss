@@ -165,11 +165,9 @@ open class NSWorkspace: NSObject {
     public struct ModalResponse: Equatable, Sendable {
         public let rawValue: UInt
         public init(_ rawValue: UInt) { self.rawValue = rawValue }
-        /// appkit/nsapplication/modalresponse/ok
-        public static let ok = ModalResponse(1)
         /// appkit/nsapplication/modalresponse/cancel
         public static let cancel = ModalResponse(0)
-        /// appkit/nsapplication/modalresponse/ok — the Swift name is `OK`
+        /// appkit/nsapplication/modalresponse/ok — the Swift name is `OK` (a Mac build rejected `.ok`)
         public static let OK = ModalResponse(1)
     }
 }
@@ -252,7 +250,7 @@ open class NSItemProvider: NSObject {
     /// foundation/nsitemprovider/canloadobject(ofclass:)-40grc (macOS 10.13)
     public func canLoadObject<T>(ofClass: T.Type) -> Bool { false }
     /// foundation/nsitemprovider/loadobject(ofclass:completionhandler:)-6pysm (macOS 10.13)
-    @discardableResult public func loadObject<T>(ofClass: T.Type, completionHandler: @escaping @Sendable (T?, (any Error)?) -> Void) -> Progress { fatalError() }
+    public func loadObject<T>(ofClass: T.Type, completionHandler: @escaping @Sendable (T?, (any Error)?) -> Void) -> Progress { fatalError() }
 }
 
 /// appkit/nsaccessibility-swift.struct — `struct NSAccessibility` (the Swift-side API).
