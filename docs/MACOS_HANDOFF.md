@@ -422,7 +422,9 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
   - A failed save shows "couldn't save — your words are still here" at the bottom; switching
     pages then offers keep/discard (Escape = keep editing; never silent loss).
   - Closing a window flushes the editor's pending save and the reader's position (`onDisappear`);
-    check with `gloss page read` after closing mid-typing that the last words made it.
+    check with `gloss page read` after closing mid-typing that the last words made it. The same
+    flush keeps the window's last choices: close with ⌥⌘2 (notes only) and the library sorted by
+    author, relaunch, and the window comes back notes-only sorted by author.
   - `.link` attributes make gloss and web links clickable with the pointing hand cursor; gloss
     links route inside the app, web links open the browser.
 - `NotesEditorView.swift` — the overlays are SwiftUI over the scroll view, clamped to the pane's
