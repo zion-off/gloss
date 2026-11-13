@@ -5,29 +5,54 @@ import GlossAppModel
 import GlossReaderBridge
 
 /// The reader pane: the engine for the open book's kind, drawing into the window, driven by
-/// `ReaderController`. Shows a placeholder when there is no book, no engine for it yet, or the
-/// book didn't open.
+/// `ReaderController`, with its popovers (selection, clicked highlight, a marker's notes). Shows
+/// a placeholder when there is no book, no engine for it yet, or the book didn't open.
+///
+/// The session host belongs to the window, not the pane: hiding the reader (notes only) and
+/// showing it again re-hosts the same engine view instead of reloading the book.
 public struct ReaderPane: View {
     private let reader: ReaderController
     private let engines: ReadingEngineRegistry
-    @State private var host = ReaderSessionHost()
+    private let host: ReaderSessionHost
+    private let addToNotes: @MainActor () async -> Void
 
-    public init(reader: ReaderController, engines: ReadingEngineRegistry) {
+    public init(reader: ReaderController, engines: ReadingEngineRegistry, host: ReaderSessionHost,
+                addToNotes: @escaping @MainActor () async -> Void) {
         self.reader = reader
         self.engines = engines
+        self.host = host
+        self.addToNotes = addToNotes
     }
 
     public var body: some View {
-        ZStack {
+        ZStack(alignment: .topLeading) {
             if let session = host.session {
                 ReaderHostView(session: session)
                     .id(ObjectIdentifier(session))
             }
             placeholder
+            popoverAnchor
         }
         .task(id: reader.document?.kind) {
             await host.prepare(for: reader.document?.kind, engines: engines, reader: reader)
         }
+    }
+
+    /// An invisible view over the pane that carries the popover. The anchor rect is in the
+    /// reader's top-left coordinates, the same space this overlay lays out in.
+    @ViewBuilder private var popoverAnchor: some View {
+        let presented = Binding(get: { reader.popover != nil },
+                                set: { if !$0 { Task { await reader.dismissPopover() } } })
+        Color.clear
+            .allowsHitTesting(false)
+            .popover(isPresented: presented, attachmentAnchor: .rect(.rect(anchorRect)), arrowEdge: .bottom) {
+                ReaderPopoverContent(reader: reader, addToNotes: addToNotes)
+            }
+    }
+
+    private var anchorRect: CGRect {
+        guard let anchor = reader.popover?.anchor else { return .zero }
+        return CGRect(x: anchor.x, y: anchor.y, width: max(anchor.width, 1), height: max(anchor.height, 1))
     }
 
     @ViewBuilder private var placeholder: some View {
@@ -49,11 +74,13 @@ public struct ReaderPane: View {
     }
 }
 
-/// Owns the pane's session: one per document kind, kept while the kind stays the same (and
-/// while no book is open, so the next one opens in place).
-@MainActor @Observable final class ReaderSessionHost {
-    private(set) var session: (any ReaderSession)?
+/// Owns the reader's session: one per document kind, kept while the kind stays the same (and
+/// while no book is open, so the next one opens in place). One per window.
+@MainActor @Observable public final class ReaderSessionHost {
+    public private(set) var session: (any ReaderSession)?
     private var kind: DocumentKind?
+
+    public init() {}
 
     func prepare(for kind: DocumentKind?, engines: ReadingEngineRegistry, reader: ReaderController) async {
         guard let kind, kind != self.kind else { return }

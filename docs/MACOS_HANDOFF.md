@@ -111,6 +111,19 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
 - `PDFReadingEngine.swift` — registration only; PDFs now open with an engine (the "can't show this
   kind" placeholder should be gone).
 
+### `Sources/GlossReaderKit/ReaderPopovers.swift` + `ReaderPane.swift` (milestone 11)
+
+- One popover at a time over the reader, anchored to the selection/mark (top-left `ReaderRect`
+  contract): selecting text offers the five highlight colours and "add to notes"; clicking a
+  highlight offers recolouring (current colour checked) and "remove highlight" (⌘Z restores it);
+  clicking a marker linked from several notes lists them with the linking line.
+- The popover is attached to a transparent overlay at `.rect(.rect(anchorRect))`; check it points at
+  the selection at different window sizes and scroll positions, in both engines. CSS px = points is
+  assumed for the EPUB engine's anchors (true at the default zoom).
+- `UndoManager.setActionName(_:)` (standard, not in the verified notes) names the undo item.
+- The session host belongs to the window: switch to notes only (⌥⌘3) and back (⌥⌘1) — the book must
+  stay where it was without reloading.
+
 ### `Sources/GlossMac/WindowCommands.swift` (milestone 11)
 
 - The Go menu: back/forward (⌘[/⌘]), acting on the notes pane when the editor has focus, else the
@@ -120,6 +133,11 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
   Both apply through the editor's coordinator (one undo step). Enabled state comes from the models:
   ⌘K disabled with the hint as its tooltip ("now select a passage in the book", …).
 - Two windows: the commands act on the key window's models (`focusedSceneValue`).
+- View menu: "reader and notes" ⌥⌘1, "reader only" ⌥⌘2, "notes only" ⌥⌘3, checkmarked (toggles); the
+  toolbar's segmented control mirrors them. The layout persists and applies to every window.
+- Toolbar: back/forward on the leading edge (a `ControlGroup`), the layout switch on the trailing
+  side. SF Symbols `rectangle.split.2x1`, `book`, `note.text`, `chevron.left/right` — standard names,
+  but check they render.
 
 ### `Sources/GlossEditor/` (milestone 10)
 

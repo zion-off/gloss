@@ -1,0 +1,140 @@
+#if os(macOS)
+import SwiftUI
+import GlossCore
+import GlossAppModel
+import GlossReaderBridge
+
+/// What the reader's popover shows, by kind. Lowercase copy, system controls (D-019).
+struct ReaderPopoverContent: View {
+    let reader: ReaderController
+    let addToNotes: @MainActor () async -> Void
+    @Environment(\.undoManager) private var undoManager
+
+    var body: some View {
+        switch reader.popover {
+        case .selection?:
+            selection
+        case .highlight(let focus)?:
+            highlight(focus)
+        case .markerChoice(let choice)?:
+            markerChoice(choice)
+        case nil:
+            EmptyView()
+        }
+    }
+
+    // MARK: Selection: highlight it, or quote it into the notes
+
+    private var selection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            colours(current: nil) { colour in
+                Task { _ = try? await reader.highlightSelection(colour) }
+            }
+            Divider()
+            Button("add to notes") { Task { await addToNotes() } }
+                .buttonStyle(.borderless)
+            Text("select words in your notes and press ⌘K to link them here")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(12)
+        .frame(width: 240)
+    }
+
+    // MARK: A clicked highlight: recolour, quote, remove
+
+    private func highlight(_ focus: ReaderController.HighlightFocus) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            colours(current: focus.highlight.color) { colour in
+                Task { try? await reader.recolor(focus.highlight.id, to: colour) }
+            }
+            Divider()
+            Button("remove highlight", role: .destructive) { remove(focus.highlight) }
+                .buttonStyle(.borderless)
+        }
+        .padding(12)
+        .frame(width: 240)
+    }
+
+    /// Removes the highlight, undoable from Edit › Undo (the window's undo manager).
+    private func remove(_ highlight: Highlight) {
+        let undo = undoManager
+        Task {
+            guard let removed = try? await reader.deleteHighlight(highlight.id) else { return }
+            undo?.registerUndo(withTarget: reader) { reader in
+                Task { try? await reader.restoreHighlight(removed) }
+            }
+            undo?.setActionName("remove highlight")
+        }
+    }
+
+    // MARK: A marker linked from several notes: pick one
+
+    private func markerChoice(_ choice: ReaderController.MarkerChoice) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("linked from")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+            ForEach(choice.references) { reference in
+                Button {
+                    Task { await reader.choose(reference.page) }
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(verbatim: reference.page.title.isEmpty ? "untitled" : reference.page.title)
+                        Text(verbatim: reference.snippet)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text(verbatim: "\(reference.page.title): \(reference.snippet)"))
+            }
+        }
+        .padding(.vertical, 8)
+        .frame(width: 280)
+    }
+
+    // MARK: Colour row
+
+    private func colours(current: HighlightColor?, pick: @escaping (HighlightColor) -> Void) -> some View {
+        HStack(spacing: 10) {
+            ForEach(HighlightColor.allCases, id: \.self) { colour in
+                Button { pick(colour) } label: {
+                    Circle()
+                        .fill(Self.swatch(colour))
+                        .frame(width: 20, height: 20)
+                        .overlay {
+                            if colour == current {
+                                Image(systemName: "checkmark")
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(.primary)
+                            }
+                        }
+                }
+                .buttonStyle(.plain)
+                .help("\(colour.rawValue) highlight")
+                .accessibilityLabel(Text("\(colour.rawValue) highlight"))
+                .accessibilityAddTraits(colour == current ? .isSelected : [])
+            }
+        }
+    }
+
+    /// System colours for the swatches, so they follow light/dark mode like the rest of the UI.
+    static func swatch(_ colour: HighlightColor) -> Color {
+        switch colour {
+        case .yellow: .yellow
+        case .green: .green
+        case .blue: .blue
+        case .pink: .pink
+        case .purple: .purple
+        }
+    }
+}
+#endif
