@@ -1,6 +1,8 @@
 import Foundation
 import Observation
 import GlossCore
+import GlossMarkdown
+import GlossNotes
 
 /// One window's models over one set of services, plus the glue that reacts to external
 /// changes. The Mac composition root builds this; views take the piece they need.
@@ -77,6 +79,34 @@ import GlossCore
     public func showReaderFocus() async {
         guard let focus = workspace.readerFocus, let document = workspace.document, document.id == focus.documentID else { return }
         await reader.open(document, at: focus.locator)
+    }
+
+    // MARK: Linking across the panes
+
+    /// The editor's selection, as the link gesture sees it (nil without a page).
+    public var notesSelection: NotesSelection? {
+        notes.page.map { NotesSelection(pageID: $0.id, range: notes.selection) }
+    }
+
+    /// Whether "link to passage" (⌘K) can run, with the hint to show when it can't.
+    public var linkAvailability: LinkGestureAvailability {
+        linking.availability(notes: notesSelection, document: notes.page == nil ? nil : notes.document)
+    }
+
+    /// Links the editor's selected words to the book's selected passage. The editor applies the
+    /// returned edit (one undo step); its autosave then makes the marker appear.
+    public func linkSelectionToPassage() async throws -> EditResult {
+        try await linking.linkToPassage(notes: notesSelection, document: notes.document)
+    }
+
+    /// "add to notes": the book's selection as a quote line at the editor's caret, as an edit
+    /// for the editor to apply. Nil when it changes nothing.
+    public func quoteSelectionIntoNotes() async throws -> EditResult? {
+        guard notes.page != nil else { throw GlossError.notAllowed("open a notes page first") }
+        let body = notes.text
+        let (insertion, _) = try await linking.quoteInsertion(into: body, caret: notes.selection.upperBound)
+        guard let edit = TextDiff.minimalEdit(from: body, to: insertion.body) else { return nil }
+        return EditResult(edits: [edit], selection: insertion.caret..<insertion.caret)
     }
 
     /// Applies a `gloss://` link; returns false when the destination is gone.

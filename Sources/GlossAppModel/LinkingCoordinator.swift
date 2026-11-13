@@ -21,9 +21,9 @@ import GlossNotes
 
     /// Links the notes selection to the book selection. The editor applies the returned edit
     /// and saves; call `didSaveLinkedPage()` afterwards so the marker appears.
-    public func linkToPassage(notes: NotesSelection, document: MarkdownDocument) async throws -> EditResult {
+    public func linkToPassage(notes: NotesSelection?, document: MarkdownDocument) async throws -> EditResult {
         let available = availability(notes: notes, document: document)
-        guard available.isEnabled, let book = reader.selection else {
+        guard available.isEnabled, let book = reader.selection, let notes else {
             throw GlossError.notAllowed(available.hint)
         }
         let target = try await services.links.target(for: book.passage, in: book.documentID)

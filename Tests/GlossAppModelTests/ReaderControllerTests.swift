@@ -481,6 +481,37 @@ struct PassageLinkRoundTripTests {
         #expect(driver.lastAnnotations?.markers.first?.locator.value == "cfi-1")
     }
 
+    @Test("⌘K and add to notes work from the window's own editor and reader")
+    func linkingFromTheWindow() async throws {
+        let lib = TestLibrary()
+        let (book, root) = try await lib.book()
+        let app = AppModel(services: lib.services)
+        let driver = FakeDriver()
+        app.reader.attach(driver)
+        await app.reader.openShowing(book, on: driver)
+        #expect(app.linkAvailability == .needsBoth)  // no page in the editor yet
+
+        try await app.notes.load(root)
+        app.notes.textDidChange("camus is right", selection: 9..<14)
+        #expect(app.linkAvailability == .needsBookSelection)
+        await app.reader.handle(.selectionChanged(lib.passage("happy", at: "cfi-1"), anchor: ReaderRect(x: 0, y: 0, width: 1, height: 1)))
+        #expect(app.linkAvailability == .ready)
+
+        let link = try await app.linkSelectionToPassage()
+        app.notes.textDidChange(link.apply(to: app.notes.text), selection: link.selection)
+        #expect(app.notes.text.hasPrefix("camus is [right](gloss://passage/"))
+
+        // The quote lands after the caret as one minimal edit, the caret after it.
+        app.notes.selectionDidChange(app.notes.text.utf16.count..<app.notes.text.utf16.count)
+        let quote = try #require(try await app.quoteSelectionIntoNotes())
+        let before = app.notes.text
+        let after = quote.apply(to: before)
+        #expect(after.hasPrefix(before))
+        #expect(after.contains("> happy [↗](gloss://passage/"))
+        #expect(quote.edits.count == 1 && quote.selection.isEmpty)
+        await app.notes.flushSave()
+    }
+
     @Test("book → notes: a marker with one linking page opens it at the link")
     func markerOpensNote() async throws {
         let lib = TestLibrary()
