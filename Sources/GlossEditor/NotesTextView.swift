@@ -70,7 +70,9 @@ final class NotesTextView: NSTextView {
         let origin = textContainerOrigin
         let inContainer = NSPoint(x: point.x - origin.x, y: point.y - origin.y)
         guard let fragment = manager.textLayoutFragment(for: inContainer) else { return false }
-        return fragment.layoutFragmentFrame.contains(inContainer)
+        // Vertical only: a fragment's frame is as wide as its text, and a row under hidden markdown
+        // is far narrower than the line it fills.
+        return inContainer.y >= fragment.layoutFragmentFrame.minY && inContainer.y < fragment.layoutFragmentFrame.maxY
     }
 }
 #endif

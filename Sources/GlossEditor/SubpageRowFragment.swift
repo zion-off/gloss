@@ -18,7 +18,14 @@ final class SubpageRowFragment: NSTextLayoutFragment {
     /// The row spans the whole fragment, not just the (hidden) text's width: TextKit clips drawing
     /// to this rect, in the fragment's own coordinates.
     override var renderingSurfaceBounds: CGRect {
-        CGRect(origin: .zero, size: layoutFragmentFrame.size)
+        CGRect(origin: .zero, size: rowSize)
+    }
+
+    /// The row is as wide as the text container, not as wide as its hidden markdown: that text is
+    /// collapsed to nearly nothing, and the fragment's own frame follows the text.
+    private var rowSize: CGSize {
+        CGSize(width: textLayoutManager?.textContainer?.size.width ?? layoutFragmentFrame.width,
+               height: layoutFragmentFrame.height)
     }
 
     var row: SubpageRow?
@@ -43,7 +50,7 @@ final class SubpageRowFragment: NSTextLayoutFragment {
         // `point` is already where this fragment's origin lands in the context: adding the
         // frame's own origin on top pushed the row down by the paragraph's offset in the page,
         // out of the clip, so every row but one at the very top was invisible.
-        let bounds = CGRect(origin: point, size: layoutFragmentFrame.size)
+        let bounds = CGRect(origin: point, size: rowSize)
 
         // Notion's hover: a soft rounded block behind the whole row.
         if hover?.pageID == row.pageID {
