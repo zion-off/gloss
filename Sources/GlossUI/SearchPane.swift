@@ -108,6 +108,18 @@ struct SearchResults: View {
         .onChange(of: app.search.results) { _, _ in
             chosen = nil  // new results: nothing is selected, and a stale pick can't block a click
         }
+        // Escape closes the search even when nothing has keyboard focus. A click on a blank part
+        // of the results (or the reader having had focus before the book was swapped out) leaves
+        // the window itself as first responder, where `.onExitCommand` never fires; a key
+        // equivalent is looked up through the window's views regardless of focus (D-162). Not
+        // `.hidden()`: hidden controls take no key equivalents.
+        .background {
+            Button("close search") { app.search.dismiss() }
+                .keyboardShortcut(.cancelAction)
+                .frame(width: 0, height: 0)
+                .opacity(0)
+                .accessibilityHidden(true)
+        }
     }
 
     /// The section's rows, each tagged with where it sits.

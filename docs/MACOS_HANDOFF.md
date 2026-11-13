@@ -353,6 +353,15 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
   icon and folding it back switch instantly (D-161: no transition, deliberately). "empty trash" still asks "empty the trash?" before emptying.
 - **No search transition (D-161), unverified:** opening and closing the search (icon ↔ field,
   results ↔ previous view) switches instantly, deliberately, with no fade or slide.
+- **Leaving a search opened in a book (D-162), unverified:** open a book, read a few pages, open a
+  notes subpage, set "reader only". Click the search icon, type "the", press Return/click a blank
+  part of the results so the field loses focus. Then each of these returns to the book exactly as it
+  was (same layout, same page in the reader, same notes page), the field folds to the icon:
+  1. the toolbar's ‹ (enabled during search; › greyed out);
+  2. ⌘[ (and Go › Back);
+  3. Escape, with focus in the results, nowhere, or in the field.
+  After that, ‹ walks the book's own history again, and only at its start goes to the library.
+  Choosing a result jumps within the book/notes and closes the search.
 - **A way back from search (D-159), unverified:** search "whale", click a blank area of the
   results (the field loses focus): the toolbar's back button is enabled and leaves the search —
   the field folds back to the icon and the previous view (library or book) returns; forward is

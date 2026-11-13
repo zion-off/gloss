@@ -651,3 +651,12 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
 - **D-161 (supersedes the animation parts of D-153 and D-160) The search has no transition.** The
   user wants the icon, the field and the results to switch instantly: the `withAnimation` wrappers
   and `SearchMotion` are gone, and nothing animates the detail column's swap to the results.
+- **D-162 Escape closes the search even with no keyboard focus.** The hard way back from a search
+  opened in a book: when the book's detail column is swapped for the results, the reader's web view
+  (often first responder) leaves the window, and a click on a blank part of the results makes the
+  window itself first responder (the detail's tap-to-unfocus). With no SwiftUI focus,
+  `.onExitCommand` (D-159) never fired, so Escape did nothing and only back/⌘[ worked. The results
+  pane now carries an invisible button with `.keyboardShortcut(.cancelAction)`, which AppKit finds
+  as a key equivalent whatever has focus. Back (toolbar, ⌘[, Go menu) already checks the search
+  before the book's history and before "back to the library" (D-159), so the book returns as it
+  was: same layout, reader session (kept in `readerHost`) and notes page.
