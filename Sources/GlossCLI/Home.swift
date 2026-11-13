@@ -28,6 +28,7 @@ enum Home {
             ("gloss ls", "see your library"),
             ("gloss read \"<book>\"", "read the notes you wrote on a book"),
             ("gloss search \"<words>\"", "search titles, notes and book text"),
+            ("gloss link <page> --text … --quote …", "link your words to a passage"),
             ("gloss open \"<book>\"", "open it in the gloss app"),
         ]
         let width = tips.map { DisplayWidth.of($0.0) }.max() ?? 0

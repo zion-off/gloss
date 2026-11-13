@@ -83,7 +83,7 @@ public struct GlossCommand: AsyncParsableCommand {
         version: "0.1.0",
         subcommands: [
             ImportCommand.self, ListCommand.self, BookCommand.self, PagesCommand.self, ReadCommand.self,
-            PageCommand.self, HighlightsCommand.self, SearchCommand.self, ExportCommand.self, OpenCommand.self,
+            PageCommand.self, LinkCommand.self, HighlightsCommand.self, SearchCommand.self, ExportCommand.self, OpenCommand.self,
             TrashCommand.self, BackupCommand.self, ReindexCommand.self, WhereCommand.self,
         ])
 

@@ -25,6 +25,15 @@ json() { python3 -c "import json,sys; d=json.load(sys.stdin); print($1)"; }
 "$bin" page write stranger '# notes\n- [ ] read part two' >/dev/null
 [ "$("$bin" read stranger)" = "$(printf '# notes\n- [ ] read part two')" ] || fail "raw read"
 
+# Link words to passages in real epub and pdf text: a unique quote, a listed ref, across books.
+"$bin" page write stranger 'the sun matters, and so does happiness' >/dev/null
+[ "$("$bin" link stranger --text "the sun" --quote "buried Maman" --json | json 'd["outcome"]')" = linked ] || fail "epub link"
+ref="$("$bin" link stranger --quote "Sisyphus happy" --to myth --list --json | json 'd["book"][0]["ref"]')"
+[ "$ref" = "pdf-page:0@17-31" ] || fail "pdf candidates ($ref)"
+[ "$("$bin" link stranger --text happiness --to myth --match "$ref" --json | json 'd["outcome"]')" = linked ] || fail "pdf link"
+[ "$("$bin" read stranger | grep -o 'gloss://passage/' | wc -l | tr -d ' ')" = 2 ] || fail "links in the page"
+"$bin" page write stranger '# notes\n- [ ] read part two' >/dev/null
+
 # Ten processes add pages at once.
 for i in $(seq 1 10); do "$bin" page add stranger "page $i" >/dev/null & done
 wait
@@ -43,5 +52,6 @@ wait
 set +e
 "$bin" book show "no such book" 2>/dev/null; [ $? = 1 ] || fail "missing book exits 1"
 "$bin" search 2>/dev/null; [ $? = 64 ] || fail "usage error exits 64"
+"$bin" link stranger --quote "the" 2>/dev/null; [ $? = 64 ] || fail "an ambiguous quote exits 64"
 set -e
 echo "✔ cli smoke passed (real binary, sqlite, epub, pdf, 10 concurrent writers)"

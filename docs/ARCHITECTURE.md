@@ -280,7 +280,14 @@ gloss pages <book>                      gloss trash [list] | restore | purge | e
 gloss read <page> [--raw|--rendered]    gloss backup <file or folder>
 gloss page add|write|edit|rename|trash  gloss reindex
 gloss highlights [list|delete]          gloss where
+gloss link <page> [--text w | --text-offset a-b] (--quote q | --from a --through b | --match ref | --section/--page n --offset a-b)
 ```
+
+`gloss link` makes passage links without the app (D-160): it finds the words in the page
+(`NotesTextFinder`) and the passage in the book's extracted text (`PassageFinder`/`BookText`), never
+guesses between several matches (it lists them with `--nth`/`--match` refs, or asks on a terminal),
+and writes through `LinkService.link`, so references, the index and the change journal update and a
+running app draws the marker within a second.
 
 Every command takes `--json` (stable shapes in `JSONModels.swift`), `--library` and `--no-color`.
 Output follows `NO_COLOR`/`CLICOLOR_FORCE` and drops colour and status lines when piped.
