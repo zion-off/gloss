@@ -96,6 +96,9 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
 
     private func setRowHover(_ row: SubpageRow?) {
         if row != nil { NSCursor.pointingHand.set() }
+        // AppKit only resets the cursor on entering or leaving the view, so leaving a row by
+        // moving within the text must put the I-beam back itself.
+        if row == nil, rowHover.pageID != nil { NSCursor.iBeam.set() }
         guard row?.pageID != rowHover.pageID else { return }
         rowHover.pageID = row?.pageID
         invalidateRows()  // fragments redraw with (or without) the highlight
@@ -261,6 +264,16 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
 
     func textViewDidChangeSelection(_ notification: Notification) {
         guard let textView else { return }
+        // A subpage row is one block: its markdown is hidden under the row, so a caret inside it
+        // (an arrow key can land there) would split the link on Return or typing. Snap it to
+        // the nearer end of the line.
+        let selected = textView.selectedRange
+        if selected.length == 0, let row = model.subpageRow(at: selected.location),
+           selected.location > row.lineRange.lowerBound, selected.location < row.lineRange.upperBound {
+            let nearer = selected.location - row.lineRange.lowerBound < row.lineRange.upperBound - selected.location
+            textView.setSelectedRange(NSRange(location: nearer ? row.lineRange.lowerBound : row.lineRange.upperBound, length: 0))
+            return  // the move this makes comes back through here and is reported once
+        }
         // While the user types, the model heard the new text already; a bare selection move
         // only moves the syntax reveal.
         model.selectionDidChange(Self.range(textView.selectedRange))

@@ -69,9 +69,11 @@ final class SubpageRowFragment: NSTextLayoutFragment {
         }
 
         let title = NSAttributedString(string: row.title, attributes: Self.titleAttributes(trashed: row.isTrashed))
-        let textRect = CGRect(x: iconRect.maxX + 6, y: bounds.minY, width: max(bounds.width - iconRect.width - 16, 0),
-                              height: bounds.height)
-        title.draw(in: textRect)
+        // Centred on the row like the icon (drawing in the whole row's rect puts it at the top).
+        let height = title.size().height
+        let textRect = CGRect(x: iconRect.maxX + 6, y: bounds.midY - height / 2,
+                              width: max(bounds.width - iconRect.width - 40, 0), height: height)
+        title.draw(with: textRect, options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
         if row.isTrashed == false {
             let chevron = NSAttributedString(string: "›", attributes: Self.titleAttributes(trashed: false))
             let size = chevron.size()
