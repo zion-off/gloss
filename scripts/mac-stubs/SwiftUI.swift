@@ -848,6 +848,10 @@ extension View {
     nonisolated public func handlesExternalEvents(preferring: Set<String>, allowing: Set<String>) -> some View { _Modified(self) }
     nonisolated public func fileImporter(isPresented: Binding<Bool>, allowedContentTypes: [UTType], allowsMultipleSelection: Bool,
                                          onCompletion: @escaping (Result<[URL], any Error>) -> Void) -> some View { _Modified(self) }
+    /// swiftui/view/searchscopes(_:activation:_:) (macOS 13.3)
+    /// swiftui/view/searchscopes(_:activation:_:) (macOS 13.3)
+    nonisolated public func searchScopes<V, S>(_ scope: Binding<V>, activation: SearchScopeActivation,
+                                              @ViewBuilder _ scopes: () -> S) -> some View where V: Hashable, S: View { _Modified(self) }
     nonisolated public func searchable(text: Binding<String>, placement: SearchFieldPlacement = .automatic, prompt: LocalizedStringKey) -> some View { _Modified(self) }
     nonisolated public func inspector<V: View>(isPresented: Binding<Bool>, @ViewBuilder content: () -> V) -> some View { _Modified(self) }
     /// swiftui/view/liststyle(_:) (macOS 10.15)
@@ -886,6 +890,18 @@ extension LabelStyle where Self == TitleOnlyLabelStyle { public static var title
 extension LabelStyle where Self == TitleAndIconLabelStyle { public static var titleAndIcon: TitleAndIconLabelStyle { .init() } }
 public struct SearchFieldPlacement: Sendable {
     public static let automatic = SearchFieldPlacement(), toolbar = SearchFieldPlacement(), sidebar = SearchFieldPlacement()
+}
+
+/// swiftui/searchscopeactivation (macOS 13.3) — `struct SearchScopeActivation`
+/// swiftui/searchscopeactivation (macOS 13.3) — `struct SearchScopeActivation`
+public struct SearchScopeActivation: Sendable {
+    /// swiftui/searchscopeactivation/automatic
+    public static var automatic: SearchScopeActivation { .init() }
+    /// swiftui/searchscopeactivation/onsearchpresentation
+    public static var onSearchPresentation: SearchScopeActivation { .init() }
+    /// swiftui/searchscopeactivation/ontextentry
+    public static var onTextEntry: SearchScopeActivation { .init() }
+    private init() {}
 }
 
 // MARK: - Keyboard

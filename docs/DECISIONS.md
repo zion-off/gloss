@@ -323,6 +323,11 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   highlights); its notes outline is the notes pane's book, headed with that book's title when the two
   differ. Before this, every navigation dragged the other pane along, so the two always showed one
   book.
+- **D-130 Search is `.searchable` in the toolbar with `.searchScopes`, results replace the detail
+  column.** Mail shows search results in the content area and Books closes the search when a
+  result is chosen; together that is the least chrome for a window whose content is already a
+  list. The scope menu appears on text entry (`searchScopes(activation: .onTextEntry)`), and the
+  window adopts the context's default scope when the open document changes (brief 32).
 - **D-132 Every URL from outside goes through one portable door, `AppModel.open(url:)`.** The
   classifier (`IncomingURLClassifier`: gloss link / registered file / other) and the routing are
   testable on Linux, and pane-independent navigation (brief 15) can switch the one call inside.

@@ -232,6 +232,28 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
   isn't visible then — acceptable, but check the import still completes and the grid updates
   when you go back to it.
 - Two windows: import from one; the other's grid follows within a second (its change poll).
+### `Sources/GlossUI/SearchPane.swift` + `MainWindow.swift` (milestone 12)
+
+- The toolbar search field (brief 31): `.searchable` in the toolbar, scope menu via
+  `.searchScopes(activation: .onTextEntry)`. Check: the field sits in the toolbar with the
+  prompt "search"; typing shows the scope menu under it (in split view: "this book", "this
+  book's text", "this book's notes", "all notes", "library"; on the home shelf: "library",
+  "all notes"); the scope follows the open document (open another book — the menu and the
+  default scope change).
+- While the query is non-empty the results **replace the detail column** (Mail-style, D-130):
+  grouped "notes" / "in the book" / "library", each row title + subtitle + snippet with the
+  match in the accent colour. Check a query that hits all three groups from split view.
+- Choosing a result dismisses the search and jumps: a notes hit opens the page with the match
+  selected and flashed (`showFindIndicator`); a book-text hit goes to the passage and flashes it
+  (EPUB: the engine finds the match text near the chunk locator; PDF: jumps to the page and
+  highlights its occurrence); a library hit opens the book. Check from "reader only" and
+  "notes only" layouts — the needed pane appears.
+- Keyboard: arrow keys move through the list (a plain `List` selection), Return/typing Enter
+  on a row selects it (single click selects; selection jumps). Check arrow keys actually move
+  selection and that typing while the list has focus edits the field.
+- The empty state ("no matches") shows while the query is non-empty and nothing was found.
+- Debounce: type fast — the results follow the last keystroke, never one query per character,
+  and the UI never blocks (searches run off the main actor through `SearchService`).
 
 ### `Sources/GlossEditor/` (milestone 10)
 

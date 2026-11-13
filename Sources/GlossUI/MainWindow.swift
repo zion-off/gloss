@@ -24,7 +24,8 @@ public struct MainWindow: View {
 
     /// - Parameter prepare: once-per-launch setup to await before the first book shows
     ///   (reading settings, routine upkeep); every window calls it, the root runs it once.
-    public init(services: GlossServices, engines: ReadingEngineRegistry, prepare: @escaping @MainActor () async -> Void) {
+    public init(services: GlossServices, engines: ReadingEngineRegistry,
+                prepare: @escaping @MainActor () async -> Void) {
         self.engines = engines
         self.prepare = prepare
         let app = AppModel(services: services)
@@ -40,14 +41,20 @@ public struct MainWindow: View {
                 .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 360)
         } detail: {
             if started {
-                switch app.workspace.detail {
-                case .library:
-                    LibraryGrid(library: app.library, presentation: app.presentation, open: open,
-                               moveToTrash: moveToTrash)
-                case .trash:
-                    ContentUnavailableView("trash", systemImage: "trash")
-                case .book:
-                    book
+                if app.search.hasQuery {
+                    // Searching replaces the detail column, Mail-style (D-130); choosing a hit
+                    // dismisses the search and jumps there.
+                    SearchResults(app: app)
+                } else {
+                    switch app.workspace.detail {
+                    case .library:
+                        LibraryGrid(library: app.library, presentation: app.presentation, open: open,
+                                   moveToTrash: moveToTrash)
+                    case .trash:
+                        ContentUnavailableView("trash", systemImage: "trash")
+                    case .book:
+                        book
+                    }
                 }
             } else {
                 ProgressView()
@@ -55,10 +62,16 @@ public struct MainWindow: View {
         }
         .navigationTitle(title)
         .toolbar { toolbar }
+        .glossSearch(model: app.search)
         .focusedSceneValue(\.windowCommands, commands)
         .task { await run() }
         .task(id: app.workspace.readerFocus) { await app.showReaderFocus() }
-        .task(id: app.bookSidebarSubjects) { await app.showBookSidebar() }
+        .task(id: app.bookSidebarSubjects) {
+            await app.showBookSidebar()
+            // The search scope follows the context: opening a book (or going home) adopts the
+            // default for where the user now is (brief 32).
+            app.search.resetToDefaultScope()
+        }
         .task(id: app.workspace.pendingNoteReveal) {
             if let range = app.workspace.pendingNoteReveal, let page = app.workspace.page {
                 reveal = NotesReveal(pageID: page.id, range: range)

@@ -870,6 +870,69 @@ static var image: UTType { get }                                                
   Only use it with bridged types (URL, String).
 - `NSItemProvider`/`NSItemProviderReading` are Darwin Foundation (corelibs lacks them), so they
   live in the AppKit stub's Darwin section; `canLoadObject(ofClass:)` 10.13+, `loadObject` 10.13+.
+# Milestone 12 additions — search, open quickly, export/print, url handling (verified 2026-11-13, same method)
+
+### SwiftUI (macOS 14 target)
+```swift
+nonisolated func searchScopes<V, S>(_ scope: Binding<V>, activation: SearchScopeActivation, @ContentBuilder _ scopes: () -> S) -> some View where V : Hashable, S : View   // view/searchscopes(_:activation:_:), macOS 13.3+
+struct SearchScopeActivation { static var automatic / onSearchPresentation / onTextEntry }  // macOS 13.3
+nonisolated func onKeyPress(keys: Set<KeyEquivalent>, phases: KeyPress.Phases = [.down, .repeat], action: @escaping (KeyPress) -> KeyPress.Result) -> some View   // macOS 14.0
+nonisolated func onKeyPress(_ key: KeyEquivalent, phases: KeyPress.Phases = [.down, .repeat], action: @escaping (KeyPress) -> KeyPress.Result) -> some View   // macOS 14.0
+struct KeyPress { let key: KeyEquivalent; let characters: String; let modifiers: EventModifiers; let phase: KeyPress.Phase; enum Result { case handled, ignored }; struct Phases: OptionSet { static let down, up, repeat, all }; enum Phase { case down, up, repeat } }   // macOS 14.0
+@export(implementation) nonisolated init(_ titleKey: LocalizedStringKey, text: Binding<String>)                    // TextField init(_:text:), macOS 10.15
+@export(implementation) nonisolated init<S>(_ title: S, text: Binding<String>) where S : StringProtocol             // TextField init(_:text:)-2laoi
+nonisolated init(_ titleKey: LocalizedStringKey, text: Binding<String>, prompt: Text?)                              // TextField init(_:text:prompt:)-70zi2, macOS 13.0
+nonisolated init<S>(_ title: S, text: Binding<String>, prompt: Text?) where S : StringProtocol                      // TextField init(_:text:prompt:)-4kzyv, macOS 13.0
+nonisolated init(id: String, @ContentBuilder makeContent: @escaping () -> Content)                                  // WindowGroup init(id:makeContent:), macOS 11.0+; init(id:content:) is DEPRECATED macOS 15
+nonisolated func handlesExternalEvents(matching conditions: Set<String>) -> some Scene                               // scene/handlesexternalevents(matching:), macOS 11.0+
+```
+- `searchable(text:placement:prompt:)` (already stubbed) is documented with
+  `prompt: LocalizedStringResource`; the stub keeps `LocalizedStringKey` (both accept a literal,
+  and declaring both would be ambiguous).
+- `WindowGroup.init(id:content:)` is deprecated from macOS 15 in favour of
+  `init(id:makeContent:)` — identical call shape. The stub now declares only the surviving
+  initializer, so callers compile against the non-deprecated one.
+
+### AppKit — save and print
+```swift
+@MainActor class NSSavePanel
+func runModal() -> NSApplication.ModalResponse                                     // macOS 10.0+ (docs metadata lists no introducedAt)
+func beginSheetModal(for window: NSWindow) async -> NSApplication.ModalResponse    // macOS 10.6+; async overload listed with the completion-handler one
+var url: URL? { get }
+var nameFieldStringValue: String { get set }                                       // macOS 10.6
+var allowedContentTypes: [UTType] { get set }                                     // macOS 11.0
+var canCreateDirectories: Bool { get set }
+var directoryURL: URL? { get set }                                                 // macOS 10.6
+var message: String! { get set }                                                  // docs type is String! (implicitly unwrapped)
+var prompt: String! { get set }
+var title: String! { get set }
+struct ModalResponse { static var OK: ModalResponse; static var cancel: ModalResponse }   // NSApplication
+class NSPrintInfo { class var shared: NSPrintInfo { get set }; convenience init() }
+@MainActor class NSPrintOperation
+init(view: NSView, printInfo: NSPrintInfo)
+func run() -> Bool                                                                 // "Runs the print operation on the current thread"
+func runModal(for docWindow: NSWindow, delegate: Any?, didRun didRunSelector: Selector?, contextInfo: UnsafeMutableRawPointer?)
+var jobTitle: String? { get set }                                                 // macOS 10.5
+var showsPrintPanel: Bool { get set }                                             // default true
+weak var keyWindow: NSWindow? { get }                                             // NSApplication
+```
+- `NSPrintOperation.run()`'s docs give no discussion (declaration only); whether it presents
+  the panel without a window is **UNVERIFIED** — the code prefers `runModal(for: keyWindow)`
+  and only falls back to `run()` when there is no key window.
+
+### WebKit — offscreen print
+```swift
+func loadHTMLString(_ string: String, baseURL: URL?) -> WKNavigation?              // macOS 10.10+
+func printOperation(with printInfo: NSPrintInfo) -> NSPrintOperation               // macOS 11.0+; "Returns the print operation object to use when printing the contents of the web view"
+optional func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!)     // WKNavigationDelegate, macOS 10.10+
+optional func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error)   // macOS 10.10+
+```
+- Both navigation callbacks are declared with the implicitly unwrapped `WKNavigation!`
+  parameter (docs tokens); the stub matches, since a `WKNavigation?` parameter would not
+  satisfy the requirement as imported.
+- **UNVERIFIED (needs a run):** that printing right after `didFinish` has the web view laid
+  out — the html is static, but if the first page comes out blank, wait a beat after
+  `didFinish` — and that `printOperation(with:)` paginates long notes.
 
 ---
 
