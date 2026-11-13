@@ -83,6 +83,10 @@ extension NotificationCenter {
     open var postsBoundsChangedNotifications: Bool { get { false } set {} }
     public static let boundsDidChangeNotification = NSNotification.Name("NSViewBoundsDidChangeNotification")
     open func addSubview(_ view: NSView) {}
+    /// appkit/nsview/addsubview(_:positioned:relativeto:) — nil `otherView`: above or below all siblings
+    open func addSubview(_ view: NSView, positioned place: NSWindow.OrderingMode, relativeTo otherView: NSView?) {}
+    /// appkit/nsview/ishidden
+    open var isHidden: Bool { get { false } set {} }
     open func removeFromSuperview() {}
     /// `point` is in the **superview's** coordinate system (per the docs).
     @discardableResult open func hitTest(_ point: NSPoint) -> NSView? { nil }
@@ -100,6 +104,8 @@ extension NotificationCenter {
 
 /// appkit/nswindow — `@MainActor class NSWindow`
 @MainActor open class NSWindow: NSResponder {
+    /// appkit/nswindow/orderingmode
+    public enum OrderingMode: Int, Sendable { case below = -1, out = 0, above = 1 }
     @discardableResult open func makeFirstResponder(_ responder: NSResponder?) -> Bool { true }
     @discardableResult open func convertFromScreen(_ rect: NSRect) -> NSRect { rect }
 }
@@ -414,6 +420,15 @@ open class NSMutableParagraphStyle: NSParagraphStyle {
     open var headIndent: CGFloat { get { 0 } set {} }
     open var firstLineHeadIndent: CGFloat { get { 0 } set {} }
     open var paragraphSpacingBefore: CGFloat { get { 0 } set {} }
+    /// appkit/nsmutableparagraphstyle/minimumlineheight, maximumlineheight (0 = no limit), linebreakmode
+    open var minimumLineHeight: CGFloat { get { 0 } set {} }
+    open var maximumLineHeight: CGFloat { get { 0 } set {} }
+    open var lineBreakMode: NSLineBreakMode { get { .byWordWrapping } set {} }
+}
+
+/// appkit/nslinebreakmode (macOS 10.0)
+public enum NSLineBreakMode: UInt, Sendable {
+    case byWordWrapping = 0, byCharWrapping, byClipping, byTruncatingHead, byTruncatingTail, byTruncatingMiddle
 }
 
 /// appkit/nstextstorage — an NSMutableAttributedString subclass
@@ -546,5 +561,8 @@ open class NSTextLayoutFragment: NSObject {
 
 /// appkit/nstextlinefragment
 open class NSTextLineFragment: NSObject {
+    /// appkit/nstextlinefragment/typographicbounds (12.0) — origin offset from the start of the
+    /// parent layout fragment's line fragment group
+    open var typographicBounds: CGRect { .zero }
     @discardableResult open func characterIndex(for point: CGPoint) -> Int { 0 }
 }

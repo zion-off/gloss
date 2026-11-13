@@ -13,6 +13,9 @@ import GlossNotes
 
     init() {}
 
+    /// A subpage row's height, Notion-like: a body line with room around the icon.
+    static let rowHeight: CGFloat = 28
+
     func baseFont(_ spec: TextStyle.FontRole) -> NSFont {
         if let cached = fonts[spec] { return cached }
         let font: NSFont
@@ -63,6 +66,15 @@ import GlossNotes
             let paragraph = NSMutableParagraphStyle()
             paragraph.headIndent = 18
             paragraph.firstLineHeadIndent = 18
+            attributes[.paragraphStyle] = paragraph
+        }
+        if style.block == .row {
+            // A subpage row's line: always one row tall, never wrapped by its hidden markdown, so
+            // the row drawn over it and the line after it sit where the layout says (D-146).
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.minimumLineHeight = Self.rowHeight
+            paragraph.maximumLineHeight = Self.rowHeight
+            paragraph.lineBreakMode = .byClipping
             attributes[.paragraphStyle] = paragraph
         }
         if style.hidden == true { attributes[.foregroundColor] = NSColor.clear }

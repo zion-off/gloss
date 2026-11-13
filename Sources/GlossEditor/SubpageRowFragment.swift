@@ -8,17 +8,24 @@ import GlossNotes
 /// text drawing entirely. Not main-actor isolated: neither is `NSTextLayoutFragment`, whose
 /// `draw(at:in:)` this overrides.
 final class SubpageRowFragment: NSTextLayoutFragment {
-    /// The row spans the whole fragment, not just the (hidden) text's width: TextKit clips drawing
+    /// The whole width and the whole fragment, not just the (hidden) text's: TextKit clips drawing
     /// to this rect, in the fragment's own coordinates.
     override var renderingSurfaceBounds: CGRect {
-        CGRect(origin: .zero, size: rowSize)
+        let row = rowRect
+        return CGRect(x: 0, y: 0, width: row.width, height: max(layoutFragmentFrame.height, row.maxY))
     }
 
-    /// The row is as wide as the text container, not as wide as its hidden markdown: that text is
-    /// collapsed to nearly nothing, and the fragment's own frame follows the text.
-    private var rowSize: CGSize {
-        CGSize(width: textLayoutManager?.textContainer?.size.width ?? layoutFragmentFrame.width,
-               height: layoutFragmentFrame.height)
+    /// Where the row is, in the fragment's own coordinates: the paragraph's first line, as wide as
+    /// the text container. Not the whole fragment (D-146): when the row is the last paragraph and
+    /// the text ends with its newline, TextKit 2 puts the empty last line (the extra line fragment)
+    /// in this same fragment, and a row centred on both lines slid down over the new line, and
+    /// answered clicks there.
+    var rowRect: CGRect {
+        let width = textLayoutManager?.textContainer?.size.width ?? layoutFragmentFrame.width
+        guard let line = textLineFragments.first?.typographicBounds else {
+            return CGRect(x: 0, y: 0, width: width, height: layoutFragmentFrame.height)
+        }
+        return CGRect(x: 0, y: line.minY, width: width, height: line.height)
     }
 
     var row: SubpageRow?
@@ -43,10 +50,10 @@ final class SubpageRowFragment: NSTextLayoutFragment {
         // `point` is already where this fragment's origin lands in the context: adding the
         // frame's own origin on top pushed the row down by the paragraph's offset in the page,
         // out of the clip, so every row but one at the very top was invisible.
-        let bounds = CGRect(origin: point, size: rowSize)
+        let bounds = rowRect.offsetBy(dx: point.x, dy: point.y)
 
-        // The hover block is the text view's to draw (`NotesTextView.hoverRowRect`): a fragment's
-        // cached layer doesn't repaint when the pointer moves.
+        // The hover block is the text view's (`NotesTextView.hoverRowRect`, a view of its own): a
+        // fragment's rendering is cached and doesn't repaint when the pointer moves.
         // The icon: a document glyph; a plain rounded rect if symbols are unavailable.
         let iconRect = CGRect(x: bounds.minX + 2, y: bounds.midY - 8, width: 16, height: 16)
         if let image = NSImage(systemSymbolName: "doc.text", accessibilityDescription: nil) {

@@ -9,9 +9,11 @@ import GlossNotes
 /// the view owns the text while the user types.
 @MainActor
 final class NotesTextView: NSTextView {
-    /// Offers a click to the coordinator: `true` when it took it (a task box toggled, a
-    /// subpage row opened); `false` lets the click through.
+    /// Offers a click to the coordinator: `true` when it took it (a task box toggled); `false`
+    /// lets the click through.
     var onTextClick: ((Int) -> Bool)?
+    /// A click on a subpage row (where the row is drawn, not where its hidden text is).
+    var onRowClick: ((SubpageRow) -> Void)?
     /// The pointer moved over the text (hover previews); the point is in this view's coordinates.
     var onHover: ((NSPoint) -> Void)?
     /// The pointer left the text.
@@ -21,35 +23,37 @@ final class NotesTextView: NSTextView {
 
     private var hoverArea: NSTrackingArea?
 
-    /// The block under the pointer, when it is on a subpage row (this view's coordinates): Notion's
-    /// soft rounded highlight, drawn here beneath the row's own icon and title.
+    /// The subpage row under the pointer (this view's coordinates): Notion's soft rounded block.
+    /// A view of its own beneath the text's (D-146): TextKit 2 renders layout fragments into
+    /// their own cached layers, so a block painted in this view's `draw(_:)` was either covered or
+    /// never repainted when the pointer moved.
     var hoverRowRect: NSRect? {
         didSet {
             guard hoverRowRect != oldValue else { return }
-            if let oldValue { setNeedsDisplay(oldValue.insetBy(dx: -2, dy: -2)) }
-            if let hoverRowRect { setNeedsDisplay(hoverRowRect.insetBy(dx: -2, dy: -2)) }
+            guard let hoverRowRect else { rowHover.isHidden = true; return }
+            if rowHover.superview !== self { addSubview(rowHover, positioned: .below, relativeTo: nil) }
+            rowHover.frame = hoverRowRect
+            rowHover.isHidden = false
+            rowHover.needsDisplay = true
         }
     }
+    private let rowHover = RowHoverBlock()
 
-    override func draw(_ dirtyRect: NSRect) {
-        if let hoverRowRect {
-            effectiveAppearance.performAsCurrentDrawingAppearance {
-                NSColor.quaternaryLabelColor.setFill()
-                NSBezierPath(roundedRect: hoverRowRect, xRadius: 6, yRadius: 6).fill()
-            }
-        }
-        super.draw(dirtyRect)
-    }
-
-    /// The full-width block of the line under a point (the row's hover highlight).
-    func lineBlock(at point: NSPoint) -> NSRect? {
+    /// The subpage row drawn under a point, and its block in this view's coordinates. By the row's
+    /// drawn rect, not by character index: the line after a row (the extra line fragment at the
+    /// end of the text shares the row's fragment) and the row's hidden text both map to indexes
+    /// on the row's line.
+    func rowHit(at point: NSPoint) -> (row: SubpageRow, rect: NSRect)? {
         guard let manager = textLayoutManager else { return nil }
         let origin = textContainerOrigin
         let inContainer = NSPoint(x: point.x - origin.x, y: point.y - origin.y)
-        guard let fragment = manager.textLayoutFragment(for: inContainer) else { return nil }
+        guard let fragment = manager.textLayoutFragment(for: inContainer) as? SubpageRowFragment,
+              let row = fragment.row else { return nil }
         let frame = fragment.layoutFragmentFrame
-        let width = manager.textContainer?.size.width ?? frame.width
-        return NSRect(x: origin.x, y: origin.y + frame.minY, width: width, height: frame.height).insetBy(dx: 0, dy: -2)
+        let local = fragment.rowRect
+        let rect = NSRect(x: origin.x + frame.minX + local.minX, y: origin.y + frame.minY + local.minY,
+                          width: local.width, height: local.height)
+        return rect.contains(point) ? (row, rect) : nil
     }
 
     override func updateTrackingAreas() {
@@ -86,6 +90,10 @@ final class NotesTextView: NSTextView {
     /// clicks; `characterIndex(for:)` wants screen coordinates and serves input methods (review 6).
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
+        if let hit = rowHit(at: point), let onRowClick {
+            onRowClick(hit.row)
+            return
+        }
         // Only over a line: below the last one the insertion index is the end of the text, and a
         // subpage row or task box there would answer clicks on empty space.
         if isOverText(point) {
@@ -105,5 +113,18 @@ final class NotesTextView: NSTextView {
         // is far narrower than the line it fills.
         return inContainer.y >= fragment.layoutFragmentFrame.minY && inContainer.y < fragment.layoutFragmentFrame.maxY
     }
+}
+
+/// The hover block behind a subpage row: a rounded fill in a translucent system colour, so it
+/// reads the same under the row's icon and title (or over them, if TextKit ever draws the text
+/// beneath its subviews). Never takes the mouse.
+@MainActor
+private final class RowHoverBlock: NSView {
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.quaternaryLabelColor.setFill()
+        NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6).fill()
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 #endif

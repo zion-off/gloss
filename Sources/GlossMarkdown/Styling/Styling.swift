@@ -106,10 +106,14 @@ public struct StyleRuleSet: Sendable {
 
 /// Picks which syntax the cursor reveals: every element whose range touches the selection.
 public enum SyntaxReveal {
-    public static func apply(_ spans: [StyleSpan], selection: Range<Int>) -> [StyleSpan] {
+    /// `concealed`: ranges whose elements never reveal (a subpage row's line is drawn as a row,
+    /// so its markdown stays hidden wherever the cursor is).
+    public static func apply(_ spans: [StyleSpan], selection: Range<Int>, concealed: [Range<Int>] = []) -> [StyleSpan] {
         spans.map { span in
             guard span.role == .syntax || span.role == .linkDestination, let element = span.element,
-                  selection.lowerBound <= element.upperBound, selection.upperBound >= element.lowerBound else { return span }
+                  selection.lowerBound <= element.upperBound, selection.upperBound >= element.lowerBound,
+                  !concealed.contains(where: { $0.lowerBound <= element.lowerBound && element.upperBound <= $0.upperBound })
+            else { return span }
             var revealed = span
             revealed.role = span.role == .syntax ? .syntaxRevealed : .linkDestinationRevealed
             return revealed

@@ -58,6 +58,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         // No background of its own: the notes are written straight onto the window's sheet.
         textView.drawsBackground = false
         textView.onTextClick = { [weak self] index in self?.textClicked(at: index) ?? false }
+        textView.onRowClick = { [weak self] row in self?.openPage?(row.pageID) }
         textView.onFocusChange = { [weak self] focused in self?.actions.focusChanged(focused) }
         textView.onHover = { [weak self] point in self?.pointerMoved(to: point) }
         textView.onHoverEnd = { [weak self] in self?.endHover(); self?.setRowHover(nil) }
@@ -94,23 +95,18 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     /// The subpage row under the pointer; the text view draws its highlight.
     private var hoveredRowID: PageID?
 
-    private func setRowHover(_ row: SubpageRow?, at point: NSPoint? = nil) {
-        if row != nil { NSCursor.pointingHand.set() }
+    private func setRowHover(_ hit: (row: SubpageRow, rect: NSRect)?) {
+        if hit != nil { NSCursor.pointingHand.set() }
         // AppKit only resets the cursor on entering or leaving the view, so leaving a row by
         // moving within the text must put the I-beam back itself.
-        if row == nil, hoveredRowID != nil { NSCursor.iBeam.set() }
-        hoveredRowID = row?.pageID
-        textView?.hoverRowRect = row == nil ? nil : point.flatMap { textView?.lineBlock(at: $0) }
+        if hit == nil, hoveredRowID != nil { NSCursor.iBeam.set() }
+        hoveredRowID = hit?.row.pageID
+        textView?.hoverRowRect = hit?.rect
     }
 
     private func pointerMoved(to point: NSPoint) {
         guard let textView else { return }
-        var overRow: SubpageRow?
-        if textView.isOverText(point) {
-            let rowIndex = textView.characterIndexForInsertion(at: point)
-            if rowIndex != NSNotFound { overRow = model.subpageRow(at: rowIndex) }
-        }
-        setRowHover(overRow, at: point)
+        setRowHover(textView.rowHit(at: point))
         let index = textView.characterIndexForInsertion(at: point)
         guard index != NSNotFound else { endHover(); return }
         // The whole link (label + destination) under the pointer, if it's a passage link.
@@ -246,10 +242,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
             apply(edit)
             return true
         }
-        if let row = model.subpageRow(at: index) {
-            openPage?(row.pageID)
-            return true
-        }
+        // Subpage rows are hit by where they're drawn (`NotesTextView.rowHit`), not by index.
         return false
     }
 
@@ -259,6 +252,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         guard let textView else { return }
         model.textDidChange(textView.string, selection: Self.range(textView.selectedRange))
         restyle()
+        setRowHover(nil)  // the rows may have moved; the next pointer move finds them again
         normalizeTypingAttributes()
         reportSelection()
     }

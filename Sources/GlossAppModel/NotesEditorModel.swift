@@ -185,7 +185,7 @@ import GlossNotes
 
     public func selectionDidChange(_ newSelection: Range<Int>) {
         selection = clamp(newSelection)
-        spans = SyntaxReveal.apply(baseSpans, selection: selection)
+        spans = SyntaxReveal.apply(baseSpans, selection: selection, concealed: subpageRows.map(\.lineRange))
         activeFormats = FormatBar.activeItems(in: document, selection: selection)
         updateSlashMenu()
     }
@@ -378,7 +378,7 @@ import GlossNotes
         let placed = Set(subpageRows.map(\.pageID))
         unplacedChildren = children.filter { !placed.contains($0.id) }
         baseSpans = styler.spans(for: document, subpageRows: subpageRows)
-        spans = SyntaxReveal.apply(baseSpans, selection: selection)
+        spans = SyntaxReveal.apply(baseSpans, selection: selection, concealed: subpageRows.map(\.lineRange))
         activeFormats = FormatBar.activeItems(in: document, selection: selection)
     }
 

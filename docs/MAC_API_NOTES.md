@@ -734,6 +734,13 @@ nonisolated func keyboardShortcut(_ key: KeyEquivalent, modifiers: EventModifier
 func characterIndexForInsertion(at point: NSPoint) -> Int   // NSTextView, 10.5+; for click/drag insertion points
 var textLineFragments: [NSTextLineFragment] { get }          // NSTextLayoutFragment, 12.0+; valid once geometry is set
 func characterIndex(for point: CGPoint) -> Int               // NSTextLineFragment, 12.0+; point in the line fragment's coordinates
+var typographicBounds: CGRect { get }                        // NSTextLineFragment, 12.0+; "origin offset from the beginning of the line fragment group belonging to the parent layout fragment"
+func addSubview(_ view: NSView, positioned place: NSWindow.OrderingMode, relativeTo otherView: NSView?)   // NSView; nil otherView = above/below all siblings
+var isHidden: Bool { get set }                               // NSView
+enum OrderingMode { case below, out, above }                 // NSWindow.OrderingMode
+var minimumLineHeight: CGFloat { get set }                   // NSMutableParagraphStyle, 10.0; "regardless of the font size"
+var maximumLineHeight: CGFloat { get set }                   // NSMutableParagraphStyle, 10.0; 0 = no limit
+var lineBreakMode: NSLineBreakMode { get set }               // NSMutableParagraphStyle, 10.0; `.byClipping` keeps a paragraph on one line
 ```
 
 ---

@@ -503,6 +503,23 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
   icon match a Notes-like list, clicking anywhere on the line opens the page, arrow keys still
   step through the hidden line, and a rename from another window refreshes the title
   (`invalidateRows` on the next sync).
+  - **Re-diagnosed (D-146), unverified; 1d26dd5 didn't fix it.** Rows are now hit by where they are
+    drawn (the paragraph's first line fragment), drawn in that line only (fixed 28 pt, never
+    wrapped), and the hover block is a subview under the text. Check, on a page whose text ends
+    with a subpage row:
+    1. Put the caret at the end of the row line and press Return: the row doesn't move; the caret
+       sits on a fresh line one row-height below, not overlapping the row.
+    2. Click on that empty line (anywhere, including just under the row's centre): the caret goes
+       there, the subpage does not open. Clicking the row itself (icon, title, the empty right part,
+       the chevron) opens it.
+    3. Press Return a few more times and type: the text is body size, line spacing even from the
+       first line after the row.
+    4. Hover a row: a full-width rounded block appears under it (light and dark mode) and goes
+       when the pointer leaves the row or starts typing; the cursor is the pointing hand only
+       over the row.
+    5. Put the caret at the row's end (arrow keys): the row's markdown never appears or wraps.
+    6. If the block draws over the row's title rather than under it, TextKit draws text beneath
+       its subviews here; it is translucent, so still fine, but note it.
 - `NotesEditorCoordinator.swift` — the fragment delegate is `nonisolated` and builds the fragment
   there (TextKit's classes aren't main-actor isolated); only the read of the model's rows uses
   `MainActor.assumeIsolated`. It must never be hit from a background layout pass; if it ever crashes

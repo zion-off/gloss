@@ -86,4 +86,11 @@ struct SyntaxRevealTests {
     func spanning() {
         #expect(revealed(at: 8..<22).count == 4)
     }
+
+    @Test("elements inside a concealed range never reveal (a subpage row's line)")
+    func concealed() {
+        let doc = MarkdownParser.standard.parse(source)
+        let spans = SyntaxReveal.apply(StyleRuleSet.standard.spans(for: doc), selection: 0..<28, concealed: [19..<28])
+        #expect(spans.filter { $0.role == .syntaxRevealed }.map { doc.text[$0.range] } == ["**", "**"])
+    }
 }

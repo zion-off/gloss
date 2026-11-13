@@ -492,3 +492,17 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   with a fixed-width value, columns disabled in scrolled flow, a sample paragraph in the theme's
   colours and size, the save problem as a section footer, and the window sized to its content.
   "reading" leads because it is why people open Settings; still no tabs (D-121).
+- **D-146 Subpage rows are hit, drawn and highlighted by their first line fragment, at a fixed
+  height.** Re-diagnosis of 1d26dd5: (1) when a row is the last paragraph and the text ends with
+  its newline, TextKit 2 keeps the empty last line (the extra line fragment) inside the row's own
+  layout fragment, so the row, drawn centred on the whole fragment, slid half a line down over the
+  new line, and hit-testing by character index / fragment frame mapped clicks there to the row
+  (one more Return moves the extra line into its own paragraph, hence "fixes itself"); (2) with
+  the caret at the row's end, the link's syntax was revealed (hidden, but full width), so the
+  line could wrap and grow; (3) TextKit 2 renders fragments into cached layers, so a block painted
+  in `NSTextView.draw(_:)` doesn't reliably show or repaint. Now the row's line has a paragraph
+  style with min = max line height 28 pt and clipping (`TextStyle.Block.row`), syntax inside a row
+  never reveals (`SyntaxReveal.apply(concealed:)`), the fragment draws in `rowRect` (first line
+  fragment's typographic bounds, container width), clicks and hover hit that rect
+  (`NotesTextView.rowHit`), and the hover block is a hit-transparent subview placed below the
+  text's.
