@@ -354,6 +354,8 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
   curve; with Reduce Motion on they cut. Whether NSToolbar animates the swap of the button for the
   field is the system's call: if it just pops, that's the limit of system parts (note it), not a
   regression. "empty trash" still asks "empty the trash?" before emptying.
+- **Quick search transition (D-160), unverified:** opening and closing the search (icon ↔ field,
+  results ↔ previous view) takes under a fifth of a second; Reduce Motion cuts it.
 - **A way back from search (D-159), unverified:** search "whale", click a blank area of the
   results (the field loses focus): the toolbar's back button is enabled and leaves the search —
   the field folds back to the icon and the previous view (library or book) returns; forward is

@@ -58,9 +58,10 @@ private struct SearchField: ViewModifier {
     }
 }
 
-/// How the search opens and closes: the standard smooth curve, none under Reduce Motion (D-153).
+/// How the search opens and closes: a quick ease-out (0.18 s; the default smooth curve felt
+/// sluggish), none under Reduce Motion (D-153, D-160).
 enum SearchMotion {
-    static func animation(reduceMotion: Bool) -> Animation? { reduceMotion ? nil : .smooth }
+    static func animation(reduceMotion: Bool) -> Animation? { reduceMotion ? nil : .easeOut(duration: 0.18) }
 }
 
 /// The resting search on macOS 26: a magnifying glass that opens the field in its place.

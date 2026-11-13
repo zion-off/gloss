@@ -413,6 +413,8 @@ extension LabeledContent where Label == Text, Content: View {
     public static var smooth: Animation { Animation() }
     /// swiftui/animation/default
     public static var `default`: Animation { Animation() }
+    /// swiftui/animation/easeout(duration:) (macOS 10.15)
+    public static func easeOut(duration: TimeInterval) -> Animation { Animation() }
     init() {}
 }
 

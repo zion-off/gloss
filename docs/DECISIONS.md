@@ -604,3 +604,7 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   back (toolbar, ⌘[, Go menu) dismisses it and forward is disabled meanwhile; `.onExitCommand` on
   the window dismisses it on Escape wherever focus is. A standing query still survives focus
   moving away, and choosing a result still closes the search.
+- **D-160 The search opens and closes in 0.18 s.** `.smooth` (about 0.5 s) felt slow for a toolbar
+  field; `SearchMotion` is `.easeOut(duration: 0.18)`, still nothing under Reduce Motion. The same
+  transaction carries the detail column's swap to and from the results, and nothing else delays
+  it (the 120 ms debounce is for running the query, not for showing the field).
