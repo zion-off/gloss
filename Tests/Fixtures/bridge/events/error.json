@@ -3,6 +3,7 @@
   "type": "error",
   "payload": {
     "message": "fetch gloss-reader://books/missing.blob failed: 404 Not Found",
-    "context": "open"
+    "context": "open",
+    "openID": null
   }
 }

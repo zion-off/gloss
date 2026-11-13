@@ -133,6 +133,13 @@ import GlossReaderBridge
                 pendingFocus = nil
                 await go(to: focus, flash: true)
             }
+        case .openFailed(let message, let openID):
+            // Only the open in flight counts; a failure of an open a newer one replaced
+            // must not cancel it (review 4).
+            guard openID == awaitedOpenID else { return }
+            awaitedOpenID = nil
+            pendingFocus = nil
+            errorMessage = message
         case .relocated(let location):
             guard isShowingBook else { return }
             self.location = location
@@ -167,6 +174,12 @@ import GlossReaderBridge
             return
         }
         do { try await driver?.go(to: locator, flash: flash) } catch { errorMessage = Self.describe(error) }
+    }
+
+    /// Re-opens the current book after a failed open (the placeholder's "try again").
+    public func retryOpen() async {
+        guard let document, !isShowingBook, pendingOpen == nil, awaitedOpenID == nil else { return }
+        await open(document)
     }
 
     public func turnPage(forward: Bool) async {

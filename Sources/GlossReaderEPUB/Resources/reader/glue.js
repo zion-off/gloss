@@ -47,9 +47,10 @@ const postEvent = (type, payload) => {
     else
         console.log('gloss: no message handler, dropping event', envelope.type);
 };
-const postError = (error, context) => postEvent('error', {
+const postError = (error, context, openID = null) => postEvent('error', {
     message: error instanceof Error ? error.message : String(error),
     context: context ?? null,
+    openID,
 });
 // Rect of a range in the current section, offset by the section iframe's own
 // rect so the coordinates are relative to the web view viewport.
@@ -417,7 +418,7 @@ window.glossReader = {
         // the payload was just validated against `type`'s spec
         const run = commandQueue
             .then(() => commands[type](payload))
-            .catch((error) => postError(error, type));
+            .catch((error) => postError(error, type, type === 'open' ? payload.openID : null));
         commandQueue = run;
         await run;
         return null;

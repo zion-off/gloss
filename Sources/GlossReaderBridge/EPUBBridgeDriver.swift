@@ -102,6 +102,7 @@ public final class EPUBBridgeDriver: ReaderDriving, ReflowableAppearanceApplying
         case .searchResults:
             return nil
         case .error(let payload):
+            if let openID = payload.openID { return .openFailed(payload.message, openID: openID) }
             return .failed(payload.context.map { "\($0): \(payload.message)" } ?? payload.message)
         }
     }

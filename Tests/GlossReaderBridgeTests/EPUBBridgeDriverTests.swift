@@ -96,6 +96,12 @@ struct EPUBBridgeDriverTests {
         guard case .selectionChanged(let passage, _)?? = translated["selectionChanged"] else { Issue.record(); return }
         #expect(passage.label == "Chapter 1. Loomings")
         #expect(translated["error"] == .some(.failed("open: fetch gloss-reader://books/missing.blob failed: 404 Not Found")))
+
+        // An error naming an open is that open's failure, not a generic one, and the id survives
+        // the Swift codec.
+        let openFailure = ReaderEvent.error(ReaderErrorPayload(message: "fetch failed", context: "open", openID: 3))
+        let decoded = try JSONDecoder().decode(ReaderEvent.self, from: JSONEncoder().encode(openFailure))
+        #expect(EPUBBridgeDriver.translate(decoded) == .openFailed("fetch failed", openID: 3))
         #expect(translated["linkActivated"] == .some(.externalLink(URL(string: "https://www.gutenberg.org/ebooks/2701")!)))
     }
 

@@ -74,6 +74,8 @@ public enum ReaderEngineEvent: Hashable, Sendable {
     case ready
     /// The open with this id finished. Events about the book come after it, never before.
     case opened(toc: [ReaderTocEntry], openID: Int)
+    /// The open with this id failed (the book didn't load); nothing is showing.
+    case openFailed(String, openID: Int)
     case relocated(ReaderLocation)
     /// The user selected a passage; `anchor` is where to point popovers (view coordinates).
     case selectionChanged(Passage, anchor: ReaderRect)

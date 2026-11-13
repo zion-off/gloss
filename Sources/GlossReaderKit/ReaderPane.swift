@@ -39,9 +39,12 @@ public struct ReaderPane: View {
             ContentUnavailableView("gloss can't show this kind of book yet", systemImage: "doc.questionmark")
                 .background(.background)
         } else if let message = reader.errorMessage, !reader.isShowingBook {
-            ContentUnavailableView("this book wouldn't open", systemImage: "exclamationmark.triangle",
-                                   description: Text(verbatim: message))
-                .background(.background)
+            VStack(spacing: 12) {
+                ContentUnavailableView("this book wouldn't open", systemImage: "exclamationmark.triangle",
+                                       description: Text(verbatim: message))
+                Button("try again") { Task { await reader.retryOpen() } }
+            }
+            .background(.background)
         }
     }
 }

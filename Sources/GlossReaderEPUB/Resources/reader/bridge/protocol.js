@@ -263,6 +263,7 @@ export const EVENT_PAYLOAD_SPECS = {
     error: {
         message: STR,
         context: { t: 'string', nullable: true },
+        openID: { t: 'number', min: 1, int: true, nullable: true },
     },
 };
 // -- entry points ----------------------------------------------------------

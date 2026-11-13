@@ -228,6 +228,8 @@ export interface SearchResultsPayload {
 export interface ErrorPayload {
     message: string
     context: string | null
+    // the `openID` of the `open` that failed, so Swift can tell which open it belongs to
+    openID: number | null
 }
 
 export interface EventPayloads {
@@ -490,6 +492,7 @@ export const EVENT_PAYLOAD_SPECS: Record<EventType, Record<string, FieldSpec>> =
     error: {
         message: STR,
         context: { t: 'string', nullable: true },
+        openID: { t: 'number', min: 1, int: true, nullable: true },
     },
 }
 

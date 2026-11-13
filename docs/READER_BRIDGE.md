@@ -71,7 +71,7 @@ protocol. Both sides implement it and are tested against the same fixtures:
 | `annotationActivated` | `{ "highlightIDs": [string], "markerIDs": [string], "rect": Rect }` | the user clicks a drawn highlight or marker |
 | `linkActivated` | `{ "href": string, "external": bool }` | the user clicks an external link in the book |
 | `searchResults` | `{ "query": string, "items": [{ "cfi": string, "label": string \| null, "excerpt": { "pre": string, "match": string, "post": string } }], "progress": number, "done": bool }` | while a `search` runs |
-| `error` | `{ "message": string, "context": string \| null }` | anything that failed on the JS side |
+| `error` | `{ "message": string, "context": string \| null, "openID": int \| null }` | anything that failed on the JS side; `openID` names the `open` that failed, and the controller ignores failures of opens a newer one replaced |
 
 ## Switching books
 

@@ -417,9 +417,12 @@ public struct ReaderErrorPayload: Codable, Hashable, Sendable {
     public var message: String
     /// The command or area that failed, when known.
     public var context: String?
+    /// The `openID` of the `open` this failure belongs to (nil for anything else).
+    public var openID: Int?
 
-    public init(message: String, context: String?) {
+    public init(message: String, context: String?, openID: Int? = nil) {
         self.message = message
         self.context = context
+        self.openID = openID
     }
 }

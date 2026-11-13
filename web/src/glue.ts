@@ -68,10 +68,11 @@ const postEvent = <K extends protocol.EventType>(
     else console.log('gloss: no message handler, dropping event', envelope.type)
 }
 
-const postError = (error: unknown, context?: string): void =>
+const postError = (error: unknown, context?: string, openID: number | null = null): void =>
     postEvent('error', {
         message: error instanceof Error ? error.message : String(error),
         context: context ?? null,
+        openID,
     })
 
 // Rect of a range in the current section, offset by the section iframe's own
@@ -462,7 +463,8 @@ window.glossReader = {
         // the payload was just validated against `type`'s spec
         const run = commandQueue
             .then(() => (commands[type] as (payload: unknown) => Promise<void>)(payload))
-            .catch((error: unknown) => postError(error, type))
+            .catch((error: unknown) => postError(
+                error, type, type === 'open' ? (payload as protocol.OpenPayload).openID : null))
         commandQueue = run
         await run
         return null

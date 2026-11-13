@@ -361,6 +361,49 @@ struct ReaderControllerTests {
         #expect(controller.isShowingBook)
     }
 
+    @Test("a failed open doesn't wedge the reader: the same book opens again")
+    func failedOpen() async throws {
+        let lib = TestLibrary()
+        let (book, _) = try await lib.book()
+        let controller = ReaderController(services: lib.services)
+        let driver = FakeDriver()
+        controller.attach(driver)
+        await controller.handle(.ready)
+        await controller.open(book)
+        await controller.handle(.openFailed("fetch failed", openID: driver.lastOpenID))
+        #expect(!controller.isShowingBook)
+        #expect(controller.errorMessage == "fetch failed")
+        #expect(controller.document?.id == book.id)
+
+        // The placeholder's "try again" re-opens it.
+        await controller.retryOpen()
+        #expect(driver.opens.count == 2)
+        await controller.handle(.opened(toc: [], openID: driver.lastOpenID))
+        #expect(controller.isShowingBook)
+
+        // While the book is showing there is nothing to retry.
+        await controller.retryOpen()
+        #expect(driver.opens.count == 2)
+    }
+
+    @Test("a stale open failure never cancels the open in flight")
+    func staleOpenFailure() async throws {
+        let lib = TestLibrary()
+        let (a, _) = try await lib.book("A")
+        let (b, _) = try await lib.book("B")
+        let controller = ReaderController(services: lib.services)
+        let driver = FakeDriver()
+        controller.attach(driver)
+        await controller.handle(.ready)
+        await controller.open(a)
+        await controller.handle(.openFailed("a's open failed", openID: driver.lastOpenID))
+        await controller.open(b)
+        // A's failure was queued before B's open: it must not cancel B's.
+        await controller.handle(.openFailed("a's open failed", openID: 1))
+        await controller.handle(.opened(toc: [], openID: driver.lastOpenID))
+        #expect(controller.isShowingBook && controller.document?.id == b.id)
+    }
+
     @Test("highlighting the selection clears its anchor too")
     func highlightClearsAnchor() async throws {
         let lib = TestLibrary()
