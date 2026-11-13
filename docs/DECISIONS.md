@@ -321,8 +321,9 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   `gloss open`) brings the other pane along (`AppModel.open`, `bringingBook:`/`bringingNotes:`). A pane
   never sits empty beside a book. The source list's book section is the reader's book (contents,
   highlights); its notes outline is the notes pane's book, headed with that book's title when the two
-  differ. Before this, every navigation dragged the other pane along, so the two always showed one
-  book.
+  differ. Reader back/forward while the grid or the trash is the detail column moves the reader
+  behind it and leaves the window where the user is — history never hijacks the window (review 7).
+  Before this, every navigation dragged the other pane along, so the two always showed one book.
 - **D-110 The library's covers are one Apple Books-style grid** (`LibraryGrid`, replacing the
   placeholder list): `LazyVGrid` of adaptive columns, each cell a cover with the kind badge
   (bottom-trailing, the format's own word via `FormatRegistry.badge`), a thin progress bar only

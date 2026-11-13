@@ -95,11 +95,14 @@ public struct ReaderFocus: Hashable, Sendable {
         try await showInReader(id, locator: locator)
         if page == nil { try await showMainPage(of: id) }
         guard switched else { return }
-        // A contents entry or highlight of the previous book means nothing now; a notes page still
-        // does (the notes didn't move).
+        // History moves the reader behind whatever the detail column shows: while the grid or
+        // the trash is front, it never hijacks the window (review 7; D-102's "each pane moves
+        // alone" reads both ways). A contents entry or highlight of the previous book means
+        // nothing now; a notes page still does (the notes didn't move).
+        guard sidebar.showsBook else { return }
         switch sidebar {
-        case .page, .book: break
-        case .library, .trash, .contents, .highlight: sidebar = page.map { .page($0.id) } ?? .book
+        case .contents, .highlight: sidebar = page.map { .page($0.id) } ?? .book
+        default: break
         }
     }
 
