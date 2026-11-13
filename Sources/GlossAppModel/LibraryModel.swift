@@ -26,6 +26,8 @@ public enum LibrarySettings {
     public private(set) var importing = false
     /// What an in-flight import is doing ("reading moby.epub…").
     public private(set) var importStatus: String?
+    /// What the most recent import found, for the "already in your library" offer (D-114).
+    public private(set) var lastImport: ImportSummary?
     /// Documents added by the most recent import (for the "just added" reveal).
     public private(set) var lastImportedIDs: [DocumentID] = []
 
@@ -54,6 +56,10 @@ public enum LibrarySettings {
     public func symbol(of shelf: LibraryShelf) -> String { services.formats.symbol(of: shelf) }
     /// The symbol of a document of this kind (its format names it).
     public func symbol(of kind: DocumentKind) -> String { services.formats.symbol(of: kind) }
+    /// The badge a document's kind shows on its cover (its format names it: "epub", "pdf").
+    public func badge(of kind: DocumentKind) -> String { services.formats.badge(of: kind) }
+    /// The extensions the registered formats read (the import panel filters to them).
+    public var supportedExtensions: [String] { services.formats.supportedExtensions }
 
     public func reload() async {
         reloadGeneration += 1
@@ -138,12 +144,16 @@ public enum LibrarySettings {
     /// Imports files (and folders, recursively) with one progress line.
     @discardableResult
     public func importFiles(at urls: [URL]) async -> [Document] {
-        var imported: [Document] = []
+        var summary = ImportSummary()
         importing = true
         importStatus = nil
         defer { importing = false; importStatus = nil }
         for url in urls {
-            let files = ImportCandidates.expand(url, supportedExtensions: services.formats.supportedExtensions)
+            // Folder expansion walks the disk; keep it off the main actor (like the import itself).
+            let extensions = services.formats.supportedExtensions
+            let files = await Task.detached(priority: .userInitiated) {
+                ImportCandidates.expand(url, supportedExtensions: extensions)
+            }.value
             for file in files {
                 importStatus = "reading \(file.lastPathComponent)…"
                 importingFile = file
@@ -162,23 +172,69 @@ public enum LibrarySettings {
                     importingFile = nil
                     switch outcome {
                     case .imported(let document):
-                        imported.append(document)
+                        summary.imported.append(document)
                         importStatus = "added \(document.title)"
                     case .duplicate(let document):
+                        summary.duplicates.append(document)
                         importStatus = "\(document.title) is already in your library"
                     }
                 } catch {
                     importingFile = nil
+                    summary.failures.append(ImportSummary.Failure(name: file.lastPathComponent, reason: Self.describe(error)))
                     importStatus = "couldn't read \(file.lastPathComponent): \(Self.describe(error))"
                 }
             }
         }
-        lastImportedIDs = imported.map(\.id)
+        lastImportedIDs = summary.imported.map(\.id)
+        lastImport = summary
         await reload()
-        return imported
+        return summary.imported
     }
 
     static func describe(_ error: any Error) -> String {
         (error as? GlossError)?.description ?? "something went wrong"
     }
 }
+
+/// What an import found, so the view can offer to open duplicates and name failures (D-114).
+/// The copy it shows is built here, portable and tested: the view only presents it.
+public struct ImportSummary: Equatable, Sendable {
+    public struct Failure: Equatable, Sendable {
+        public var name: String
+        public var reason: String
+    }
+
+    /// Set by `LibraryModel` while an import runs; read by the view.
+    public internal(set) var imported: [Document] = []
+    public internal(set) var duplicates: [Document] = []
+    public internal(set) var failures: [Failure] = []
+
+    init() {}
+
+    /// Whether anything needs saying once the import ends.
+    public var hasNews: Bool { !duplicates.isEmpty || !failures.isEmpty }
+
+    /// The alert's title.
+    public var alertTitle: String {
+        if duplicates.isEmpty { return "couldn't import" }
+        return failures.isEmpty ? "already in your library" : "import finished"
+    }
+
+    /// The alert's message: what was already there, and what couldn't be read.
+    public var alertMessage: String {
+        var parts: [String] = []
+        switch duplicates.count {
+        case 0: break
+        case 1: parts.append("“\(duplicates[0].title)” is already in your library.")
+        default: parts.append("\(duplicates.count) of these are already in your library.")
+        }
+        for failure in failures {
+            parts.append("couldn't read \(failure.name): \(failure.reason).")
+        }
+        return parts.joined(separator: "\n")
+    }
+
+    /// The "open the existing copy" action's title.
+    public var openActionTitle: String { duplicates.count == 1 ? "open it" : "open them" }
+}
+

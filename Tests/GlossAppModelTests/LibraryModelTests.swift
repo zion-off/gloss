@@ -111,3 +111,65 @@ struct LibrarySortTests {
         #expect(b.entries.isEmpty)  // the reload followed the sync (nothing imported yet)
     }
 }
+
+@MainActor
+struct ImportSummaryTests {
+    /// A format whose files never parse, to make imports fail deterministically.
+    private struct BrokenFormat: DocumentFormat {
+        let kind = DocumentKind("broken")
+        let badge = "broken"
+        let shelf = LibraryShelf("broken")
+        var fileExtensions: [String] { ["broken"] }
+        func sniff(_ prefix: Data) -> Bool { prefix.starts(with: Data("BROKEN".utf8)) }
+        func readMetadata(from data: Data) throws -> ImportedMetadata {
+            throw GlossError.invalid("it looks damaged, so gloss couldn't read it")
+        }
+    }
+
+    @Test("an import reports duplicates and failures for the view to offer")
+    func summary() async throws {
+        let lib = TestLibrary(formats: [FakeFormat(), BrokenFormat()])
+        let model = LibraryModel(services: lib.services)
+        let directory = TempDir()
+        let file = directory.file("Camus.fake")
+        try FakeFormat.file(title: "The Fall").write(to: file)
+        let broken = directory.file("bad.broken")
+        try Data("BROKEN junk".utf8).write(to: broken)
+
+        let imported = await model.importFiles(at: [file])
+        #expect(imported.map(\.title) == ["The Fall"])
+        #expect(model.lastImport?.hasNews == false)
+        #expect(model.lastImport?.duplicates.isEmpty == true)
+
+        // The same file again is a duplicate; the broken one is a failure.
+        _ = await model.importFiles(at: [file, broken])
+        let summary = try #require(model.lastImport)
+        #expect(summary.imported.isEmpty)
+        #expect(summary.duplicates.map(\.title) == ["The Fall"])
+        #expect(summary.failures.count == 1)
+        #expect(summary.failures.first?.name == "bad.broken")
+        #expect(summary.hasNews)
+        #expect(summary.alertTitle == "import finished")
+        #expect(summary.alertMessage == "“The Fall” is already in your library.\ncouldn't read bad.broken: it looks damaged, so gloss couldn't read it.")
+        #expect(summary.openActionTitle == "open it")
+        #expect(model.importing == false)
+        #expect(model.importStatus == nil)
+        #expect(model.lastImportedIDs.isEmpty)
+    }
+
+    @Test("a lone duplicate is named; several are counted")
+    func duplicateCopy() {
+        var summary = ImportSummary()
+        let book = Document(id: DocumentID(GlossID(high: 1, low: 1)), kind: DocumentKind("fake"),
+                            title: "Exile", author: "", contentHash: ContentHash.of(Data("x".utf8)),
+                            fileSize: 1, addedAt: .testEpoch, updatedAt: .testEpoch)
+        summary.duplicates.append(book)
+        #expect(summary.alertTitle == "already in your library")
+        #expect(summary.alertMessage == "“Exile” is already in your library.")
+        #expect(summary.openActionTitle == "open it")
+        summary.duplicates.append(book)
+        #expect(summary.alertMessage == "2 of these are already in your library.")
+        #expect(summary.openActionTitle == "open them")
+    }
+
+}
