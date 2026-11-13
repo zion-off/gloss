@@ -35,8 +35,25 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
      assumption; docs/READER_BRIDGE.md "Book scripts").
    - **Switching books in place:** open book A, then B from the library, then A again quickly; the reader
      always ends on the last one asked for, and A's position is never saved onto B.
-2. **Passage links resolve in both directions** (notes → book and book marker → note). _(not written yet)_
-3. **Native markdown editor with links and the floating formatting bar.** _(not written yet)_
+2. **Passage links resolve in both directions** (notes → book and book marker → note). Written in
+   milestone 11 over the Linux-tested `LinkingCoordinator` and `ReaderController`; details in the
+   `GlossReaderPDF`, `ReaderPopovers` and `WindowCommands` sections below.
+   - In split view select words in the notes, select a passage in the book, press ⌘K: the words
+     become a `gloss://passage/…` link in one undo step, and once the page saves a marker appears
+     under the passage. Do it in an EPUB and in a PDF (on page 2 or later).
+   - Click the link: the reader goes to the passage and flashes it. Click the marker: the notes page
+     opens with the link selected and flashed; a passage linked from two pages lists both first.
+   - Rest the pointer on the link: a popover shows the passage's quote, label and book.
+   - Delete the link, then ⌘Z: the marker goes and comes back. Remove it with `gloss page write`
+     from the terminal: the marker goes within about a second (the change monitor).
+3. **Native markdown editor with links and the floating formatting bar.** Written in milestone 10;
+   details in the `Sources/GlossEditor/` section below.
+   - Type markdown (headings, emphasis, lists, task boxes, quotes, code): it styles as you type and the
+     text stays raw markdown (`gloss read --raw` shows exactly what you typed).
+   - Select words: the format bar appears above the selection (below it near the top of the pane);
+     its buttons and the Format menu's shortcuts each make one undo step.
+   - Type `/` on an empty line: the slash menu filters as you type, arrows and Return pick, Escape
+     closes. A subpage made there shows as a row that opens the page.
 
 ## Every Mac slice: Apple-likeness pass
 
@@ -238,7 +255,7 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
   needs a run.
 - `Sources/GlossUI/MainWindow.swift` — the editor pane: page loads, the unsaved-changes alert,
   breadcrumbs, and the reveal (a marker click selects the link line and scrolls to it). The split
-  layout switches with the workspace setting; the real split view is milestone 11.
+  layout switches with the workspace setting (reader and notes in an `HSplitView` since milestone 11).
 
 ## APIs I was unsure about
 

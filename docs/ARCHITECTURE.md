@@ -42,7 +42,7 @@ clients that wire concrete implementations at their composition roots:
 | `GlossMarkdown` | all | — | markdown syntax: block/inline parsing, styling rules, text edits |
 | `GlossCore` | all | GlossMarkdown, swift-crypto | the domain: entities, ports, services, `gloss://` links |
 | `GlossStore` | all | GlossCore, GRDB | SQLite persistence: schema, repositories, FTS, blobs, change journal |
-| `GlossArchive` | all | ZIPFoundation | reading ZIP containers and raw inflate |
+| `GlossArchive` | all | CZlib (system zlib, D-013) | reading ZIP containers and raw inflate |
 | `GlossEPUB` | all | GlossCore, GlossArchive | EPUB: container/OPF/nav parsing, metadata, cover, text extraction |
 | `GlossPDF` | all | GlossCore, GlossArchive | PDF: object parsing, metadata, page text extraction, PDF locators |
 | `GlossExport` | all | GlossCore, GlossMarkdown | exporters (markdown, html) |
