@@ -5,7 +5,7 @@ import GRDB
 /// Conversions between rows and core values. Dates are stored as REAL unix seconds.
 enum Columns {
     static func date(_ value: Date) -> Double { value.timeIntervalSince1970 }
-    static func date(_ value: Date?) -> Double? { value?.timeIntervalSince1970 }
+    static func optionalDate(_ value: Date?) -> Double? { value?.timeIntervalSince1970 }
     static func date(_ row: Row, _ column: String) -> Date { Date(timeIntervalSince1970: row[column]) }
     static func optionalDate(_ row: Row, _ column: String) -> Date? {
         (row[column] as Double?).map(Date.init(timeIntervalSince1970:))
@@ -54,8 +54,8 @@ extension Document {
     var arguments: StatementArguments {
         let metadataJSON = (try? JSONEncoder().encode(metadata)).map { String(decoding: $0, as: UTF8.self) } ?? "{}"
         return [id.stringValue, kind.rawValue, title, author, contentHash.hex, fileSize, originalFilename, coverHash?.hex, metadataJSON,
-                Columns.date(addedAt), Columns.date(updatedAt), Columns.date(lastOpenedAt), trash?.entryID.stringValue,
-                Columns.date(trash?.trashedAt)]
+                Columns.date(addedAt), Columns.date(updatedAt), Columns.optionalDate(lastOpenedAt), trash?.entryID.stringValue,
+                Columns.optionalDate(trash?.trashedAt)]
     }
 }
 
@@ -68,7 +68,7 @@ extension Page {
 
     var arguments: StatementArguments {
         [id.stringValue, documentID.stringValue, parentID?.stringValue, title, body, position, Columns.date(createdAt),
-         Columns.date(updatedAt), trash?.entryID.stringValue, Columns.date(trash?.trashedAt)]
+         Columns.date(updatedAt), trash?.entryID.stringValue, Columns.optionalDate(trash?.trashedAt)]
     }
 }
 
@@ -94,7 +94,7 @@ extension LinkTarget {
 
     var arguments: StatementArguments {
         [id.stringValue, documentID.stringValue, passage.locator.scheme.rawValue, passage.locator.value, passage.quote, passage.label,
-         passage.progression, Columns.date(createdAt), Columns.date(updatedAt), Columns.date(orphanedSince)]
+         passage.progression, Columns.date(createdAt), Columns.date(updatedAt), Columns.optionalDate(orphanedSince)]
     }
 }
 
