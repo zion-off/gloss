@@ -136,6 +136,46 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   inserts the block line at the caret itself; outside the editor the end of the page is the only
   sensible place, and an unplaced page would still render after the body.
 
+## Linking without the app (`gloss link`)
+
+- **D-190 The CLI pins passages by their words, not by computed CFIs or PDFKit offsets.** Formats
+  that can (`QuoteLocating`, a capability next to `TextExtracting`) mint `epub-quote` / `pdf-quote`
+  locators: section or page, plus a `QuoteAnchor` (the quote, 32 characters of context either side,
+  and which occurrence it is). The readers resolve them at runtime against the text they show — the
+  glue in the section document it parses like foliate's search, then the range's CFI; the PDFKit
+  engine in `PDFPage.string`, then a `PDFPassageLocator` — and from there marker, jump, flash and the
+  marker click are the existing paths. Rejected: computing real CFIs in Swift. The DOM foliate numbers
+  is WebKit's parse of the sanitized markup (XHTML vs HTML parsing, implicit elements, entities,
+  whitespace nodes, removed scripts), so a Swift CFI would be exact only for some books and wrong
+  silently for others (a marker on the wrong words); a quote either resolves to the right words or
+  draws nothing. PDFKit's string offsets can't be reproduced off PDFKit at all. One scheme design for
+  both formats; the schemes stay opaque to the core (open/closed: no switching on kind).
+- **D-191 `gloss link` never guesses.** Several matches on either side list every candidate (label,
+  context with the match marked, `--nth N` / `--text-nth N` and an exact `--match` / `--text-offset`)
+  and exit 64, in `--json` too (`{"error", "side", "candidates"}`); only with stdin and stdout both
+  terminals (and no `--json`) does it ask which one. An exact place never prompts: `--match
+  scheme:value@start-end` (a text chunk's locator and a UTF-16 range of its extracted text, printed by
+  `--list`/`--json`), `--section N`/`--page N` with `--offset`, `--text-offset` in the body as
+  `gloss read --raw` prints it. Offsets are UTF-16 because the whole codebase is (`NSRange`, the
+  editor, `MarkdownText`). With an exact place, `--quote`/`--text` verify it (`--force` skips).
+  `--match scheme:value` without a range scopes the search to one chunk, so a `gloss search --json`
+  hit's locator can be pasted in.
+- **D-192 Matching: whole words, spacing ignored, case optional; resolving: context first.** The CLI
+  matches folded text (curly quotes, dashes, ligatures and soft hyphens folded; whitespace runs equal
+  one space; `-i` folds case) on word edges, so "the" never matches inside "mother". The stored
+  occurrence counts whitespace-*insensitive*, case-sensitive matches, the same way the readers count,
+  because the extractor and the DOM disagree about spaces between blocks. Readers pick the match
+  whose context agrees most, then the stored occurrence, then the nearest; then a case-insensitive
+  match; then the quote's first and last 16 characters with agreeing context (an image's alt text in
+  the middle); otherwise nothing is drawn and a jump lands at the section's start. Swift
+  (`FoldedText`, `QuoteAnchor`) and TypeScript (`bridge/quote.ts`) share `Tests/Fixtures/quotes/`.
+- **D-193 Linking twice changes nothing; no write-back.** The same occurrence makes the same locator
+  JSON (sorted keys), so D-026 reuses its target; words already linked to it are left alone; a quote
+  line is not added twice. Words inside another link re-point it, as ⌘K does, and the output says so.
+  A CLI link and a GUI link to the same words are two targets (different locators) drawn as one
+  underline whose popover lists both. Readers don't upgrade quote locators to CFIs/PDF locators:
+  writing from the reader would race edits and sync for a saving of one parse per section per open.
+
 ## Storage
 
 - **D-040 One FTS5 table plus an `fts_entries` side table keyed by rowid.** Deleting or filtering

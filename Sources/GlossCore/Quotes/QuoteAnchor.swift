@@ -2,7 +2,7 @@ import Foundation
 
 /// A passage pinned by its words rather than by an engine position: the exact quote, a little
 /// context on either side, and which occurrence of the quote it is within its section or page
-/// (docs/DECISIONS.md D-160). The CLI makes these from extracted text; a reader resolves them
+/// (docs/DECISIONS.md D-190). The CLI makes these from extracted text; a reader resolves them
 /// against the text it shows, which may differ slightly (spaces between blocks, ligatures).
 ///
 /// The resolution here is mirrored in TypeScript by `web/src/bridge/quote.ts`; both run the

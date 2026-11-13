@@ -93,6 +93,11 @@ A **passage** (`Passage`) is `{ locator, quote, label, progression }`:
 - `Locator { scheme, value }` is opaque. Only the engine that created it interprets it
   (`epubcfi` from foliate-js, `pdf` from the PDFKit engine). Stored files never change, so
   locators stay valid.
+- Passages linked from the CLI (`gloss link`) can't have engine positions, so their formats
+  (`QuoteLocating`, a capability like `TextExtracting`) pin them by their words instead: `epub-quote`
+  and `pdf-quote` carry the section or page plus a `QuoteAnchor` (quote, context, occurrence). The
+  readers resolve them at runtime against the text they show, then draw, jump and flash as usual
+  (D-190).
 - `quote` and `label` ("chapter 3", "page 12") are captured at creation so hover popovers,
   the CLI and export never need an engine.
 - `progression` (0…1) orders passages within a book without parsing locators.
@@ -283,7 +288,7 @@ gloss highlights [list|delete]          gloss where
 gloss link <page> [--text w | --text-offset a-b] (--quote q | --from a --through b | --match ref | --section/--page n --offset a-b)
 ```
 
-`gloss link` makes passage links without the app (D-160): it finds the words in the page
+`gloss link` makes passage links without the app (D-190): it finds the words in the page
 (`NotesTextFinder`) and the passage in the book's extracted text (`PassageFinder`/`BookText`), never
 guesses between several matches (it lists them with `--nth`/`--match` refs, or asks on a terminal),
 and writes through `LinkService.link`, so references, the index and the change journal update and a

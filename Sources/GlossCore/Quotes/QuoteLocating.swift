@@ -2,7 +2,7 @@ import Foundation
 
 /// Formats whose passages can be pinned by quoting their extracted text, so links can be made
 /// without a reader (`gloss link`). The locator a format makes is its own scheme, which only
-/// its reader resolves (docs/DECISIONS.md D-160).
+/// its reader resolves (docs/DECISIONS.md D-190).
 public protocol QuoteLocating: Sendable {
     /// What one text chunk of this format is called, as people say it: "section", "page".
     var partName: String { get }
