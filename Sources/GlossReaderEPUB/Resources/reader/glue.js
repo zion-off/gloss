@@ -210,7 +210,34 @@ document.addEventListener('keydown', onKeyDown);
 view.addEventListener('load', e => {
     const { doc } = eventDetail(e);
     doc.addEventListener('keydown', onKeyDown);
+    doc.addEventListener('wheel', onWheel, { passive: false });
 });
+// Paginated flow has no scrollbar to move (its container is `overflow: hidden`), so a swipe or
+// wheel turns one page, like Books. A gesture is the run of events with no 200 ms gap, so the
+// trackpad's momentum tail never turns a second page. Scrolled flow scrolls natively.
+const WHEEL_TURN_DISTANCE = 40;
+const WHEEL_GESTURE_GAP_MS = 200;
+let wheelDistance = 0;
+let wheelLastStamp = 0;
+let wheelTurned = false;
+const onWheel = (e) => {
+    if (!opened || view.renderer?.scrolled)
+        return;
+    e.preventDefault();
+    if (e.timeStamp - wheelLastStamp > WHEEL_GESTURE_GAP_MS) {
+        wheelDistance = 0;
+        wheelTurned = false;
+    }
+    wheelLastStamp = e.timeStamp;
+    if (wheelTurned)
+        return;
+    wheelDistance += Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    if (Math.abs(wheelDistance) >= WHEEL_TURN_DISTANCE) {
+        wheelTurned = true;
+        void turn(wheelDistance > 0);
+    }
+};
+document.addEventListener('wheel', onWheel, { passive: false });
 // -- appearance -------------------------------------------------------------
 const applyAppearance = (payload) => {
     colors = payload.colors;
