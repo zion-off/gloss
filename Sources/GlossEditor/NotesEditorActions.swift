@@ -33,6 +33,11 @@ import GlossNotes
     }
 
     /// The editor's focus state changed.
+    /// Puts the caret at the start of the body (Return in the page title moves here).
+    public func focusBody() {
+        coordinator?.focusBody()
+    }
+
     func focusChanged(_ focused: Bool) {
         isEditing = focused
         onFocusChange?(focused)

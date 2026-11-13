@@ -598,6 +598,8 @@ extension TextField where Label == Text {
     public init(_ titleKey: LocalizedStringKey, text: Binding<String>) {}
     /// swiftui/textfield/init(_:text:)-2laoi (macOS 10.15)
     @_disfavoredOverload public init<S: StringProtocol>(_ title: S, text: Binding<String>) {}
+    /// swiftui/textfield/init(_:text:axis:)-7n1bm (macOS 13.0)
+    public init(_ titleKey: LocalizedStringKey, text: Binding<String>, axis: Axis) {}
 }
 
 // MARK: - Shapes, colours, styles
@@ -887,6 +889,8 @@ extension View {
     nonisolated public func foregroundStyle<S: ShapeStyle>(_ style: S) -> some View { _Modified(self) }
     nonisolated public func foregroundStyle<S1: ShapeStyle, S2: ShapeStyle>(_ primary: S1, _ secondary: S2) -> some View { _Modified(self) }
     nonisolated public func lineLimit(_ number: Int?) -> some View { _Modified(self) }
+    /// view/linelimit(_:)-251ko (macOS 13.0)
+    nonisolated public func lineLimit(_ limit: PartialRangeFrom<Int>) -> some View { _Modified(self) }
     nonisolated public func multilineTextAlignment(_ alignment: TextAlignment) -> some View { _Modified(self) }
     nonisolated public func opacity(_ opacity: Double) -> some View { _Modified(self) }
     nonisolated public func shadow(color: Color = .black, radius: CGFloat, x: CGFloat = 0, y: CGFloat = 0) -> some View { _Modified(self) }

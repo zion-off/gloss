@@ -383,17 +383,40 @@ struct NotesPane: View {
         }
     }
 
-    /// The page's own title, above its body (brief 21). Return or leaving the field saves it.
+    /// The page's own title, above its body (brief 21). It wraps onto as many lines as it needs,
+    /// like a Notes or Notion title; Return saves it and moves on into the body, leaving the field
+    /// saves it too. A title is one line of text: Return never becomes a newline, and pasted line
+    /// breaks become spaces (D-155).
     private var titleField: some View {
-        TextField("untitled", text: $titleDraft)
+        TextField("untitled", text: titleText, axis: .vertical)
+            .lineLimit(1...)
             .textFieldStyle(.plain)
             .font(.title.bold())
             .focused($titleFocused)
-            .onSubmit { commitTitle() }
+            .onSubmit { submitTitle() }
             .onChange(of: titleFocused) { _, focused in if !focused { commitTitle() } }
             // The body's glyphs start one margin in (D-154): the title and breadcrumbs share that edge.
             .padding(.horizontal, SheetMetrics.margin)
             .padding(.top, app.notes.breadcrumbs.count > 1 ? 4 : SheetMetrics.margin)
+    }
+
+    /// The draft, minus line breaks: a lone one typed into the field is Return (save and move on);
+    /// any others (a paste) turn into spaces.
+    private var titleText: Binding<String> {
+        Binding(get: { titleDraft }, set: { new in
+            guard new.contains(where: \.isNewline) else { titleDraft = new; return }
+            if new.filter({ !$0.isNewline }) == titleDraft, new.filter(\.isNewline).count == 1 {
+                submitTitle()
+            } else {
+                titleDraft = new.split(whereSeparator: \.isNewline).joined(separator: " ")
+            }
+        })
+    }
+
+    private func submitTitle() {
+        commitTitle()
+        titleFocused = false
+        commands.editor?.focusBody()
     }
 
     private func shownTitle(_ page: Page?) -> String {

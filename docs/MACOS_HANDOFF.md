@@ -529,6 +529,11 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
     author, relaunch, and the window comes back notes-only sorted by author.
   - `.link` attributes make gloss and web links clickable with the pointing hand cursor; gloss
     links route inside the app, web links open the browser.
+- **The page title wraps (D-155), unverified:** type or rename a page to a long title: it wraps
+  onto more lines at the title size and pushes the body down, never runs off or truncates.
+  Return saves it and puts the caret at the top of the body (no newline in the title); paste a
+  multi-line text into it: the line breaks become spaces. Clicking away still saves; a new `/page`
+  still starts with the caret in the title; long breadcrumbs above it still truncate.
 - **One margin on the sheet (D-154), unverified:** with a book open in split view, the reader
   card sits 16 pt from the sheet's left, top and bottom edges; the notes text (body, title and
   breadcrumbs, all on one left edge) sits 16 pt from the card's edge, from the right edge, from

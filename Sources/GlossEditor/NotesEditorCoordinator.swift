@@ -93,6 +93,13 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         return scrollView
     }
 
+    /// Return in the title: typing goes on at the top of the body.
+    func focusBody() {
+        guard let textView else { return }
+        textView.window?.makeFirstResponder(textView)
+        textView.setSelectedRange(NSRange(location: 0, length: 0))
+    }
+
     func dismantle() {
         NotificationCenter.default.removeObserver(self)
         textView?.delegate = nil

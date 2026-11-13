@@ -573,3 +573,7 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   scroll view stays full-bleed so the scroller sits at the edge. Beside the notes the card has no
   trailing padding and the drag area overlays the notes' leading margin, so the card-to-text gap
   is one margin too. NSTextView's inset is symmetric, so the gap from title to body is also 16 pt.
+- **D-155 The notes page title wraps.** `TextField(axis: .vertical)` with `lineLimit(1...)`. A
+  vertical field turns Return into a newline, so the title's binding treats a single typed line
+  break as Return (commit, then `NotesEditorActions.focusBody()` puts the caret at the body's
+  start) and turns any other line breaks (a paste) into spaces: a title stays one line of text.
