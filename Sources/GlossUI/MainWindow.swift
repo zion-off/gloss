@@ -71,6 +71,7 @@ public struct MainWindow: View {
         .glossSearch(model: app.search)
         .quickSwitcher(app: app, isPresented: Binding(get: { commands.showsSwitcher },
                                                        set: { commands.showsSwitcher = $0 }))
+        .externalURLHandling(app: app)
         .exportFailureAlert(app: app)
         .focusedSceneValue(\.windowCommands, commands)
         .focusedSceneValue(\.exportActions, exportActions)

@@ -49,7 +49,7 @@ clients that wire concrete implementations at their composition roots:
 | `GlossNotes` | all | GlossCore, GlossMarkdown | notes-editor behaviour: styling roles, format commands, slash menu, subpage blocks, link gestures |
 | `GlossReaderBridge` | all | GlossCore, GlossEPUB, swift-crypto | the engine-neutral reader boundary (`ReaderDriving`, `ReaderEngineEvent`, `ReaderAnnotations`), the foliate bridge (messages, `EPUBBridgeDriver`), appearance → CSS, progress text, `gloss-reader://` routing and the reader page CSP |
 | `GlossReaderPDFSupport` | all | GlossCore, GlossPDF, GlossReaderBridge | the PDF engine's logic that needs no PDFKit: go-to targets, page positions and progress text, annotations per page and hit-testing, selection → passage |
-| `GlossAppModel` | all | GlossCore, GlossNotes, GlossReaderBridge | app view state (Observation): library, workspace, navigation, search, trash, import, `ReaderController`, `LinkingCoordinator`, `NotesEditorModel` |
+| `GlossAppModel` | all | GlossCore, GlossNotes, GlossReaderBridge, GlossExport | app view state (Observation): library, workspace, navigation, search, trash, import, `ReaderController`, `LinkingCoordinator`, `NotesEditorModel`, `ExportModel`, external-url routing |
 | `GlossTerminal` | all | — | terminal styling: colors, tables, trees, progress |
 | `GlossCLI` | all | ArgumentParser + the Linux modules above | CLI commands and output |
 | `gloss` | all | GlossCLI | CLI composition root |
@@ -295,7 +295,15 @@ Output follows `NO_COLOR`/`CLICOLOR_FORCE` and drops colour and status lines whe
   book's highlights and the notes pane's page outline; `AppModel.select` turns a click into
   navigation, `AppModel.follow` follows a link from the notes, `AppModel.open` a link from outside.
 - `ExternalChangeMonitor` polls the change journal and refreshes models.
-- `gloss://` URLs from other apps or `gloss open` route through `URLRouter`.
+- `gloss://` URLs from other apps or `gloss open`, and book files Finder double-clicks, all go
+  through one portable door, `AppModel.open(url:)` (D-132): a classifier sorts gloss links from
+  registered files from everything else, links route through `URLRouter`, files import through
+  `LibraryModel.importFiles` and open (a duplicate opens the existing copy).
+- The toolbar search (brief 31) is `.searchable` + `.searchScopes` over `SearchModel`; results
+  replace the detail column (D-130). "Open quickly" (⇧⌘O) is a sheet over `QuickSwitcherModel`
+  (D-131). Export and print (brief 41) go through `ExportModel` (GlossAppModel wraps the
+  `ExportService` the root builds, D-133); ⌘P prints the html export in an offscreen web view
+  (D-134).
 - **System components first** (D-019). `NavigationSplitView` with a source-list sidebar, a
   standard toolbar with a search field and its scope menu, popovers for marker lists and selection
   commands, sheets for import conflicts and document details, the standard `Settings` scene, and

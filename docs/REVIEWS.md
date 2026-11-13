@@ -145,3 +145,22 @@ Apple's docs (`bad64a6`, D-099), which also found compile errors the review miss
 | nit | the flash view stroked half outside its bounds | fixed in `fbc0475` |
 | nit | `mac-visibility.py` can't see member- or statement-level errors | answered by `scripts/mac-typecheck.py` (`bad64a6`, D-099) |
 | nit | MAC_API_NOTES called `Commands` nonisolated; the protocol is `@MainActor @preconcurrency` | fixed in this commit, with every API verified for the stubs |
+
+## Milestone 12 slice self-review — search, open quickly, export/print, url handling
+
+(Not one of the numbered independent reviews: the reviewer couldn't be a separate agent run for a
+single slice, so this was a self-review pass at maximum effort before merging. The independent
+review 7 covers the whole range afterwards.)
+
+Every hunk was re-read against the models it calls, concurrency paths walked, and every new Apple
+API re-checked against the docs JSON. Findings and outcomes:
+
+| Severity | Finding | Outcome |
+|---|---|---|
+| major | `SearchResults` wrapped hits in `SearchModel.Hit` (fresh `UUID` per render), so the list's selection tags churned and never matched | fixed: rows tagged by position (`SearchResultKey`), stale picks cleared when results change |
+| major | a search reveal queued while book A opened could land in book B if B took over first | fixed: the pending reveal carries its document id and is dropped on mismatch (`staleQueuedReveal` test) |
+| minor | `ExportModel.service` was public only so `MainWindow` could re-thread it into `AppModel` | fixed: `AppModel` takes the `ExportModel`; the service is private again |
+| minor | `AppModel.reveal(.page)` re-set the layout `openPage(revealing:)` had already set | fixed (line removed) |
+| minor | a stray `workspace.sidebar = .book` in a test mimicked nothing the app does | fixed (line removed) |
+| nit | `ReaderController` edit dropped the `services` property (caught by the build) | restored |
+| nit | `NSPrintInfo()` not needed and not stubbable faithfully (NSObject's `init` isn't open in the stub) | removed; only `NSPrintInfo.shared` is used |

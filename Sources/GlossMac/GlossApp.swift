@@ -6,13 +6,15 @@ import GlossExport
 import GlossUI
 
 /// The app's entry point. `AppRoot.load()` is the composition root (CLAUDE.md, "Dependency
-/// inversion"); each window builds its own models over the shared services.
+/// inversion"); each window builds its own models over the shared services. The scene carries
+/// an id and `handlesExternalEvents` so a `gloss://` link or a Finder double-click reaches an
+/// open window instead of opening a duplicate (D-136).
 @main
 struct GlossApp: App {
     @State private var root = AppRoot.load()
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: "main") {
             switch root {
             case .success(let root):
                 MainWindow(services: root.services, engines: root.engines, export: root.export,
@@ -22,6 +24,7 @@ struct GlossApp: App {
                                        description: Text(verbatim: failure.message))
             }
         }
+        .handlesExternalEvents(matching: ["main"])
         .commands { NotesFormatCommands()
             GlossWindowCommands()
             LibraryCommands()

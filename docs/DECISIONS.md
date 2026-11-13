@@ -349,6 +349,15 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   arriving through `onOpenURL` is classified by the registered formats' extensions and goes
   through the one import entry point, `LibraryModel.importFiles`; `lastDuplicates` records what
   was already in the library so the existing copy is still opened.
+- **D-136 External urls reach an existing window.** The window group carries id "main" and
+  `handlesExternalEvents(matching: ["main"])`, so a `gloss://` link or a Finder double-click
+  routes to an open window instead of opening a duplicate (the documented SwiftUI routing pair;
+  `WindowGroup.init(id:content:)` is deprecated from macOS 15, so the stub spells the surviving
+  `init(id:makeContent:)`). What can't be opened gets a window alert, not a toast — a bad link
+  from outside deserves a modal answer.
+- **D-137 The dev Info.plist declares the url scheme and the book formats.** `scripts/run-mac.sh`
+  writes `CFBundleURLTypes` for `gloss` and `CFBundleDocumentTypes` for the system's epub and pdf
+  UTIs (the registered formats live in code; v1 ships epub and pdf).
 - **D-138 The quick switcher debounces typing and owns its keyboard selection.** The sheet is
   presentation only; `QuickSwitcherModel` gained the debounced query, the selected row and
   `settle()`, Linux-tested like `SearchModel`.

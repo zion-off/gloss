@@ -289,6 +289,28 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
   beat (or poll `webView.isLoading`) before printing.
 - A failed export/print shows the alert from `ExportModel.failure` ("couldn't export…").
 
+### `Sources/GlossUI/URLHandling.swift` + `GlossApp.swift` + `scripts/run-mac.sh` (milestone 12)
+
+- `gloss://` links from outside (brief 16): with the app running, from Terminal run
+  `gloss open "<a link>"` (or `open 'gloss://book/<id>'`) — the link routes into the **existing
+  window** (D-136: `WindowGroup(id: "main")` + `handlesExternalEvents(matching:)`), the book/
+  page/passage opens, and no duplicate window appears. With no window open, one opens with
+  the destination. A link to something trashed or missing shows the window alert ("that link
+  points at …, which is in the trash — bring it back first" / "that link points at something
+  that's gone").
+- Finder double-click on an .epub or .pdf with gloss closed: gloss launches and imports it
+  (progress shows in the library import state), then opens it. Double-clicking the same file
+  again opens the **existing copy** (no duplicate document). Double-clicking a .txt does
+  nothing except the "gloss can't do anything with…" alert — gloss must not become the default
+  handler for it. **Info.plist verification (D-137):** after `scripts/run-mac.sh`, check
+  `build/gloss.app/Contents/Info.plist` contains CFBundleURLTypes (gloss) and
+  CFBundleDocumentTypes (org.idpf.epub-container, com.adobe.pdf); run
+  `/usr/libexec/PlistBuddy -c Print CFBundleURLTypes build/gloss.app/Contents/Info.plist`.
+  If Finder still doesn't offer gloss, LaunchServices may need the app moved into /Applications
+  or `lsregister -f` on the bundle.
+- The url scheme and document types only exist in the dev bundle `run-mac.sh` builds — a bare
+  `swift run GlossMac` has neither, so external links won't reach it (expected).
+
 ### `Sources/GlossEditor/` (milestone 10)
 
 - `NotesEditorTheme.swift` — system fonts and colours only; check light/dark, Increase Contrast

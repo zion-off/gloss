@@ -848,12 +848,10 @@ extension View {
     nonisolated public func handlesExternalEvents(preferring: Set<String>, allowing: Set<String>) -> some View { _Modified(self) }
     nonisolated public func fileImporter(isPresented: Binding<Bool>, allowedContentTypes: [UTType], allowsMultipleSelection: Bool,
                                          onCompletion: @escaping (Result<[URL], any Error>) -> Void) -> some View { _Modified(self) }
-    /// swiftui/view/searchscopes(_:activation:_:) (macOS 13.3)
+    nonisolated public func searchable(text: Binding<String>, placement: SearchFieldPlacement = .automatic, prompt: LocalizedStringKey) -> some View { _Modified(self) }
     /// swiftui/view/searchscopes(_:activation:_:) (macOS 13.3)
     nonisolated public func searchScopes<V, S>(_ scope: Binding<V>, activation: SearchScopeActivation,
                                               @ViewBuilder _ scopes: () -> S) -> some View where V: Hashable, S: View { _Modified(self) }
-    nonisolated public func searchable(text: Binding<String>, placement: SearchFieldPlacement = .automatic, prompt: LocalizedStringKey) -> some View { _Modified(self) }
-    /// swiftui/view/onkeypress(keys:phases:action:) (macOS 14.0)
     /// swiftui/view/onkeypress(keys:phases:action:) (macOS 14.0)
     nonisolated public func onKeyPress(keys: Set<KeyEquivalent>, phases: KeyPress.Phases = [.down, .repeat],
                                        action: @escaping (KeyPress) -> KeyPress.Result) -> some View { _Modified(self) }
@@ -906,7 +904,6 @@ public struct SearchFieldPlacement: Sendable {
 }
 
 /// swiftui/searchscopeactivation (macOS 13.3) — `struct SearchScopeActivation`
-/// swiftui/searchscopeactivation (macOS 13.3) — `struct SearchScopeActivation`
 public struct SearchScopeActivation: Sendable {
     /// swiftui/searchscopeactivation/automatic
     public static var automatic: SearchScopeActivation { .init() }
@@ -917,7 +914,6 @@ public struct SearchScopeActivation: Sendable {
     private init() {}
 }
 
-/// swiftui/keypress (macOS 14.0) — `struct KeyPress`
 /// swiftui/keypress (macOS 14.0) — `struct KeyPress`
 public struct KeyPress: Sendable {
     /// swiftui/keypress/key
@@ -963,6 +959,7 @@ public struct PlainTextFieldStyle: TextFieldStyle { public init() {} }
 public struct RoundedTextFieldStyle: TextFieldStyle { public init() {} }
 extension TextFieldStyle where Self == PlainTextFieldStyle { public static var plain: PlainTextFieldStyle { .init() } }
 extension TextFieldStyle where Self == RoundedTextFieldStyle { public static var rounded: RoundedTextFieldStyle { .init() } }
+
 
 /// swiftui/coordinatespace
 public enum CoordinateSpace: Hashable, Sendable {
@@ -1146,7 +1143,9 @@ extension Scene {
 /// swiftui/windowgroup
 nonisolated public struct WindowGroup<Content: View>: Scene {
     public init(@ViewBuilder content: () -> Content) {}
-    public init(id: String, @ViewBuilder content: () -> Content) {}
+    /// swiftui/windowgroup/init(id:makecontent:) (macOS 11.0+) — `init(id:content:)` is
+    /// deprecated from macOS 15 in favour of this one; same call shape, so only this is stubbed.
+    public init(id: String, @ViewBuilder makeContent: @escaping () -> Content) {}
     public var body: Never { fatalError() }
 }
 /// swiftui/presentedwindowcontent
