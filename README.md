@@ -51,6 +51,8 @@ gloss read "moby dick"                      # a page, rendered (raw markdown whe
 gloss page write "moby dick" -- '- call me ishmael'
 gloss page add "moby dick" "the whale"      # a subpage
 gloss search whiteness --book "moby dick"   # this book's text and notes
+gloss link "moby dick" --text "his obsession" --quote "the white whale"   # words → a passage
+gloss link "moby dick" --quote "the white whale" --list                    # every match, with refs
 gloss export "moby dick" --output notes.md  # subpages become nested headings
 gloss open gloss://page/<id>                # jump there in the app
 gloss trash restore <id>                    # and whatever it was inside
@@ -59,7 +61,8 @@ gloss backup ~/Desktop                      # a consistent copy of the library
 
 Books and pages are named by title, by id (or the short id gloss prints), or by a `gloss://` link.
 Every command takes `--json`, and `--library` (or `GLOSS_LIBRARY`) points at another library file.
-`gloss help <command>` explains the rest.
+`gloss help <command>` explains the rest. `gloss link` never guesses: when words appear more than
+once it lists each match with the `--nth` or `--match` that picks it.
 
 ## Building
 
