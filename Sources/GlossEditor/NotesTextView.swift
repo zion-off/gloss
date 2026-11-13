@@ -54,9 +54,23 @@ final class NotesTextView: NSTextView {
     /// `characterIndexForInsertion(at:)` takes view coordinates and is the documented call for
     /// clicks; `characterIndex(for:)` wants screen coordinates and serves input methods (review 6).
     override func mouseDown(with event: NSEvent) {
-        let index = characterIndexForInsertion(at: convert(event.locationInWindow, from: nil))
-        if index != NSNotFound, let onTextClick, onTextClick(index) { return }
+        let point = convert(event.locationInWindow, from: nil)
+        // Only over a line: below the last one the insertion index is the end of the text, and a
+        // subpage row or task box there would answer clicks on empty space.
+        if isOverText(point) {
+            let index = characterIndexForInsertion(at: point)
+            if index != NSNotFound, let onTextClick, onTextClick(index) { return }
+        }
         super.mouseDown(with: event)
+    }
+
+    /// Whether a point (this view's coordinates) is on a laid-out line rather than empty space.
+    func isOverText(_ point: NSPoint) -> Bool {
+        guard let manager = textLayoutManager else { return true }
+        let origin = textContainerOrigin
+        let inContainer = NSPoint(x: point.x - origin.x, y: point.y - origin.y)
+        guard let fragment = manager.textLayoutFragment(for: inContainer) else { return false }
+        return fragment.layoutFragmentFrame.contains(inContainer)
     }
 }
 #endif

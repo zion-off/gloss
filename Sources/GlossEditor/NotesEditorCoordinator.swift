@@ -60,7 +60,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         textView.onTextClick = { [weak self] index in self?.textClicked(at: index) ?? false }
         textView.onFocusChange = { [weak self] focused in self?.actions.focusChanged(focused) }
         textView.onHover = { [weak self] point in self?.pointerMoved(to: point) }
-        textView.onHoverEnd = { [weak self] in self?.endHover() }
+        textView.onHoverEnd = { [weak self] in self?.endHover(); self?.setRowHover(nil) }
 
         let scrollView = NSScrollView()
         scrollView.documentView = textView
@@ -91,8 +91,24 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
 
     /// Resting the pointer on a passage link shows its passage. One lookup per link, not per
     /// pixel: the task is cancelled and replaced when the link under the pointer changes.
+    /// The subpage row under the pointer, shared with the row fragments that draw its highlight.
+    nonisolated let rowHover = SubpageHoverState()
+
+    private func setRowHover(_ row: SubpageRow?) {
+        if row != nil { NSCursor.pointingHand.set() }
+        guard row?.pageID != rowHover.pageID else { return }
+        rowHover.pageID = row?.pageID
+        invalidateRows()  // fragments redraw with (or without) the highlight
+    }
+
     private func pointerMoved(to point: NSPoint) {
         guard let textView else { return }
+        var overRow: SubpageRow?
+        if textView.isOverText(point) {
+            let rowIndex = textView.characterIndexForInsertion(at: point)
+            if rowIndex != NSNotFound { overRow = model.subpageRow(at: rowIndex) }
+        }
+        setRowHover(overRow)
         let index = textView.characterIndexForInsertion(at: point)
         guard index != NSNotFound else { endHover(); return }
         // The whole link (label + destination) under the pointer, if it's a passage link.
@@ -140,6 +156,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
                 return SubpageRows.row(covering: paragraph, in: model.subpageRows)
             }
             fragment.appearance = appearance
+            fragment.hover = rowHover
         }
         return fragment
     }

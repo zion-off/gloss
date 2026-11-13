@@ -1,12 +1,20 @@
 #if os(macOS)
 import AppKit
+import GlossCore
 import GlossNotes
 
 /// Draws a subpage block line as a row (icon + live title) instead of its raw markdown. The
 /// text itself is hidden (the theme's `hidden` style), and this fragment replaces the default
 /// text drawing entirely. Not main-actor isolated: neither is `NSTextLayoutFragment`, whose
 /// `draw(at:in:)` this overrides.
+/// Which subpage row the pointer is on, shared by the coordinator (which sets it) and the row
+/// fragments (which read it while drawing). Main thread only, like TextKit's drawing.
+final class SubpageHoverState: @unchecked Sendable {
+    var pageID: PageID?
+}
+
 final class SubpageRowFragment: NSTextLayoutFragment {
+    var hover: SubpageHoverState?
     /// The row spans the whole fragment, not just the (hidden) text's width: TextKit clips drawing
     /// to this rect, in the fragment's own coordinates.
     override var renderingSurfaceBounds: CGRect {
@@ -36,6 +44,12 @@ final class SubpageRowFragment: NSTextLayoutFragment {
         // frame's own origin on top pushed the row down by the paragraph's offset in the page,
         // out of the clip, so every row but one at the very top was invisible.
         let bounds = CGRect(origin: point, size: layoutFragmentFrame.size)
+
+        // Notion's hover: a soft rounded block behind the whole row.
+        if hover?.pageID == row.pageID {
+            NSColor.quaternaryLabelColor.setFill()
+            NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 1), xRadius: 6, yRadius: 6).fill()
+        }
 
         // The icon: a document glyph; a plain rounded rect if symbols are unavailable.
         let iconRect = CGRect(x: bounds.minX + 2, y: bounds.midY - 8, width: 16, height: 16)
