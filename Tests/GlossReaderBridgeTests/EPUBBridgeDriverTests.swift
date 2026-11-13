@@ -63,6 +63,32 @@ struct EPUBBridgeDriverTests {
         #expect(payload.markers.map(\.cfi) == [cfi.value])
     }
 
+    @Test("quote locators (gloss link) go to and mark their words through the glue; broken ones are refused or skipped")
+    func quoteLocators() async throws {
+        let (driver, sent) = driver()
+        let anchor = QuoteAnchor(text: "the whale", prefix: "Not", suffix: ", said", occurrence: 1)
+        let quote = EPUBQuoteLocator(section: 4, quote: anchor).locator
+        let target = ReaderQuoteTarget(section: 4, text: "the whale", prefix: "Not", suffix: ", said", occurrence: 1)
+        try await driver.go(to: quote, flash: true)
+        try await driver.show(ReaderAnnotations(markers: [
+            .init(id: LinkTargetID(GlossID(high: 1, low: 3)), locator: quote),
+            .init(id: LinkTargetID(GlossID(high: 1, low: 4)), locator: Locator(scheme: EPUBLocators.quoteScheme, value: "{broken")),
+        ]))
+        #expect(sent() == [
+            .goTo(ReaderGoToPayload(target: .quote(target), flash: true)),
+            .setAnnotations(ReaderSetAnnotationsPayload(markers: [
+                ReaderMarkerAnnotation(id: LinkTargetID(GlossID(high: 1, low: 3)).stringValue, quote: target),
+            ])),
+        ])
+        await #expect(throws: ReaderDrivingError.unsupportedLocator(EPUBLocators.quoteScheme)) {
+            try await driver.go(to: Locator(scheme: EPUBLocators.quoteScheme, value: "{broken"), flash: false)
+        }
+        // A marker carries exactly one of cfi or quote.
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(ReaderMarkerAnnotation.self, from: Data(#"{"id":"x"}"#.utf8))
+        }
+    }
+
     @Test("appearance changes are remembered for the next open")
     func appearanceChange() async throws {
         let (driver, sent) = driver()

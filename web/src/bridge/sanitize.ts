@@ -38,7 +38,9 @@ const isRefresh = (element: Element): boolean =>
     element.localName === 'meta'
     && (element.getAttribute('http-equiv') ?? '').trim().toLowerCase() === 'refresh'
 
-const shouldRemove = (element: Element): boolean =>
+// Also used by the glue to give documents it parses itself the shape of the rendered ones
+// (quote resolution, D-190), so CFIs computed in them match.
+export const shouldRemove = (element: Element): boolean =>
     element.localName === 'script' || element.localName === 'base'
     || isRefresh(element) || isLinkAnimation(element)
 

@@ -102,10 +102,21 @@ export interface Appearance {
     colors: AppearanceColors
 }
 
+// A passage pinned by its words (`gloss link`, D-190): the glue finds them in spine section
+// `section` (bridge/quote.ts) and uses the range's CFI.
+export interface QuoteTarget {
+    section: number
+    text: string
+    prefix: string
+    suffix: string
+    occurrence: number
+}
+
 export type GoToTarget =
     | { cfi: string }
     | { href: string }
     | { fraction: number }
+    | { quote: QuoteTarget }
 
 export interface HighlightAnnotation {
     id: string
@@ -113,10 +124,10 @@ export interface HighlightAnnotation {
     color: HighlightColorName
 }
 
-export interface MarkerAnnotation {
-    id: string
-    cfi: string
-}
+// exactly one of `cfi` and `quote`
+export type MarkerAnnotation =
+    | { id: string; cfi: string }
+    | { id: string; quote: QuoteTarget }
 
 export interface OpenPayload {
     // echoed by `opened`, so Swift can tell which open a reply belongs to
@@ -349,12 +360,20 @@ const appearanceFields: Record<string, FieldSpec> = {
 }
 const APPEARANCE: FieldSpec = { t: 'object', fields: appearanceFields }
 
+const quoteTargetFields: Record<string, FieldSpec> = {
+    section: { t: 'number', min: 0, int: true },
+    text: STR,
+    prefix: STR,
+    suffix: STR,
+    occurrence: { t: 'number', min: 0, int: true },
+}
+
 const goToTargetSpec: FieldSpec = {
     t: 'custom',
-    describe: 'an object with exactly one of "cfi", "href" or "fraction"',
+    describe: 'an object with exactly one of "cfi", "href", "fraction" or "quote"',
     check(value, path, errors) {
         if (!isRecord(value)) {
-            fail(errors, path, 'an object with exactly one of "cfi", "href" or "fraction"')
+            fail(errors, path, 'an object with exactly one of "cfi", "href", "fraction" or "quote"')
             return
         }
         const present: string[] = []
@@ -371,8 +390,30 @@ const goToTargetSpec: FieldSpec = {
                 && value.fraction >= 0 && value.fraction <= 1) present.push('fraction')
             else fail(errors, `${path}.fraction`, 'a number between 0 and 1')
         }
+        if (value.quote !== undefined) {
+            const before = errors.length
+            validateFields(value.quote, quoteTargetFields, `${path}.quote`, errors)
+            if (errors.length === before) present.push('quote')
+        }
         if (present.length !== 1)
-            fail(errors, path, 'an object with exactly one of "cfi", "href" or "fraction"')
+            fail(errors, path, 'an object with exactly one of "cfi", "href", "fraction" or "quote"')
+    },
+}
+
+const markerSpec: FieldSpec = {
+    t: 'custom',
+    describe: 'a marker with an "id" and exactly one of "cfi" or "quote"',
+    check(value, path, errors) {
+        if (!isRecord(value)) {
+            fail(errors, path, 'an object')
+            return
+        }
+        if (typeof value.id !== 'string') fail(errors, `${path}.id`, 'a string')
+        const hasCfi = value.cfi !== undefined
+        const hasQuote = value.quote !== undefined
+        if (hasCfi && typeof value.cfi !== 'string') fail(errors, `${path}.cfi`, 'a string')
+        if (hasQuote) validateFields(value.quote, quoteTargetFields, `${path}.quote`, errors)
+        if (hasCfi === hasQuote) fail(errors, path, 'a marker with exactly one of "cfi" or "quote"')
     },
 }
 
@@ -410,10 +451,7 @@ export const COMMAND_PAYLOAD_SPECS: Record<CommandType, Record<string, FieldSpec
         },
         markers: {
             t: 'array',
-            item: {
-                t: 'object',
-                fields: { id: STR, cfi: STR },
-            },
+            item: markerSpec,
         },
     },
     clearSelection: {},

@@ -172,19 +172,39 @@ public struct ReaderOpenPayload: Codable, Hashable, Sendable {
     }
 }
 
+/// A passage pinned by its words (an `epub-quote` locator, D-190): the glue finds the words in
+/// spine section `section` (context first, then the occurrence) and treats the range like a CFI.
+public struct ReaderQuoteTarget: Codable, Hashable, Sendable {
+    public var section: Int
+    public var text: String
+    public var prefix: String
+    public var suffix: String
+    public var occurrence: Int
+
+    public init(section: Int, text: String, prefix: String = "", suffix: String = "", occurrence: Int = 0) {
+        self.section = section
+        self.text = text
+        self.prefix = prefix
+        self.suffix = suffix
+        self.occurrence = occurrence
+    }
+}
+
 /// Where `goTo` goes.
 public enum ReaderTarget: Codable, Hashable, Sendable {
     case cfi(String)
     case href(String)
     case fraction(Double)
+    case quote(ReaderQuoteTarget)
 
-    private enum CodingKeys: String, CodingKey { case cfi, href, fraction }
+    private enum CodingKeys: String, CodingKey { case cfi, href, fraction, quote }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         if let cfi = try container.decodeIfPresent(String.self, forKey: .cfi) { self = .cfi(cfi); return }
         if let href = try container.decodeIfPresent(String.self, forKey: .href) { self = .href(href); return }
         if let fraction = try container.decodeIfPresent(Double.self, forKey: .fraction) { self = .fraction(fraction); return }
+        if let quote = try container.decodeIfPresent(ReaderQuoteTarget.self, forKey: .quote) { self = .quote(quote); return }
         throw DecodingError.dataCorruptedError(forKey: CodingKeys.cfi, in: container, debugDescription: "empty reader target")
     }
 
@@ -194,6 +214,7 @@ public enum ReaderTarget: Codable, Hashable, Sendable {
         case .cfi(let value): try container.encode(value, forKey: .cfi)
         case .href(let value): try container.encode(value, forKey: .href)
         case .fraction(let value): try container.encode(value, forKey: .fraction)
+        case .quote(let value): try container.encode(value, forKey: .quote)
         }
     }
 
@@ -238,13 +259,40 @@ public struct ReaderHighlightAnnotation: Codable, Hashable, Sendable {
     }
 }
 
+/// A note marker, placed by a CFI or, for passages pinned by their words, by a quote the glue
+/// resolves to a CFI (exactly one of the two goes on the wire).
 public struct ReaderMarkerAnnotation: Codable, Hashable, Sendable {
     public var id: String
-    public var cfi: String
+    public var cfi: String?
+    public var quote: ReaderQuoteTarget?
 
     public init(id: String, cfi: String) {
         self.id = id
         self.cfi = cfi
+    }
+
+    public init(id: String, quote: ReaderQuoteTarget) {
+        self.id = id
+        self.quote = quote
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, cfi, quote }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        cfi = try container.decodeIfPresent(String.self, forKey: .cfi)
+        quote = try container.decodeIfPresent(ReaderQuoteTarget.self, forKey: .quote)
+        guard (cfi == nil) != (quote == nil) else {
+            throw DecodingError.dataCorruptedError(forKey: .cfi, in: container, debugDescription: "a marker needs a cfi or a quote")
+        }
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encodeIfPresent(cfi, forKey: .cfi)
+        try container.encodeIfPresent(quote, forKey: .quote)
     }
 }
 

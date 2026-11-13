@@ -7,10 +7,36 @@
 // `{ add, remove, update }`, and answers "which note IDs live at this CFI?" for
 // `annotationActivated`.
 
-import type { HighlightColorName, SetAnnotationsPayload } from './protocol.ts'
+import type { HighlightAnnotation, HighlightColorName, QuoteTarget, SetAnnotationsPayload } from './protocol.ts'
 
-/** the `setAnnotations` payload, with both arrays optional for internal calls */
-export type AnnotationsPayloadInput = Partial<SetAnnotationsPayload>
+/** a marker placed by its CFI (quote markers become these once resolved) */
+export interface CfiMarker {
+    id: string
+    cfi: string
+}
+
+/** the `setAnnotations` payload with every marker placed by a CFI, both arrays optional */
+export interface AnnotationsPayloadInput {
+    highlights?: HighlightAnnotation[]
+    markers?: CfiMarker[]
+}
+
+// Markers pinned by quotes (`gloss link`) are placed by the CFI their words resolve to; the ones
+// whose words can't be found in the book are left out (no marker beats a wrong one).
+export const resolveMarkers = async (
+    payload: SetAnnotationsPayload,
+    resolveQuote: (quote: QuoteTarget) => Promise<string | null>,
+): Promise<{ highlights: HighlightAnnotation[]; markers: CfiMarker[] }> => {
+    const markers: CfiMarker[] = []
+    for (const marker of payload.markers) {
+        if ('cfi' in marker) markers.push(marker)
+        else {
+            const cfi = await resolveQuote(marker.quote)
+            if (cfi) markers.push({ id: marker.id, cfi })
+        }
+    }
+    return { highlights: payload.highlights, markers }
+}
 
 export interface Highlight {
     id: string
@@ -64,7 +90,7 @@ const sameMarkers = (a: string[], b: string[]): boolean =>
 // described by `desiredPayload`. Entries in `add`/`update` are the full
 // desired entries; entries in `remove` are the current entries to drop.
 export const planAnnotations = (
-    desiredPayload: SetAnnotationsPayload,
+    desiredPayload: AnnotationsPayloadInput,
     currentEntries?: DrawnEntry[],
 ): AnnotationPlan => {
     const desired = entriesFromPayload(desiredPayload)

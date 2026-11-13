@@ -25,12 +25,18 @@ struct WireContractTests {
         ("goTo-cfi", .goTo(ReaderGoToPayload(target: .cfi("epubcfi(/6/10!/4/2/2/1:12)"), flash: true))),
         ("goTo-href", .goTo(ReaderGoToPayload(target: .href("text/ch001.xhtml")))),
         ("goTo-fraction", .goTo(ReaderGoToPayload(target: .fraction(0.5)))),
+        ("goTo-quote", .goTo(ReaderGoToPayload(target: .quote(ReaderQuoteTarget(section: 4, text: "the whale", prefix: "Not",
+                                                                                suffix: ", said", occurrence: 1)), flash: true))),
         ("turnPage", .turnPage(ReaderTurnPagePayload(direction: .forward))),
         ("setAppearance", .setAppearance(ReaderSetAppearancePayload(appearance: appearance))),
         ("setAnnotations", .setAnnotations(ReaderSetAnnotationsPayload(
             highlights: [ReaderHighlightAnnotation(id: "01m78xptr8fa4r6vwtr0f789s9", cfi: "epubcfi(/6/8!/4/2/1:3,/4/2/1:9)", color: .blue)],
             markers: [ReaderMarkerAnnotation(id: "01m78xptr8fa4r6vwtr0f789t0", cfi: "epubcfi(/6/8!/4/2/1:3,/4/2/1:9)")]))),
         ("setAnnotations-empty", .setAnnotations(ReaderSetAnnotationsPayload())),
+        ("setAnnotations-quote", .setAnnotations(ReaderSetAnnotationsPayload(markers: [
+            ReaderMarkerAnnotation(id: "01m78xptr8fa4r6vwtr0f789t0",
+                                   quote: ReaderQuoteTarget(section: 4, text: "the whale", prefix: "Not", suffix: ", said", occurrence: 1)),
+        ]))),
         ("clearSelection", .clearSelection),
         ("search", .search(ReaderSearchPayload(query: "white whale"))),
         ("clearSearch", .clearSearch),

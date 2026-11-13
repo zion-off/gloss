@@ -43,6 +43,8 @@ declare module 'foliate/view.js' {
         linear?: string
         size: number
         cfi?: string
+        /** parses the section's (untransformed) document, as foliate's search does */
+        createDocument?(): Promise<Document>
     }
     /** the `load` event detail of `book.transformTarget`: set `allow` to false to skip a resource */
     export interface LoadResourceDetail {

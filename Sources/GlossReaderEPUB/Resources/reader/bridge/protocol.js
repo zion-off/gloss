@@ -117,12 +117,19 @@ const appearanceFields = {
     },
 };
 const APPEARANCE = { t: 'object', fields: appearanceFields };
+const quoteTargetFields = {
+    section: { t: 'number', min: 0, int: true },
+    text: STR,
+    prefix: STR,
+    suffix: STR,
+    occurrence: { t: 'number', min: 0, int: true },
+};
 const goToTargetSpec = {
     t: 'custom',
-    describe: 'an object with exactly one of "cfi", "href" or "fraction"',
+    describe: 'an object with exactly one of "cfi", "href", "fraction" or "quote"',
     check(value, path, errors) {
         if (!isRecord(value)) {
-            fail(errors, path, 'an object with exactly one of "cfi", "href" or "fraction"');
+            fail(errors, path, 'an object with exactly one of "cfi", "href", "fraction" or "quote"');
             return;
         }
         const present = [];
@@ -145,8 +152,34 @@ const goToTargetSpec = {
             else
                 fail(errors, `${path}.fraction`, 'a number between 0 and 1');
         }
+        if (value.quote !== undefined) {
+            const before = errors.length;
+            validateFields(value.quote, quoteTargetFields, `${path}.quote`, errors);
+            if (errors.length === before)
+                present.push('quote');
+        }
         if (present.length !== 1)
-            fail(errors, path, 'an object with exactly one of "cfi", "href" or "fraction"');
+            fail(errors, path, 'an object with exactly one of "cfi", "href", "fraction" or "quote"');
+    },
+};
+const markerSpec = {
+    t: 'custom',
+    describe: 'a marker with an "id" and exactly one of "cfi" or "quote"',
+    check(value, path, errors) {
+        if (!isRecord(value)) {
+            fail(errors, path, 'an object');
+            return;
+        }
+        if (typeof value.id !== 'string')
+            fail(errors, `${path}.id`, 'a string');
+        const hasCfi = value.cfi !== undefined;
+        const hasQuote = value.quote !== undefined;
+        if (hasCfi && typeof value.cfi !== 'string')
+            fail(errors, `${path}.cfi`, 'a string');
+        if (hasQuote)
+            validateFields(value.quote, quoteTargetFields, `${path}.quote`, errors);
+        if (hasCfi === hasQuote)
+            fail(errors, path, 'a marker with exactly one of "cfi" or "quote"');
     },
 };
 // -- payload specs ---------------------------------------------------------
@@ -182,10 +215,7 @@ export const COMMAND_PAYLOAD_SPECS = {
         },
         markers: {
             t: 'array',
-            item: {
-                t: 'object',
-                fields: { id: STR, cfi: STR },
-            },
+            item: markerSpec,
         },
     },
     clearSelection: {},

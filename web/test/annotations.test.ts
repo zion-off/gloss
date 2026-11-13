@@ -6,16 +6,15 @@ import {
     entriesFromPayload,
     planAnnotations,
     idsAt,
+    resolveMarkers,
     styleFor,
+    type AnnotationsPayloadInput,
+    type CfiMarker,
     type AnnotationPlan,
     type DrawnEntry,
     type StyleColors,
 } from '../src/bridge/annotations.ts'
-import {
-    type HighlightAnnotation,
-    type MarkerAnnotation,
-    type SetAnnotationsPayload,
-} from '../src/bridge/protocol.ts'
+import { type HighlightAnnotation } from '../src/bridge/protocol.ts'
 
 const CFI_A = 'epubcfi(/6/8!/4/2/1:0,/4/2/1:10)'
 const CFI_B = 'epubcfi(/6/10!/4/2/2/1:5)'
@@ -23,11 +22,11 @@ const CFI_C = 'epubcfi(/6/12!/4/2/1:0)'
 
 const payload = (
     highlights: HighlightAnnotation[] = [],
-    markers: MarkerAnnotation[] = [],
-): SetAnnotationsPayload => ({ highlights, markers })
+    markers: CfiMarker[] = [],
+): Required<AnnotationsPayloadInput> => ({ highlights, markers })
 const hl = (id: string, cfi: string, color: HighlightAnnotation['color'] = 'yellow'): HighlightAnnotation =>
     ({ id, cfi, color })
-const mk = (id: string, cfi: string): MarkerAnnotation => ({ id, cfi })
+const mk = (id: string, cfi: string): CfiMarker => ({ id, cfi })
 
 const cfis = (plan: AnnotationPlan) => ({
     add: plan.add.map(e => e.cfi),
@@ -198,4 +197,18 @@ test('styleFor: unknown entry or colours falls back to nothing drawn', () => {
     const entry = entriesFromPayload(payload([hl('h1', CFI_A)]))[0]
     assert.deepEqual(styleFor(entry, {}),
         { highlightColor: null, underline: false, underlineColor: null })
+})
+
+test('quote markers are placed by the CFI their words resolve to; unfound ones are left out', async () => {
+    const quote = { section: 4, text: 'the whale', prefix: 'Not', suffix: '', occurrence: 1 }
+    const asked: unknown[] = []
+    const resolved = await resolveMarkers({
+        highlights: [hl('h1', CFI_A)],
+        markers: [mk('m1', CFI_B), { id: 'm2', quote }, { id: 'm3', quote: { ...quote, text: 'nowhere' } }],
+    }, async q => {
+        asked.push(q)
+        return q.text === 'the whale' ? CFI_C : null
+    })
+    assert.deepEqual(resolved, { highlights: [hl('h1', CFI_A)], markers: [mk('m1', CFI_B), mk('m2', CFI_C)] })
+    assert.equal(asked.length, 2)
 })

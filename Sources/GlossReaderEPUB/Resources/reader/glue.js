@@ -18,6 +18,7 @@ import * as search from './bridge/search.js';
 import * as sanitize from './bridge/sanitize.js';
 import * as queue from './bridge/queue.js';
 import * as swipe from './bridge/swipe.js';
+import * as quote from './bridge/quote.js';
 const view = document.querySelector('foliate-view');
 if (!view)
     throw new Error('gloss: <foliate-view> element is missing');
@@ -32,6 +33,7 @@ const searchGeneration = queue.makeGeneration(); // stopped searches stop postin
 let colors = null;
 let drawn = []; // annotations currently drawn
 let hadSelection = false; // suppress selectionCleared noise
+let quoteCfis = new Map(); // quote targets resolved in the open book
 // -- events ----------------------------------------------------------------
 // foliate's custom events carry their payload in `detail`
 const eventDetail = (event) => event.detail;
@@ -399,6 +401,7 @@ const closeBook = () => {
     opened = false;
     drawn = [];
     hadSelection = false;
+    quoteCfis = new Map();
     resetSwipes();
     if (needsClose) {
         needsClose = false;
@@ -435,6 +438,61 @@ const guardScripts = (book) => {
             return sanitize.sanitizeMarkup(markup, type, new DOMParser(), new XMLSerializer()).markup;
         });
     });
+};
+// -- quotes ----------------------------------------------------------------------
+// Text nodes the way foliate's search walks them (text-walker.js): everything in the body but
+// script and style.
+const textNodes = (doc) => {
+    const root = doc.body ?? doc.documentElement;
+    const nodes = [];
+    if (!root)
+        return nodes;
+    const walker = doc.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT | NodeFilter.SHOW_CDATA_SECTION, {
+        acceptNode: node => {
+            if (node.nodeType !== Node.ELEMENT_NODE)
+                return NodeFilter.FILTER_ACCEPT;
+            const name = node.localName.toLowerCase();
+            return name === 'script' || name === 'style' ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP;
+        },
+    });
+    for (let node = walker.nextNode(); node; node = walker.nextNode())
+        nodes.push(node);
+    return nodes;
+};
+// The CFI of a passage pinned by its words (an `epub-quote` locator from `gloss link`, D-190):
+// find the words in the section's document (context first, then the occurrence; bridge/quote.ts)
+// and take the range's CFI, the way foliate's own search does. The document is given the shape
+// of the rendered one first (the elements the sanitizer strips), so the CFI matches what is shown.
+// Null when the words aren't there; remembered for as long as the book is open.
+const resolveQuote = async (target) => {
+    const key = JSON.stringify([target.section, target.text, target.prefix, target.suffix, target.occurrence]);
+    const known = quoteCfis.get(key);
+    if (known !== undefined)
+        return known;
+    const generation = bookGeneration.value();
+    let cfi = null;
+    try {
+        const doc = await view.book.sections[target.section]?.createDocument?.();
+        if (doc) {
+            for (const element of Array.from(doc.querySelectorAll('*')))
+                if (sanitize.shouldRemove(element))
+                    element.remove();
+            const nodes = textNodes(doc);
+            const found = quote.resolveInNodes(nodes.map(node => node.nodeValue ?? ''), target);
+            if (found) {
+                const range = doc.createRange();
+                range.setStart(nodes[found.start.node], found.start.offset);
+                range.setEnd(nodes[found.end.node], found.end.offset);
+                cfi = view.getCFI(target.section, range);
+            }
+        }
+    }
+    catch (error) {
+        console.warn('gloss: a quote did not resolve', error);
+    }
+    if (bookGeneration.isCurrent(generation))
+        quoteCfis.set(key, cfi);
+    return cfi;
 };
 // -- command handlers ---------------------------------------------------------
 const requireRenderer = () => {
@@ -477,6 +535,14 @@ const commands = {
     },
     async goTo({ target, flash }) {
         requireRenderer();
+        if ('quote' in target) {
+            // words that can't be found still land in their section, unflashed
+            const cfi = await resolveQuote(target.quote);
+            const resolved = await view.goTo(cfi ?? target.quote.section);
+            if (flash && cfi)
+                await flashTarget(resolved);
+            return;
+        }
         const targetValue = 'cfi' in target ? target.cfi
             : 'href' in target ? target.href
                 : { fraction: target.fraction };
@@ -497,8 +563,12 @@ const commands = {
             await addAnnotation(entry.cfi)
                 .catch((error) => postError(error, 'setAppearance'));
     },
-    async setAnnotations(payload) {
+    async setAnnotations(desired) {
         requireRenderer();
+        const generation = bookGeneration.value();
+        const payload = await annotations.resolveMarkers(desired, resolveQuote);
+        if (!bookGeneration.isCurrent(generation))
+            return;
         const plan = annotations.planAnnotations(payload, drawn);
         const indexByCfi = new Map(drawn.map(e => [e.cfi, e.index]));
         // update the drawn state *first*: the draw-annotation handlers fired

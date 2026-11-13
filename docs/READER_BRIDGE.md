@@ -27,6 +27,12 @@ protocol. Both sides implement it and are tested against the same fixtures:
   `view.open(file)`.
 - Locators for passages and positions are foliate CFIs (`epubcfi(…)`), scheme `epubcfi` on the Swift side.
   Book-text search chunks extracted on Linux use scheme `epub-section` with the spine index as the value.
+- Passages linked from the CLI (`gloss link`, D-190) use scheme `epub-quote`: the spine index plus the
+  quoted words, a little context and the occurrence. They travel as a `QuoteTarget`
+  (`{ "section": int ≥ 0, "text", "prefix", "suffix": string, "occurrence": int ≥ 0 }`); the glue finds
+  the words in the section's document (`bridge/quote.ts`, the twin of Swift's `QuoteAnchor.resolve`, both
+  run `Tests/Fixtures/quotes/resolve.json`), takes the range's CFI like foliate's search does, and from
+  there everything is the CFI path. Resolutions are cached while the book is open.
 
 ## Shared types
 
@@ -55,10 +61,10 @@ protocol. Both sides implement it and are tested against the same fixtures:
 |---|---|---|
 | `open` | `{ "openID": int ≥ 1, "url": string, "position": string \| null, "appearance": Appearance }` | close the open book if any, fetch the new one, `view.open(book)`, apply appearance, `view.init({ lastLocation: position })` or show the text start; emits `opened` (echoing `openID`) then `relocated` |
 | `close` | `{}` | close the open book (`view.close()`); the reader shows nothing until the next `open` |
-| `goTo` | `{ "target": { "cfi": string } \| { "href": string } \| { "fraction": number }, "flash": bool }` | navigate; with `flash`, briefly outline the target range (≈1.5 s) |
+| `goTo` | `{ "target": { "cfi": string } \| { "href": string } \| { "fraction": number } \| { "quote": QuoteTarget }, "flash": bool }` | navigate; with `flash`, briefly outline the target range (≈1.5 s). Words a quote can't find land at the start of its section, unflashed |
 | `turnPage` | `{ "direction": "forward" \| "backward" }` | `view.next()` / `view.prev()` |
 | `setAppearance` | `Appearance` | re-apply styles, layout attributes and flow; redraw annotations with the new colours |
-| `setAnnotations` | `{ "highlights": [{ "id": string, "cfi": string, "color": HighlightColorName }], "markers": [{ "id": string, "cfi": string }] }` | the complete desired set; JS diffs against what it drew. A CFI that is both highlighted and marked is drawn once with both styles (foliate keys overlays by CFI) |
+| `setAnnotations` | `{ "highlights": [{ "id": string, "cfi": string, "color": HighlightColorName }], "markers": [{ "id": string, "cfi": string } \| { "id": string, "quote": QuoteTarget }] }` | the complete desired set; JS resolves quote markers to CFIs (dropping ones it can't find) and diffs against what it drew. A CFI that is both highlighted and marked is drawn once with both styles (foliate keys overlays by CFI) |
 | `clearSelection` | `{}` | `view.deselect()` |
 | `search` | `{ "query": string }` | run `view.search({ query })`, emitting `searchResults` batches |
 | `clearSearch` | `{}` | `view.clearSearch()` |

@@ -7,6 +7,21 @@
 // payload plus the currently drawn state into a minimal plan
 // `{ add, remove, update }`, and answers "which note IDs live at this CFI?" for
 // `annotationActivated`.
+// Markers pinned by quotes (`gloss link`) are placed by the CFI their words resolve to; the ones
+// whose words can't be found in the book are left out (no marker beats a wrong one).
+export const resolveMarkers = async (payload, resolveQuote) => {
+    const markers = [];
+    for (const marker of payload.markers) {
+        if ('cfi' in marker)
+            markers.push(marker);
+        else {
+            const cfi = await resolveQuote(marker.quote);
+            if (cfi)
+                markers.push({ id: marker.id, cfi });
+        }
+    }
+    return { highlights: payload.highlights, markers };
+};
 // Build the complete desired entry list from a `setAnnotations` payload.
 export const entriesFromPayload = (payload) => {
     const byCfi = new Map();

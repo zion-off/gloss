@@ -31,6 +31,9 @@ public final class EPUBBridgeDriver: ReaderDriving, ReflowableAppearanceApplying
         switch locator.scheme {
         case EPUBLocators.cfiScheme: target = .cfi(locator.value)
         case EPUBLocators.hrefScheme: target = .href(locator.value)
+        case EPUBLocators.quoteScheme:
+            guard let quote = Self.quoteTarget(locator) else { throw ReaderDrivingError.unsupportedLocator(locator.scheme) }
+            target = .quote(quote)
         default: throw ReaderDrivingError.unsupportedLocator(locator.scheme)
         }
         try await send(.goTo(ReaderGoToPayload(target: target, flash: flash)))
@@ -47,8 +50,16 @@ public final class EPUBBridgeDriver: ReaderDriving, ReflowableAppearanceApplying
                     ? ReaderHighlightAnnotation(id: mark.id.stringValue, cfi: mark.locator.value, color: ReaderColorName(mark.color)) : nil
             },
             markers: annotations.markers.compactMap { mark in
-                mark.locator.scheme == EPUBLocators.cfiScheme ? ReaderMarkerAnnotation(id: mark.id.stringValue, cfi: mark.locator.value) : nil
+                if mark.locator.scheme == EPUBLocators.cfiScheme { return ReaderMarkerAnnotation(id: mark.id.stringValue, cfi: mark.locator.value) }
+                return Self.quoteTarget(mark.locator).map { ReaderMarkerAnnotation(id: mark.id.stringValue, quote: $0) }
             })))
+    }
+
+    /// The bridge's shape of an `epub-quote` locator; nil for anything else.
+    nonisolated static func quoteTarget(_ locator: Locator) -> ReaderQuoteTarget? {
+        guard let quote = EPUBQuoteLocator(locator: locator) else { return nil }
+        return ReaderQuoteTarget(section: quote.section, text: quote.quote.text, prefix: quote.quote.prefix,
+                                 suffix: quote.quote.suffix, occurrence: quote.quote.occurrence)
     }
 
     public func clearSelection() async throws {

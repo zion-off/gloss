@@ -208,6 +208,34 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
 - `PDFReadingEngine.swift` — registration only; PDFs now open with an engine (the "can't show this
   kind" placeholder should be gone).
 
+### Passage links made by `gloss link` (D-190)
+
+The CLI pins passages by their words (`epub-quote` / `pdf-quote` locators: section or page, quote,
+context, occurrence); the readers resolve them at runtime. Make a scratch library or use your own:
+
+```sh
+gloss import some.epub some.pdf
+gloss page write "<epub title>" "notes about the opening and a second thought"
+gloss link "<epub title>" --text "the opening" --quote "<a phrase from chapter 1>" --list   # see the matches
+gloss link "<epub title>" --text "the opening" --quote "<a phrase from chapter 1>"          # add --nth N if listed twice
+gloss link "<epub title>" --text "a second thought" --quote "<a phrase that appears in many chapters>" --nth 3
+```
+
+- EPUB (`web/src/glue.ts` `resolveQuote`, `EPUBBridgeDriver`), with the app already running on that book:
+  1. Within a second of the command the marker underline appears under exactly the quoted words (the
+     change monitor redraws annotations); for `--nth 3` it is the third occurrence, not the first.
+  2. Clicking the link in the notes jumps the reader to the passage and flashes it (outline, ~1.5 s).
+  3. Clicking the marker in the book opens the notes page with the link's words selected.
+  4. Hovering the link in the notes shows the quote and its label ("Part One", "section 5").
+  5. A quote spanning an `<em>`, a line break or two paragraphs (`--from … --through …`) draws over
+     the whole range. A chapter with a `<script>` in its body before the quote still marks the right
+     words (the glue strips the same elements the sanitizer does before taking the CFI).
+  6. Change the theme in Settings: the marker redraws in the new colour (cached CFI, same overlay).
+  7. Edit the locator by hand to a quote that isn't in the book (`sqlite3`, `link_targets`): no marker,
+     and following the link lands at the start of its section without a flash; no error alert.
+  8. A CFI-made link and a CLI-made link to the same words show as one underline (the same CFI);
+     the marker popover lists both notes.
+
 ### `Sources/GlossReaderKit/ReaderPopovers.swift` + `ReaderPane.swift` (milestone 11)
 
 - One popover at a time over the reader, anchored to the selection/mark (top-left `ReaderRect`

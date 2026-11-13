@@ -1,0 +1,16 @@
+{
+  "payload" : {
+    "flash" : true,
+    "target" : {
+      "quote" : {
+        "occurrence" : 1,
+        "prefix" : "Not",
+        "section" : 4,
+        "suffix" : ", said",
+        "text" : "the whale"
+      }
+    }
+  },
+  "type" : "goTo",
+  "v" : 1
+}

@@ -27,7 +27,9 @@ const isLinkAnimation = (element) => ['set', 'animate'].includes(element.localNa
     && /(?:^|:)(?:href|on[a-z]+)$/i.test(element.getAttribute('attributeName') ?? '');
 const isRefresh = (element) => element.localName === 'meta'
     && (element.getAttribute('http-equiv') ?? '').trim().toLowerCase() === 'refresh';
-const shouldRemove = (element) => element.localName === 'script' || element.localName === 'base'
+// Also used by the glue to give documents it parses itself the shape of the rendered ones
+// (quote resolution, D-190), so CFIs computed in them match.
+export const shouldRemove = (element) => element.localName === 'script' || element.localName === 'base'
     || isRefresh(element) || isLinkAnimation(element);
 const cleanAttributes = (element) => {
     let removed = 0;
