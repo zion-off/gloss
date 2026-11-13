@@ -134,11 +134,15 @@ public struct MainWindow: View {
     /// it. The reader's session lives in `readerHost`, so showing the library (or another layout)
     /// and coming back keeps the book where it was.
     @ViewBuilder private var book: some View {
-        switch app.workspace.layout {
-        case .readerOnly: readerCard
-        case .notesOnly: notesPane
-        case .split: ReaderNotesSplit { readerCard } notes: { notesPane }
+        Group {
+            switch app.workspace.layout {
+            case .readerOnly: readerCard
+            case .notesOnly: notesPane
+            case .split: ReaderNotesSplit { readerCard } notes: { notesPane }
+            }
         }
+        // One big sheet of paper: the book is laid on it, inset, and the notes are written on it.
+        .background(Color(nsColor: .textBackgroundColor))
     }
 
     private var readerCard: some View {
@@ -293,8 +297,6 @@ struct NotesPane: View {
                     }
                 }
         }
-        // One surface from the title down to the text: no bar, no second shade.
-        .background(Color(nsColor: .textBackgroundColor))
         .task(id: app.workspace.page?.id) { await loadPage() }
         .onChange(of: app.notes.page?.id, initial: true) { _, _ in
             commitTitle()  // for the page that was showing, before the field changes hands
@@ -397,8 +399,9 @@ extension View {
 }
 
 
-/// Reader on the left, notes on the right, one divider you can drag. A plain SwiftUI layout rather
-/// than an inspector or `HSplitView`: both cut the window's toolbar in two.
+/// The reader card on the left, the notes on the right, with a grab area between them that you
+/// can drag. A plain SwiftUI layout rather than an inspector or `HSplitView`: both cut the window's
+/// toolbar in two, and both draw a divider where the sheet should be seamless.
 private struct ReaderNotesSplit<Reader: View, Notes: View>: View {
     @AppStorage("notes.width") private var storedWidth = 380.0
     @State private var dragStart: Double?
@@ -426,25 +429,23 @@ private struct ReaderNotesSplit<Reader: View, Notes: View>: View {
     }
 
     private func divider(current: Double, widest: Double) -> some View {
-        Divider()
-            .overlay {
-                Color.clear
-                    .frame(width: 9)
-                    .contentShape(Rectangle())
-                    .onContinuousHover { phase in
-                        switch phase {
-                        case .active: NSCursor.resizeLeftRight.set()
-                        case .ended: NSCursor.arrow.set()
-                        }
-                    }
-                    .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
-                        .onChanged { drag in
-                            let start = dragStart ?? current
-                            dragStart = start
-                            storedWidth = min(max(start - drag.translation.width, Self.minNotes), widest)
-                        }
-                        .onEnded { _ in dragStart = nil })
+        // No line: the sheet is one surface. Only the pointer tells you the gap can be dragged.
+        Color.clear
+            .frame(width: 9)
+            .contentShape(Rectangle())
+            .onContinuousHover { phase in
+                switch phase {
+                case .active: NSCursor.resizeLeftRight.set()
+                case .ended: NSCursor.arrow.set()
+                }
             }
+            .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                .onChanged { drag in
+                    let start = dragStart ?? current
+                    dragStart = start
+                    storedWidth = min(max(start - drag.translation.width, Self.minNotes), widest)
+                }
+                .onEnded { _ in dragStart = nil })
     }
 }
 #endif

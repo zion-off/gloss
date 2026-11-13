@@ -55,7 +55,8 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false
         textView.textContainerInset = NSSize(width: 12, height: 10)
-        textView.backgroundColor = .textBackgroundColor
+        // No background of its own: the notes are written straight onto the window's sheet.
+        textView.drawsBackground = false
         textView.onTextClick = { [weak self] index in self?.textClicked(at: index) ?? false }
         textView.onFocusChange = { [weak self] focused in self?.actions.focusChanged(focused) }
         textView.onHover = { [weak self] point in self?.pointerMoved(to: point) }
@@ -63,6 +64,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
 
         let scrollView = NSScrollView()
         scrollView.documentView = textView
+        scrollView.drawsBackground = false
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = true
