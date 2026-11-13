@@ -22,7 +22,10 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
     private var pageCount = 0
     private var annotations = PDFAnnotationLayout(.init())
     private let colors: ReaderColors
-    private var observers: [NSObjectProtocol] = []
+    private var observers: [any NSObjectProtocol] = []
+    /// The overlays PDFKit is showing, by page index: a new set of annotations reaches the
+    /// pages already on screen through these (PDFKit only asks for an overlay once per page).
+    private var overlays: [Int: PDFPageOverlay] = [:]
 
     init(library: LibraryService, appearance: ReaderAppearance,
          deliver: @escaping @MainActor @Sendable (ReaderEngineEvent) async -> Void) {
@@ -54,6 +57,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
         observers = []
         pdfView.delegate = nil
         pdfView.pageOverlayViewProvider = nil
+        overlays = [:]
         await inbox.closeAndDrain()
     }
 
@@ -67,6 +71,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
             inbox.post(.openFailed("this pdf wouldn't open", openID: openID))
             return
         }
+        overlays = [:]
         self.document = pdf
         pageCount = pdf.pageCount
         pdfView.document = pdf
@@ -83,6 +88,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
         document = nil
         pageCount = 0
         annotations = PDFAnnotationLayout(.init())
+        overlays = [:]
         pdfView.document = nil
     }
 
@@ -106,8 +112,11 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
 
     func show(_ annotations: ReaderAnnotations) async throws {
         self.annotations = PDFAnnotationLayout(annotations)
-        // Overlay views are vended per page; the new layout shows on the next layout pass.
-        pdfView.needsDisplay = true
+        // PDFKit asks for each page's overlay once; the pages on screen get the new marks here
+        // (a link made with ⌘K must show its marker without scrolling away and back, review 6).
+        for (index, overlay) in overlays {
+            overlay.marks = self.annotations.marks(on: index)
+        }
     }
 
     func clearSelection() async throws {
@@ -133,6 +142,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
 
     /// PDFKit's protocol isn't main-actor isolated, but it asks for overlays while laying out
     /// the view, on the main thread; `assumeIsolated` states that (and traps if it's ever wrong).
+    /// Every page gets an overlay, marked or not, so marks added later have somewhere to draw.
     nonisolated func pdfView(_ view: PDFView, overlayViewFor page: PDFPage) -> NSView? {
         // `PDFPage` isn't Sendable; it's PDFKit's own object, handed over on the main thread
         // that the assertion below checks, so moving it to the main actor races with nothing.
@@ -140,14 +150,21 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
         return MainActor.assumeIsolated { overlay(for: page, in: view) }
     }
 
+    nonisolated func pdfView(_ pdfView: PDFView, willEndDisplayingOverlayView overlayView: NSView, for page: PDFPage) {
+        MainActor.assumeIsolated {
+            if let index = overlays.first(where: { $0.value === overlayView })?.key { overlays[index] = nil }
+        }
+    }
+
     private func overlay(for page: PDFPage, in view: PDFView) -> NSView? {
         guard let pdf = document else { return nil }
-        let marks = annotations.marks(on: pdf.index(for: page))
-        guard !marks.isEmpty else { return nil }
-        return PDFPageOverlay(pdfView: view, page: page, marks: marks,
-                              colors: colors, onActivate: { [weak self] highlights, markers, anchor in
-            self?.inbox.post(.annotationActivated(highlights: highlights, markers: markers, anchor: anchor))
+        let index = pdf.index(for: page)
+        let overlay = PDFPageOverlay(pdfView: view, page: page, marks: annotations.marks(on: index),
+                                     colors: colors, onActivate: { [weak self] hit, anchor in
+            self?.inbox.post(.annotationActivated(highlights: hit.highlights, markers: hit.markers, anchor: anchor))
         })
+        overlays[index] = overlay
+        return overlay
     }
 
     // MARK: Events
@@ -210,6 +227,14 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
                               containerHeight: view.bounds.height)
     }
 
+    static func pageRect(_ rect: NSRect) -> PDFPageRect {
+        PDFPageRect(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height)
+    }
+
+    static func nsRect(_ rect: PDFPageRect) -> NSRect {
+        NSRect(x: rect.x, y: rect.y, width: rect.width, height: rect.height)
+    }
+
     // MARK: Drawing help
 
     private func flashRect(target: PDFReaderTarget) {
@@ -262,16 +287,22 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
 
 /// The overlay for one page: highlights filled, markers underlined, clicks on either reported.
 /// Transparent to clicks outside its marks (text selection underneath keeps working).
+///
+/// Marks are in page space. PDFKit places this view over its page, so its own coordinates are
+/// neither the page's nor the PDF view's: everything converts page → PDF view → this view (and
+/// back for clicks), never assuming the overlay sits at the PDF view's origin (review 6).
 @MainActor
 final class PDFPageOverlay: NSView {
     private weak var pdfView: PDFView?
     private let page: PDFPage
-    private let marks: [PDFAnnotationLayout.Mark]
+    var marks: [PDFAnnotationLayout.Mark] {
+        didSet { if marks != oldValue { needsDisplay = true } }
+    }
     private let colors: ReaderColors
-    private let onActivate: @MainActor ([HighlightID], [LinkTargetID], ReaderRect) -> Void
+    private let onActivate: @MainActor (PDFAnnotationLayout.Hit, ReaderRect) -> Void
 
     init(pdfView: PDFView, page: PDFPage, marks: [PDFAnnotationLayout.Mark],
-         colors: ReaderColors, onActivate: @escaping @MainActor ([HighlightID], [LinkTargetID], ReaderRect) -> Void) {
+         colors: ReaderColors, onActivate: @escaping @MainActor (PDFAnnotationLayout.Hit, ReaderRect) -> Void) {
         self.pdfView = pdfView
         self.page = page
         self.marks = marks
@@ -293,52 +324,38 @@ final class PDFPageOverlay: NSView {
             }
             color.setFill()
             for rect in mark.rects {
-                let inView = pdfView.convert(NSRect(x: rect.x, y: rect.y, width: rect.width, height: rect.height), from: page)
+                let local = convert(pdfView.convert(PDFReaderSession.nsRect(rect), from: page), from: pdfView)
                 if case .marker = mark.kind {
-                    // A thin underline rather than a fill, so the text stays readable.
-                    NSRect(x: inView.minX, y: inView.minY, width: inView.width, height: 2).fill()
+                    // A thin underline under the line's text rather than a fill, so it stays readable.
+                    let underlineY = isFlipped ? local.maxY - 2 : local.minY
+                    NSRect(x: local.minX, y: underlineY, width: local.width, height: 2).fill()
                 } else {
-                    inView.fill()
+                    local.fill()
                 }
             }
         }
     }
 
-    /// Only the marks take clicks; everything else falls through to the PDF underneath.
+    /// Only the marks take clicks; everything else falls through to the PDF underneath. The
+    /// point arrives in the superview's coordinates.
     override func hitTest(_ point: NSPoint) -> NSView? {
-        guard let pdfView, let hit = hit(point: point, in: pdfView) else { return nil }
-        return hit ? self : nil
+        guard let pdfView, let superview, !marks.isEmpty else { return nil }
+        let inPage = pdfView.convert(pdfView.convert(point, from: superview), to: page)
+        return PDFAnnotationLayout.hit(marks, x: inPage.x, y: inPage.y) == nil ? nil : self
     }
 
     override func mouseDown(with event: NSEvent) {
         guard let pdfView else { return }
-        let point = convert(event.locationInWindow, from: nil)
-        let inPage = pdfView.convert(point, to: page)
-        var highlights: [HighlightID] = [], markers: [LinkTargetID] = []
-        for mark in marks where mark.rects.contains(where: { $0.contains(x: inPage.x, y: inPage.y, slop: 2) }) {
-            switch mark.kind {
-            case .highlight(let id, _): if !highlights.contains(id) { highlights.append(id) }
-            case .marker(let id): if !markers.contains(id) { markers.append(id) }
-            }
-        }
-        guard !highlights.isEmpty || !markers.isEmpty else { return }
-        // Anchor the popover to the clicked mark's rect, in the reader's coordinates.
-        let mark = marks.first { $0.rects.contains { $0.contains(x: inPage.x, y: inPage.y, slop: 2) } }
-        let rect = mark?.rects.first { $0.contains(x: inPage.x, y: inPage.y, slop: 2) }
-            ?? PDFPageRect(x: inPage.x, y: inPage.y, width: 1, height: 1)
-        let inView = pdfView.convert(NSRect(x: rect.x, y: rect.y, width: rect.width, height: rect.height), from: page)
-        onActivate(highlights, markers, PDFReaderSession.readerRect(inView, in: pdfView))
-    }
-
-    private func hit(point: NSPoint, in pdfView: PDFView) -> Bool? {
-        let inPage = pdfView.convert(point, to: page)
-        return marks.contains { mark in mark.rects.contains { $0.contains(x: inPage.x, y: inPage.y, slop: 2) } }
+        let inPage = pdfView.convert(pdfView.convert(event.locationInWindow, from: nil), to: page)
+        guard let hit = PDFAnnotationLayout.hit(marks, x: inPage.x, y: inPage.y) else { return }
+        // The popover anchors to the clicked mark's rect, in the reader's coordinates.
+        let inView = pdfView.convert(PDFReaderSession.nsRect(hit.rect), from: page)
+        onActivate(hit, PDFReaderSession.readerRect(inView, in: pdfView))
     }
 
     static func color(for color: HighlightColor, in colors: ReaderColors) -> NSColor? {
-        let name = ReaderColorName(color)
         let css: String?
-        switch name {
+        switch ReaderColorName(color) {
         case .yellow: css = colors.highlights.yellow
         case .green: css = colors.highlights.green
         case .blue: css = colors.highlights.blue
