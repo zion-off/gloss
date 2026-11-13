@@ -437,6 +437,10 @@ extension Section where Parent: View, Content: View, Footer == EmptyView {
     /// swiftui/section/init(isExpanded:content:header:) (macOS 14) — "Footer is EmptyView"
     public init(isExpanded: Binding<Bool>, @ViewBuilder content: () -> Content, @ViewBuilder header: () -> Parent) {}
 }
+extension Section where Parent: View, Content: View, Footer: View {
+    /// swiftui/section/init(content:header:footer:) (macOS 10.15)
+    public init(@ViewBuilder content: () -> Content, @ViewBuilder header: () -> Parent, @ViewBuilder footer: () -> Footer) {}
+}
 extension Section where Parent == EmptyView, Content: View, Footer == EmptyView {
     /// swiftui/section/init(content:) (macOS 10.15)
     public init(@ViewBuilder content: () -> Content) {}
@@ -796,6 +800,11 @@ extension PrimitiveButtonStyle where Self == DefaultButtonStyle { public static 
 /// macOS 14.0+
 extension PrimitiveButtonStyle where Self == AccessoryBarButtonStyle { public static var accessoryBar: AccessoryBarButtonStyle { .init() } }
 
+/// swiftui/formstyle; swiftui/groupedformstyle, formstyle/grouped (macOS 13.0)
+public protocol FormStyle {}
+public struct GroupedFormStyle: FormStyle { public init() {} }
+extension FormStyle where Self == GroupedFormStyle { public static var grouped: GroupedFormStyle { .init() } }
+
 public protocol PickerStyle {}
 public struct SegmentedPickerStyle: PickerStyle { public init() {} }
 public struct MenuPickerStyle: PickerStyle { public init() {} }
@@ -874,6 +883,12 @@ extension View {
     nonisolated public func buttonStyle<S: PrimitiveButtonStyle>(_ style: S) -> some View { _Modified(self) }
     nonisolated public func buttonStyle<S: ButtonStyle>(_ style: S) -> some View { _Modified(self) }
     nonisolated public func pickerStyle<S: PickerStyle>(_ style: S) -> some View { _Modified(self) }
+    /// view/formstyle(_:) (macOS 13.0)
+    nonisolated public func formStyle<S: FormStyle>(_ style: S) -> some View { _Modified(self) }
+    /// view/labelshidden() (macOS 10.15)
+    nonisolated public func labelsHidden() -> some View { _Modified(self) }
+    /// view/linespacing(_:) (macOS 10.15)
+    nonisolated public func lineSpacing(_ lineSpacing: CGFloat) -> some View { _Modified(self) }
     nonisolated public func labelStyle<S: LabelStyle>(_ style: S) -> some View { _Modified(self) }
     /// swiftui/view/transition(_:)-5h5h0 — the AnyTransition overload (10.15+; the page's
     /// 14.0 availability belongs to the generic `Transition` form above it).

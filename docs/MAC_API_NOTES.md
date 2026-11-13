@@ -903,6 +903,11 @@ nonisolated init(_ titleKey: LocalizedStringKey, text: Binding<String>, prompt: 
 nonisolated init<S>(_ title: S, text: Binding<String>, prompt: Text?) where S : StringProtocol                      // TextField init(_:text:prompt:)-4kzyv, macOS 13.0
 nonisolated init(id: String, @ContentBuilder makeContent: @escaping () -> Content)                                  // WindowGroup init(id:makeContent:), macOS 11.0+; init(id:content:) is DEPRECATED macOS 15
 nonisolated func handlesExternalEvents(matching conditions: Set<String>) -> some Scene                               // scene/handlesexternalevents(matching:), macOS 11.0+
+nonisolated func formStyle<S>(_ style: S) -> some View where S : FormStyle                                          // view/formstyle(_:), macOS 13.0
+nonisolated static var grouped: GroupedFormStyle { get }                                                            // formstyle/grouped; struct GroupedFormStyle, macOS 13.0
+nonisolated func labelsHidden() -> some View                                                                        // view/labelshidden(), macOS 10.15
+nonisolated func lineSpacing(_ lineSpacing: CGFloat) -> some View                                                   // view/linespacing(_:), macOS 10.15
+init(@ContentBuilder content: () -> Content, @ContentBuilder header: () -> Parent, @ContentBuilder footer: () -> Footer)   // section/init(content:header:footer:), macOS 10.15
 ```
 - `searchable(text:placement:prompt:)` (already stubbed) is documented with
   `prompt: LocalizedStringResource`; the stub keeps `LocalizedStringKey` (both accept a literal,

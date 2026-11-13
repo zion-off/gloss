@@ -407,9 +407,9 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
 
 ### `Sources/GlossUI/SettingsView.swift` + `Sources/GlossMac/GlossApp.swift` (milestone 12)
 
-- ⌘, opens the Settings window: one form with "general" (keep trashed things: for 7, 30 or
-  90 days, or forever; default 30) and "reading" (theme, text size, line spacing, margins,
-  flow, columns). It is a form, not tabs, because the only tab API a macOS 14 target can use
+- ⌘, opens the Settings window: one grouped form (D-145) with "reading" (a sample page, then
+  theme, text size, line spacing, margins, layout, columns) and "trash" (keep trashed things: for
+  7, 30 or 90 days, or forever; default 30). It is a form, not tabs, because the only tab API a macOS 14 target can use
   is deprecated in the newest SDK (D-121).
 - Everything persists in the one library file: `gloss trash keep 7` and the picker agree, both
   ways, while the app runs.
@@ -423,8 +423,12 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
   `AppSettingsModel.scheduleSave` (`swift_task_dealloc`). Drag a slider back and forth and click
   through every theme quickly: no crash, and the book follows. Undo toasts (trash two things
   quickly) use the same sleep — check they still dismiss after ~6 s.
-- Check the 420 pt width feels right, labels don't truncate, and dragging a slider saves once
-  (no flicker of the picker's checkmark).
+- **Redone (D-145), unverified:** the window is 480 pt wide and as tall as its content, grouped
+  like System Settings: labels left, controls right-aligned, no label shown twice. Theme, layout
+  and columns are segmented controls; each slider shows its value (pt, or the spacing factor) in
+  a fixed-width column that doesn't jiggle. The sample page at the top takes the theme colours,
+  text size and line spacing as you drag. Columns greys out under "scrolling". A failed save
+  shows as the trash section's footer. Labels don't truncate; dragging a slider saves once.
 
 ### `Sources/GlossUI/BackupCommands.swift` (milestone 12)
 

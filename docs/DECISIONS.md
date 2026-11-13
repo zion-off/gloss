@@ -485,3 +485,10 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   dark page is unreadable). The themes stay light, sepia (default) and night; none follows the
   system appearance, so a dark-mode Mac still reads sepia until night is chosen (an "auto" theme
   would be additive).
+- **D-145 The Settings window is a grouped form, reading first, with a sample page.** The plain
+  macOS `Form` (columns style) printed each slider's label twice (its own and `LabeledContent`'s)
+  with the bare number in between, and stacked menus for two- and three-way choices. Now:
+  `.formStyle(.grouped)` like System Settings, segmented pickers for theme/layout/columns, sliders
+  with a fixed-width value, columns disabled in scrolled flow, a sample paragraph in the theme's
+  colours and size, the save problem as a section footer, and the window sized to its content.
+  "reading" leads because it is why people open Settings; still no tabs (D-121).
