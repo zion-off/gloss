@@ -243,3 +243,30 @@ notes or the stubs. Not verifiable from the docs JSON: `setActionName` attaching
 recent registration (matches Apple's Undo Architecture guidance; carries a handoff check) and
 `overlay(alignment:)` (its docs page 404s on every slug — DocC collision; the recorded
 verification stands).
+
+## Review: `gloss link` and quote locators (D-190–D-193)
+
+Range: `65041e8`, `ebfddfb`, `8dd9401`, `1707982`, `aae8b18`, `0412017`, `aa91966` (cut short at the
+user's request; findings only). Swift↔TypeScript folding parity checked over every assigned
+character and 40,000 random resolution cases: no differences beyond Unicode-version gaps.
+
+Fixed in the follow-up commit:
+- `--text-offset` inside an emoji's surrogate pair spliced it into U+FFFD: `NotesTextFinder` (and so
+  `LinkService.link`) now refuses such bounds.
+- `--from/--through` checked word edges only on the whole span ("end" matched inside "legend"): each
+  end is now whole words on its own.
+- EPUB: broken-XHTML sections parsed as XML resolved against WebKit's error document; the glue now
+  reparses them as HTML like foliate does, and failures are no longer cached.
+- PDF: a `pdf-quote` page index is bounds-checked before reading page text.
+- `Math.max(...scores)` could overflow the stack for very frequent short quotes: a loop.
+- The glue's text walker skips svg/math like the extractor.
+- Found by the author meanwhile: listing every match re-folded the chunk per candidate (minutes for
+  ~1000 matches in a 1 MB chapter): `QuoteAnchoring` folds once (`f7cb266`).
+
+Open (follow-ups): whole-word matching blocks CJK/Thai quotes (treat edges next to scripts without
+spaces as word edges); the glue resolves quote markers serially on the command queue, one parse per
+marker (group by section, resolve off the queue); `--text-offset` re-runs aren't no-ops (the `[`
+shifts the words); exact places silently ignore `--nth`/`--section`/`--before`; the `--section`/`--page`
+flag nouns are hard-coded in the CLI; the unused `ReaderEventMapping.annotationsPayload` doesn't
+filter schemes; a GUI link and a CLI link to the same words share one underline only when their CFIs
+are byte-identical; the DOM half of `resolveQuote` has no jsdom test.
