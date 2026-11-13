@@ -323,7 +323,9 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   highlights); its notes outline is the notes pane's book, headed with that book's title when the two
   differ. Before this, every navigation dragged the other pane along, so the two always showed one
   book.
-
+- **D-138 The quick switcher debounces typing and owns its keyboard selection.** The sheet is
+  presentation only; `QuickSwitcherModel` gained the debounced query, the selected row and
+  `settle()`, Linux-tested like `SearchModel`.
 - **D-110 The library's covers are one Apple Books-style grid** (`LibraryGrid`, replacing the
   placeholder list): `LazyVGrid` of adaptive columns, each cell a cover with the kind badge
   (bottom-trailing, the format's own word via `FormatRegistry.badge`), a thin progress bar only

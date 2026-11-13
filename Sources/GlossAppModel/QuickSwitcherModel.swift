@@ -17,13 +17,37 @@ import GlossCore
     }
 
     public private(set) var items: [Item] = []
+    /// What the field holds. Typing is debounced into `search`, so a query per keystroke
+    /// never holds the field back.
+    public var query = "" {
+        didSet {
+            guard query != oldValue else { return }
+            scheduleSearch()
+        }
+    }
+    /// The row the keyboard has picked; Return opens it.
+    public private(set) var selectedIndex = 0
 
     private let services: GlossServices
+    private var searchTask: Task<Void, Never>?
 
     public init(services: GlossServices) {
         self.services = services
     }
 
+    /// The row Return would open.
+    public var selected: Item? {
+        items.indices.contains(selectedIndex) ? items[selectedIndex] : nil
+    }
+
+    /// Moves the keyboard selection, wrapping around like Xcode's switcher.
+    public func moveSelection(by delta: Int) {
+        guard !items.isEmpty else { return }
+        let count = items.count
+        selectedIndex = ((selectedIndex + delta) % count + count) % count
+    }
+
+    /// Runs the query now (the debounced task calls this; tests can too).
     public func search(_ query: String) async {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !TextMatcher(query: trimmed).isEmpty else {
@@ -44,5 +68,38 @@ import GlossCore
             }
         }
         items = Array(found.prefix(12))
+        selectedIndex = 0
+    }
+
+    /// Debounces typing into one search per pause.
+    private func scheduleSearch() {
+        searchTask?.cancel()
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !TextMatcher(query: trimmed).isEmpty else {
+            searchTask = nil
+            items = []
+            selectedIndex = 0
+            return
+        }
+        searchTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(120))
+            guard !Task.isCancelled, let self else { return }
+            await self.search(trimmed)
+        }
+    }
+
+    /// Waits for the search the latest keystroke started.
+    public func settle() async {
+        while let task = searchTask {
+            await task.value
+            if searchTask == task { break }
+        }
+    }
+
+    /// Clears the field and the results (the sheet closed, or is about to open again).
+    public func reset() {
+        searchTask?.cancel()
+        searchTask = nil
+        query = ""  // the didSet clears the results
     }
 }
