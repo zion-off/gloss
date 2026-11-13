@@ -20,7 +20,8 @@ struct GlossApp: App {
             }
         }
         .commands { NotesFormatCommands()
-            GlossWindowCommands() }
+            GlossWindowCommands()
+            LibraryCommands() }
     }
 }
 #else

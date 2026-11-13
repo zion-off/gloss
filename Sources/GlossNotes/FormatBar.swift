@@ -54,10 +54,10 @@ public enum FormatBar {
 
     /// Shortcuts the format bar must never take: system-wide ones, the standard app and Edit
     /// menu ones, and the ones gloss assigns elsewhere (⌘K link to passage, ⌘[ ⌘] history,
-    /// ⇧⌘O open quickly).
+    /// ⇧⌘O open quickly, ⇧⌘A file › import — Apple Books' "add to library", D-113).
     public static let reservedShortcuts: Set<String> = [
         "⇧⌘Q", "⌘Q", "⌘W", "⌘N", "⌘O", "⌘S", "⌘P", "⌘H", "⌘M", "⌘,", "⌘Z", "⇧⌘Z", "⌘X", "⌘C", "⌘V", "⌘A",
-        "⌘F", "⌘G", "⇧⌘G", "⌘T", "⌘K", "⌘[", "⌘]", "⇧⌘O", "⇧⌘N",
+        "⌘F", "⌘G", "⇧⌘G", "⌘T", "⌘K", "⌘[", "⌘]", "⇧⌘O", "⇧⌘N", "⇧⌘A",
     ]
 
     /// Which buttons show as "on" for a selection.

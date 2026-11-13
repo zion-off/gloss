@@ -34,6 +34,10 @@ struct SourceList: View {
                     Label(document.title, systemImage: app.library.symbol(of: document.kind))
                         .lineLimit(2)
                         .tag(SidebarSelection.book)
+                        // brief 37: details are reachable while reading too, Books' Get Info spot.
+                        .contextMenu {
+                            Button("edit details…") { app.presentation.detailsDocument = document.id }
+                        }
                 }
                 contents
                 highlights

@@ -172,4 +172,112 @@ struct ImportSummaryTests {
         #expect(summary.openActionTitle == "open them")
     }
 
+    @Test("file › import takes ⇧⌘A, which is now gloss-reserved (D-113)")
+    func importShortcut() {
+        #expect(FormatBar.reservedShortcuts.contains("⇧⌘A"))
+    }
+}
+
+@MainActor
+struct DocumentDetailsModelTests {
+    @Test("the draft trims, refuses empty titles and writes only what changed")
+    func draftRules() {
+        let document = Document(id: DocumentID(GlossID(high: 1, low: 1)), kind: DocumentKind("fake"),
+                                title: "Old Title", author: "Old Author",
+                                contentHash: ContentHash.of(Data("x".utf8)), fileSize: 1,
+                                addedAt: .testEpoch, updatedAt: .testEpoch)
+        var draft = DetailsDraft(document: document)
+        #expect(draft.isValid)
+        #expect(draft.changes(from: document) == (title: nil, author: nil))
+
+        draft.title = "  New Title  "
+        draft.author = "  Old Author  "  // same once trimmed: not written
+        #expect(draft.changes(from: document) == (title: "New Title", author: nil))
+
+        draft.title = "   "
+        #expect(!draft.isValid)
+        #expect(draft.titleProblem == "a book needs a name")
+        #expect(draft.changes(from: document).title == nil)  // an empty title never reaches the store
+
+        draft.title = "\n"
+        #expect(!draft.isValid)
+        draft.author = ""
+        #expect(draft.changes(from: document) == (title: nil, author: ""))  // clearing the author is a change
+    }
+
+    @Test("saving writes the changed fields, follows the root page and skips untouched ones")
+    func save() async throws {
+        let lib = TestLibrary()
+        let (book, root) = try await lib.book("Old")
+        let model = DocumentDetailsModel(services: lib.services, document: book)
+        #expect(!model.hasChanges)
+
+        // Nothing changed: save writes nothing.
+        #expect(await model.save() == true)
+        #expect(try await lib.services.library.document(book.id)?.title == "Old")
+
+        model.draft.title = "New"
+        model.draft.author = "Someone"
+        #expect(model.hasChanges)
+        #expect(await model.save())
+        let saved = try await lib.services.library.document(book.id)!
+        #expect(saved.title == "New")
+        #expect(saved.author == "Someone")
+        #expect(!model.hasChanges)  // the draft now matches the document
+        // The root page followed the rename (D-034: it still carried the old title).
+        #expect(try await lib.services.pages.page(root.id)?.title == "New")
+
+        // A customized root title no longer follows.
+        try await lib.services.pages.rename(root.id, to: "my reading notes")
+        model.draft.title = "Newer"
+        #expect(await model.save())
+        #expect(try await lib.services.pages.page(root.id)?.title == "my reading notes")
+    }
+
+    @Test("covers: choose an image, refuse a non-image, remove the custom one")
+    func covers() async throws {
+        let lib = TestLibrary()
+        let (book, _) = try await lib.book("Covered")
+        let model = DocumentDetailsModel(services: lib.services, document: book)
+        let directory = TempDir()
+        let image = directory.file("cover.png")
+        try Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]).write(to: image)
+        let text = directory.file("cover.txt")
+        try Data("not an image".utf8).write(to: text)
+
+        await model.chooseCover(from: text)
+        #expect(model.coverProblem == "that file isn't an image")
+        #expect(model.cover == .unchanged)
+
+        await model.chooseCover(from: image)
+        #expect(model.coverProblem == nil)
+        guard case .set = model.cover else { Issue.record("expected a chosen cover"); return }
+        #expect(await model.save())
+        #expect(try await lib.services.library.cover(of: book.id)?.mimeType == "image/png")
+
+        // Removing goes back to the file's cover (or a generated one).
+        model.removeCover()
+        #expect(model.cover == .remove)
+        #expect(await model.save())
+        #expect(try await lib.services.library.document(book.id)?.coverHash == nil)
+    }
+
+    @Test("the window refreshes every pane after a details edit")
+    func windowRefresh() async throws {
+        let lib = TestLibrary()
+        let (book, root) = try await lib.book("Old")
+        let app = AppModel(services: lib.services)
+        try await app.workspace.openDocument(book.id)
+        try await app.notes.load(root)  // the notes pane shows the book's root page
+        await app.library.reload()
+        #expect(app.workspace.document?.title == "Old")
+        #expect(app.notes.page?.id == root.id)
+
+        _ = try await lib.services.library.updateDetails(book.id, title: "New")
+        await app.refreshAfterDetailsEdit(of: book.id)
+        #expect(app.workspace.document?.title == "New")  // the window title follows
+        #expect(app.notes.page?.title == "New")  // the editor's page copy follows
+        #expect(app.bookSidebar.pages.first?.title == "New")
+        #expect(app.library.entries.first?.document.title == "New")
+    }
 }
