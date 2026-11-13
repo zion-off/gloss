@@ -5,7 +5,7 @@ so the Swift compiler on Linux never sees the visibility error (review 5/6)."""
 import re, sys
 from pathlib import Path
 
-MAC_MODULES = ["GlossReaderKit", "GlossReaderEPUB", "GlossReaderPDF", "GlossEditor", "GlossMac"]
+MAC_MODULES = ["GlossReaderKit", "GlossReaderEPUB", "GlossReaderPDF", "GlossEditor", "GlossUI", "GlossMac"]
 DECL = re.compile(r'^(?:@\w+(?:\([^)]*\))?\s+)*(?P<access>public\s+|open\s+|internal\s+|private\s+|fileprivate\s+)?'
                   r'(?:final\s+)?(?:class|struct|enum|protocol|actor)\s+(?P<name>[A-Z]\w*)')
 

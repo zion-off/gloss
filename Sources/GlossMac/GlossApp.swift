@@ -1,6 +1,7 @@
 #if os(macOS)
 import SwiftUI
 import GlossEditor
+import GlossUI
 
 /// The app's entry point. `AppRoot.load()` is the composition root (CLAUDE.md, "Dependency
 /// inversion"); each window builds its own models over the shared services.
@@ -12,7 +13,7 @@ struct GlossApp: App {
         WindowGroup {
             switch root {
             case .success(let root):
-                MainWindow(root: root)
+                MainWindow(services: root.services, engines: root.engines, prepare: { await root.prepare() })
             case .failure(let failure):
                 ContentUnavailableView("gloss couldn't open your library", systemImage: "exclamationmark.triangle",
                                        description: Text(verbatim: failure.message))

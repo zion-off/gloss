@@ -9,9 +9,11 @@ import GlossReaderBridge
 import GlossReaderKit
 
 /// One window: the library in the sidebar, the reader in the detail column. Each window has its
-/// own models (AppModel is one window's state) over the shared services.
-struct MainWindow: View {
-    let root: AppRoot
+/// own models (AppModel is one window's state) over the shared services, which the composition
+/// root (GlossMac) hands in with the reading engines.
+public struct MainWindow: View {
+    private let engines: ReadingEngineRegistry
+    private let prepare: @MainActor () async -> Void
     @State private var app: AppModel
     @State private var started = false
     @State private var selection: DocumentID?
@@ -21,16 +23,19 @@ struct MainWindow: View {
     /// The reader's engine session lives with the window, so hiding the reader keeps the book.
     @State private var readerHost = ReaderSessionHost()
 
-    init(root: AppRoot) {
-        self.root = root
-        let app = AppModel(services: root.services)
+    /// - Parameter prepare: once-per-launch setup to await before the first book shows
+    ///   (reading settings, routine upkeep); every window calls it, the root runs it once.
+    public init(services: GlossServices, engines: ReadingEngineRegistry, prepare: @escaping @MainActor () async -> Void) {
+        self.engines = engines
+        self.prepare = prepare
+        let app = AppModel(services: services)
         let commands = WindowCommands()
         commands.bind(app)
         _app = State(initialValue: app)
         _commands = State(initialValue: commands)
     }
 
-    var body: some View {
+    public var body: some View {
         NavigationSplitView {
             LibrarySidebar(library: app.library, selection: $selection)
         } detail: {
@@ -39,7 +44,7 @@ struct MainWindow: View {
                 // toolbar switch the layout (persisted, shared by all windows).
                 HSplitView {
                     if app.workspace.layout.showsReader {
-                        ReaderPane(reader: app.reader, engines: root.engines, host: readerHost,
+                        ReaderPane(reader: app.reader, engines: engines, host: readerHost,
                                    addToNotes: { await commands.addToNotes() })
                             .frame(minWidth: 320)
                     }
@@ -120,7 +125,7 @@ struct MainWindow: View {
     /// Starts the window, then polls for changes from the cli and other windows once a second
     /// until the window closes (the task is cancelled with it).
     private func run() async {
-        await root.prepare()
+        await prepare()
         await app.workspace.loadPersistedLayout()
         app.reader.openExternal = { url in _ = NSWorkspace.shared.open(url) }
         await app.library.reload()

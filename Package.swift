@@ -53,9 +53,12 @@ let package = Package(
                 resources: [.copy("Resources/reader")]),
         .target(name: "GlossReaderPDF", dependencies: ["GlossCore", "GlossReaderBridge", "GlossReaderKit", "GlossReaderPDFSupport"]),
         .target(name: "GlossEditor", dependencies: ["GlossCore", "GlossMarkdown", "GlossNotes", "GlossAppModel"]),
+        .target(name: "GlossUI", dependencies: [
+            "GlossCore", "GlossMarkdown", "GlossNotes", "GlossAppModel", "GlossReaderBridge", "GlossReaderKit", "GlossEditor",
+        ]),
         .executableTarget(name: "GlossMac", dependencies: [
-            "GlossCore", "GlossStore", "GlossEPUB", "GlossPDF", "GlossAppModel", "GlossReaderBridge", "GlossNotes", "GlossMarkdown",
-            "GlossReaderKit", "GlossReaderEPUB", "GlossReaderPDF", "GlossEditor",
+            "GlossCore", "GlossStore", "GlossEPUB", "GlossPDF", "GlossReaderBridge",
+            "GlossReaderKit", "GlossReaderEPUB", "GlossReaderPDF", "GlossEditor", "GlossUI",
         ]),
         .testTarget(name: "GlossMarkdownTests", dependencies: ["GlossMarkdown"]),
         .testTarget(name: "GlossEPUBTests", dependencies: ["GlossEPUB", "GlossTestSupport"]),

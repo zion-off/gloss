@@ -53,6 +53,7 @@ MAC_TARGETS = [
     ("GlossEditor", False),
     ("GlossReaderEPUB", True),
     ("GlossReaderPDF", False),
+    ("GlossUI", False),
     ("GlossMac", False),
 ]
 EXECUTABLES = {"GlossMac"}

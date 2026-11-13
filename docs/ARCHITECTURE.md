@@ -58,7 +58,7 @@ clients that wire concrete implementations at their composition roots:
 | `GlossReaderPDF` | macOS | GlossReaderKit, GlossPDF | PDFKit view, selection → locator, overlay highlights/markers |
 | `GlossEditor` | macOS | GlossNotes, GlossAppModel | TextKit 2 editor, live styling, format bar, slash menu, subpage rows |
 | `GlossUI` | macOS | all of the above | SwiftUI scenes: library, split view, sidebar, search, switcher, trash, settings |
-| `GlossMac` | macOS | GlossUI + concrete modules | app composition root, menus, URL and file handling (until `GlossUI` exists, milestone 9's window lives here too) |
+| `GlossMac` | macOS | GlossUI + concrete modules | app composition root: the store, formats and engines, the scenes, URL and file handling |
 
 Every macOS-only source file is wrapped in `#if os(macOS)`. The targets stay in the package on
 Linux (where they compile to empty modules), so the package always resolves and the Linux

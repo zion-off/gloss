@@ -88,7 +88,8 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
     second or so.
   - Reading settings saved in the store give the theme of the first book opened.
   - Maintenance runs once at launch, off the main actor.
-- `MainWindow.swift`
+- `Sources/GlossUI/MainWindow.swift` (moved from GlossMac in milestone 12; it now takes the
+  services, the engines and the once-per-launch `prepare` from the root)
   - Selecting a book opens it; selecting another switches in place; the window title is the book's.
   - Trash the open book with `gloss book trash` while it's showing: the reader blanks to "pick a book".
   - A second window (⌘N) has its own reader and selection.
@@ -141,7 +142,7 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
 - The session host belongs to the window: switch to notes only (⌥⌘3) and back (⌥⌘1) — the book must
   stay where it was without reloading.
 
-### `Sources/GlossMac/WindowCommands.swift` (milestone 11)
+### `Sources/GlossUI/WindowCommands.swift` (milestone 11)
 
 - The Go menu: back/forward (⌘[/⌘]), acting on the notes pane when the editor has focus, else the
   reader. Check that focus routing is right: click into the reader, ⌘[ goes back a book; click into
@@ -214,7 +215,7 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
   over plain text afterwards (review 6: the pending lookup is cancelled on every close). The
   `NSTrackingArea(rect: .zero, … .inVisibleRect …)` pattern is documented (the rect is ignored) but
   needs a run.
-- `Sources/GlossMac/MainWindow.swift` — the editor pane: page loads, the unsaved-changes alert,
+- `Sources/GlossUI/MainWindow.swift` — the editor pane: page loads, the unsaved-changes alert,
   breadcrumbs, and the reveal (a marker click selects the link line and scrolls to it). The split
   layout switches with the workspace setting; the real split view is milestone 11.
 
