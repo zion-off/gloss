@@ -120,6 +120,10 @@ import GlossReaderBridge
             self.tellOtherWindows(entries.map { self.changed(Self.entity(of: $0.kind), $0.entityID) }
                 + [self.changed(ChangeEntity.trash, "")])
         }
+        trash.onRetentionChanged = { [weak self] in
+            guard let self else { return }
+            self.tellOtherWindows([self.changed(ChangeEntity.setting, TrashSettings.retentionDays.name)])
+        }
         workspace.onOpened = { [weak self] id in
             guard let self else { return }
             self.tellOtherWindows([self.changed(ChangeEntity.document, id.stringValue)])

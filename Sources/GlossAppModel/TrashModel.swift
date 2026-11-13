@@ -10,12 +10,16 @@ import GlossCore
     public private(set) var retentionDays: Int? = 30
     /// What the last restore brought back, so the view can say so ("restored “x” and 2 more").
     public private(set) var lastRestored: [TrashEntry] = []
-    /// Why the last restore brought nothing back; nil when it worked (review 7).
+    /// Why the last restore brought nothing back; nil when it worked (review 7). Purging the
+    /// entry or emptying the trash clears it: the situation it described is over (review 8).
     public private(set) var restoreProblem: String?
 
     /// Entries whose entities this window's trash actions restored or purged: AppModel tells
     /// the app's other windows (review 7; the journal's origin is per-process).
     public var onWrote: (@MainActor ([TrashEntry]) -> Void)?
+    /// This window changed how long the trash keeps things: AppModel tells the app's other
+    /// windows, whose expiry lines re-date themselves (review 8; same per-process origin gap).
+    public var onRetentionChanged: (@MainActor () -> Void)?
 
     private let services: GlossServices
 
@@ -60,17 +64,23 @@ import GlossCore
     public func purge(_ id: TrashEntryID) async {
         try? await services.trash.purge(id)
         lastRestored = []
+        // The entry it described is gone, so the problem line goes with it (review 8).
+        restoreProblem = nil
+        onWrote?(items.first { $0.id == id }.map { [$0.entry] } ?? [])
         await reload()
     }
 
     public func empty() async {
         try? await services.trash.empty()
         lastRestored = []
+        restoreProblem = nil  // ditto: everything the line could be about is gone
+        onWrote?(items.map(\.entry))
         await reload()
     }
 
     public func setRetention(days: Int?) async {
         try? await services.settings.set(days, for: TrashSettings.retentionDays)
+        onRetentionChanged?()
         await reload()
     }
 }

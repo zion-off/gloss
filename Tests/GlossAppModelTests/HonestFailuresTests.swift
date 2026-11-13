@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import GlossAppModel
 import GlossCore
+import GlossMemoryStore
 import GlossReaderBridge
 import GlossTestSupport
 
@@ -33,6 +34,27 @@ struct HonestFailuresTests {
         let restored = await trash.restore(entry.id)
         #expect(restored.isEmpty)
         #expect(trash.restoreProblem == "couldn't put it back — it may have gone for good")
+    }
+
+    @Test("resolving the situation clears the restore problem")
+    func resolutionClearsRestoreProblem() async throws {
+        let clock = ManualTimeSource()
+        let base = InMemoryLibraryStore(origin: "test", time: clock)
+        let flaky = FlakyLibraryStore(base)
+        let blobs = InMemoryBlobStore()
+        let services = GlossServices(store: flaky, blobs: blobs, formats: FormatRegistry([FakeFormat()]),
+                                     ids: SequentialIDGenerator(), time: clock)
+        let outcome = try await services.imports.importData(FakeFormat.file(title: "Camus"), filename: "camus.fake")
+        let entry = try await services.trash.trash(.document, id: outcome.document.id.stringValue)
+        let trash = TrashModel(services: services)
+        await trash.reload()
+        flaky.failsWrites = true  // the restore can't run: nothing comes back, the line says so
+        _ = await trash.restore(entry.id)
+        #expect(trash.restoreProblem != nil)
+        flaky.failsWrites = false
+        await trash.purge(entry.id)  // the resolution: the entry it was about is gone
+        #expect(trash.restoreProblem == nil)
+        #expect(trash.items.isEmpty)
     }
 
     @Test("a Finder open of a damaged book names the format's reason")

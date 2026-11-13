@@ -76,6 +76,48 @@ struct LocalChangesTests {
         #expect(appB.workspace.document?.title == "The Fall")
     }
 
+    @Test("a purge in one window empties the trash list in the other")
+    func crossWindowPurge() async throws {
+        let lib = TestLibrary()
+        let (book, _) = try await lib.book("Camus")
+        let appA = AppModel(services: lib.services)
+        let appB = AppModel(services: lib.services)
+        guard let entry = await appA.moveToTrash(book) else { struct E: Error {}; throw E() }
+        await appB.flushLocalChanges()
+        #expect(appB.trash.items.isEmpty == false)
+        await appA.trash.purge(entry.id)
+        await appB.flushLocalChanges()
+        #expect(appB.trash.items.isEmpty)  // gone for good here is gone for good there too
+    }
+
+    @Test("emptying the trash in one window empties it in the other")
+    func crossWindowEmpty() async throws {
+        let lib = TestLibrary()
+        let (book, _) = try await lib.book("Camus")
+        let appA = AppModel(services: lib.services)
+        let appB = AppModel(services: lib.services)
+        _ = await appA.moveToTrash(book)
+        await appB.flushLocalChanges()
+        #expect(appB.trash.items.isEmpty == false)
+        await appA.trash.empty()
+        await appB.flushLocalChanges()
+        #expect(appB.trash.items.isEmpty)
+    }
+
+    @Test("a retention change in one window re-dates the other's trash")
+    func crossWindowRetention() async throws {
+        let lib = TestLibrary()
+        let (book, _) = try await lib.book("Camus")
+        let appA = AppModel(services: lib.services)
+        let appB = AppModel(services: lib.services)
+        _ = await appA.moveToTrash(book)
+        await appB.flushLocalChanges()
+        #expect(appB.trash.items.first?.expiresAt != nil)  // 30 days, the default
+        await appA.trash.setRetention(days: nil)  // "kept until you empty the trash"
+        await appB.flushLocalChanges()
+        #expect(appB.trash.items.first?.expiresAt == nil)
+    }
+
     @Test("windows over another library never hear this one")
     func objectFiltered() async throws {
         let libA = TestLibrary()
