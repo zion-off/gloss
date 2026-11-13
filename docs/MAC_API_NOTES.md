@@ -721,6 +721,36 @@ func characterIndex(for point: CGPoint) -> Int               // NSTextLineFragme
 
 ---
 
+# Milestone 11 additions — PDFKit reader (verified 2026-11-13, same method)
+
+```swift
+var autoScales: Bool { get set }                       // PDFView, 10.4+
+var displayMode: PDFDisplayMode { get set }            // 10.4+
+var displaysPageBreaks: Bool { get set }               // 10.4+
+var displayDirection: PDFDisplayDirection { get set }  // 10.13+
+@IBAction func goToNextPage(_ sender: Any?)            // 10.4+
+@IBAction func goToPreviousPage(_ sender: Any?)       // 10.4+
+func page(for point: NSPoint, nearest: Bool) -> PDFPage?   // 10.4+ (macOS flavor; also a CGPoint variant)
+func clearSelection()                                  // 10.4+
+func index(for page: PDFPage) -> Int                   // PDFDocument, 10.4+
+var label: String? { get }                             // PDFPage, 10.4+
+func characterIndex(at point: NSPoint) -> Int          // PDFPage, 10.4+
+optional func pdfViewWillClick(onLink sender: PDFView, with url: URL)   // PDFViewDelegate, 10.5+
+init(page: PDFPage, at point: NSPoint)                 // PDFDestination, 10.4+
+```
+- `PDFDisplayMode` cases (from the enum's Constants section): `singlePage`, `singlePageContinuous`,
+  `twoUp`, `twoUpContinuous` (10.4+).
+- `PDFView.init(frame:)` is inherited from `NSView` (no PDFKit page of its own).
+- Previously verified and used by the engine: `document`, `currentSelection`,
+  `setCurrentSelection(_:animate:)`, `pageOverlayViewProvider` (13.0+), `go(to:)` overloads,
+  `convert(_:)` page↔view, `PDFPageOverlayViewProvider` requirements, `PDFDocument.init(data:)`,
+  `findString`, `page(at:)`, `pageCount`, `PDFPage.string/selection(for:)/bounds(for:)`,
+  `PDFSelection.selectionsByLine()/bounds(for:)/numberOfTextRanges(on:)/range(at:on:)/pages`.
+- Still UNVERIFIED from the docs JSON: the Swift spelling of `PDFViewSelectionChanged` /
+  `PDFViewPageChanged` notifications (only the ObjC extern exists in the JSON).
+
+---
+
 ## Verified vs UNVERIFIED
 
 - **61 documented entries total; 57 fully verified** from the Apple docs JSON (exact Swift
