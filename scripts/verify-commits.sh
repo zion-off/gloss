@@ -7,6 +7,12 @@ range="${1:?usage: verify-commits.sh base..head}"
 tree="${TMPDIR:-/tmp}/gloss-verify-tree"
 scratch="${TMPDIR:-/tmp}/gloss-verify-build"
 [ -d "$tree" ] || git worktree add --detach "$tree" HEAD >/dev/null 2>&1
+# The two commits that brought in the Mac type-check (bad64a6, dba60f2) predate GLOSS_BUILD_DIR and
+# read the build from <repo>/.build only; point that at the scratch build so they can type-check
+# too. .build/ is ignored by git, so checking out other commits leaves the link alone.
+if [ "$(readlink "$tree/.build" 2>/dev/null)" != "$scratch" ]; then
+  rm -rf "$tree/.build" && ln -s "$scratch" "$tree/.build"
+fi
 status=0
 for commit in $(git rev-list --reverse "$range"); do
   subject=$(git log -1 --format=%s "$commit")
