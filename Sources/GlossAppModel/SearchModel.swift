@@ -114,10 +114,24 @@ import GlossCore
         !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// Whether the search field is open (focused or expanded); the window binds it to the field.
+    public var isPresented = false
+
+    /// Whether the results pane replaces the detail column: while the search is open, even with
+    /// the field cleared (an empty search state, not a jump home), or while a query stands after
+    /// the field lost focus (D-151).
+    public var showsResults: Bool { isPresented || hasQuery }
+
+    /// The current scope's name, for the empty search state ("this book", "everything").
+    public var scopeTitle: String? {
+        scopeOptions.first { $0.scope == scope }?.title
+    }
+
     /// A result was chosen (or the user gave up): clear the field, the results and any search
-    /// still in flight, so the detail column returns to where the hit goes.
+    /// still in flight, and close the search, so the detail column returns to where the hit goes.
     public func dismiss() {
         query = ""  // the didSet clears the results
+        isPresented = false
         cancel()
     }
 }

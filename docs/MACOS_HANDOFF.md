@@ -324,6 +324,11 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
   on a row selects it (single click selects; selection jumps). Check arrow keys actually move
   selection and that typing while the list has focus edits the field.
 - The empty state ("no matches") shows while the query is non-empty and nothing was found.
+- **Clearing the field keeps the search (D-151), unverified:** type "whale", then clear the field
+  with backspace (or the field's clear button while text remains): the results pane stays and
+  shows "search your books and notes · type to search <scope>", not the library. Escape, or
+  clicking outside with the field empty, closes the search and the previous view returns. With
+  a query standing, clicking outside keeps the results.
 - Debounce: type fast — the results follow the last keystroke, never one query per character,
   and the UI never blocks (searches run off the main actor through `SearchService`).
 

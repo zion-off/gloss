@@ -541,3 +541,9 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   momentary segmented control" on macOS), and the title is a second `.navigation` item declared
   after it, only its background hidden on macOS 26. macOS 14 keeps the system title, which the
   docs place after navigation items.
+- **D-151 The results pane follows the search being open, not the query being non-empty.**
+  Clearing the field mid-search dropped the window back to the library. `SearchModel.isPresented`
+  is bound to the field (`searchable(text:isPresented:…)`, macOS 14) and `showsResults` is
+  `isPresented || hasQuery`: an open, empty search shows "search your books and notes" with the
+  scope ("type to search this book"); Escape, the cancel button or losing focus with an empty field
+  closes it and the detail column comes back; a standing query keeps its results after focus moves.

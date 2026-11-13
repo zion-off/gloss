@@ -953,6 +953,9 @@ extension View {
     nonisolated public func fileImporter(isPresented: Binding<Bool>, allowedContentTypes: [UTType], allowsMultipleSelection: Bool,
                                          onCompletion: @escaping (Result<[URL], any Error>) -> Void) -> some View { _Modified(self) }
     nonisolated public func searchable(text: Binding<String>, placement: SearchFieldPlacement = .automatic, prompt: LocalizedStringKey) -> some View { _Modified(self) }
+    /// swiftui/view/searchable(text:ispresented:placement:prompt:) (macOS 14.0; prompt documented as
+    /// LocalizedStringResource, kept LocalizedStringKey like the overload above)
+    nonisolated public func searchable(text: Binding<String>, isPresented: Binding<Bool>, placement: SearchFieldPlacement = .automatic, prompt: LocalizedStringKey) -> some View { _Modified(self) }
     /// swiftui/view/searchscopes(_:activation:_:) (macOS 13.3)
     nonisolated public func searchScopes<V, S>(_ scope: Binding<V>, activation: SearchScopeActivation,
                                               @ViewBuilder _ scopes: () -> S) -> some View where V: Hashable, S: View { _Modified(self) }
@@ -1137,6 +1140,23 @@ nonisolated public struct ToolbarItem<ID, Content: View>: ToolbarContent {
 }
 extension ToolbarItem where ID == () {
     public init(placement: ToolbarItemPlacement = .automatic, @ViewBuilder content: () -> Content) {}
+}
+
+/// swiftui/defaulttoolbaritem; defaulttoolbaritem/init(kind:placement:) (macOS 26.0)
+@available(macOS 26.0, *)
+nonisolated public struct DefaultToolbarItem: ToolbarContent {
+    public init(kind: ToolbarDefaultItemKind, placement: ToolbarItemPlacement = .automatic) {}
+    public var body: Never { fatalError() }
+}
+/// swiftui/toolbardefaultitemkind/search (macOS 26.0)
+@available(macOS 26.0, *)
+public struct ToolbarDefaultItemKind: Sendable {
+    public static let search = ToolbarDefaultItemKind()
+}
+@available(macOS 26.0, *)
+extension ToolbarContent {
+    /// swiftui/toolbarcontent/sharedbackgroundvisibility(_:) (macOS 26.0)
+    nonisolated public func sharedBackgroundVisibility(_ visibility: Visibility) -> Self { self }
 }
 
 /// swiftui/toolbaritemgroup

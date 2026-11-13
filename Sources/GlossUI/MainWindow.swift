@@ -119,7 +119,7 @@ public struct MainWindow: View {
 
     @ViewBuilder private var detailColumn: some View {
             if started {
-                if app.search.hasQuery {
+                if app.search.showsResults {
                     // Searching replaces the detail column, Mail-style (D-130); choosing a hit
                     // dismisses the search and jumps there.
                     SearchResults(app: app)

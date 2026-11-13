@@ -5,11 +5,12 @@ import GlossCore
 
 /// The toolbar search (brief 31): `.searchable` puts the field in the toolbar, `.searchScopes`
 /// hangs the scope menu off it (the options come from where the user is, via `SearchModel`),
-/// and the results replace the detail column while the query is non-empty — Mail's search,
-/// with Books' "choosing a result closes the search" (D-130).
+/// and the results replace the detail column while the search is open or a query stands — Mail's
+/// search, with Books' "choosing a result closes the search" (D-130, D-151).
 extension View {
     public func glossSearch(model: SearchModel) -> some View {
         searchable(text: Binding(get: { model.query }, set: { model.query = $0 }),
+                   isPresented: Binding(get: { model.isPresented }, set: { model.isPresented = $0 }),
                    placement: .toolbar,
                    prompt: "search")
             .searchScopes(Binding(get: { model.scope }, set: { model.setScope($0) }),
@@ -43,7 +44,14 @@ struct SearchResults: View {
             }
         }
         .overlay {
-            if !app.search.isSearching, app.search.results.isEmpty {
+            if !app.search.hasQuery {
+                // The search is open but the field is empty: say what it will look through (D-151).
+                ContentUnavailableView {
+                    Label("search your books and notes", systemImage: "magnifyingglass")
+                } description: {
+                    Text(verbatim: app.search.scopeTitle.map { "type to search \($0)" } ?? "type to search gloss")
+                }
+            } else if !app.search.isSearching, app.search.results.isEmpty {
                 ContentUnavailableView("no matches", systemImage: "magnifyingglass",
                                        description: Text("nothing in gloss matches that yet"))
             }
