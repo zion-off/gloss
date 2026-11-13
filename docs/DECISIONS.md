@@ -221,3 +221,26 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   chunks use a separate `pdf-page` scheme (plain page index) so the two never collide.
 - **D-069 The test target adds `GlossArchive` beyond the brief's dependency list** so tests
   can compress streams with `Deflate.zlib`; `GlossTestSupport` alone does not re-export it.
+
+## Reader engine boundary
+
+- **D-079 Opens are numbered; book events count only after the matching `opened`** (review 3).
+  Engine events carry no book identity, and foliate's debounced relocations and selections can
+  land after the next book was asked for. `ReaderDriving.open` takes an `openID` the engine echoes
+  in `.opened`; `ReaderController` drops book events in between and replies to replaced opens.
+  Tagging every event envelope was the alternative; it needs the same JS discipline (nothing from a
+  closed book after the next `opened`) and changes every payload.
+- **D-080 Books switch in place in the same web view.** `open` closes the previous book first, and
+  `close` blanks the reader (a trashed book). Reloading the page per book would also work but makes
+  the Mac adapter own a reload choreography that can't be tested on Linux.
+- **D-081 Reader events travel as JSON text** (`postMessage(JSON.stringify(envelope))`), and commands
+  as JSON text parsed in the page, so both sides decode exactly what the other validated, with no
+  WebKit object bridging (number/bool coercion, `NSNull`).
+- **D-082 Book scripts are stopped three times over:** the page CSP, a veto on script resources and a
+  sanitizer that strips script from every document before foliate makes it a `blob:` URL
+  (docs/READER_BRIDGE.md, "Book scripts"). The CSP alone rests on WebKit inheriting it into `blob:`
+  documents, which can't be checked off a Mac.
+- **D-083 Engine events reach the controller through a per-session `ReaderEventInbox`**, one at a
+  time in arrival order, because handling an event awaits engine commands and WebKit delivers
+  messages synchronously.
+

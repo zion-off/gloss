@@ -45,3 +45,25 @@ fix has a regression test that fails without it. Declined findings say why.
 | nit | the warning gate only worked in a checkout named `gloss` | fixed in `d463fc7` |
 | nit | `settle()`-style waits weren't barriers for later work | fixed in `af06573` (loop until the task stops changing) |
 | nit | harness lock coverage; import failure paths mixed typed and expanded paths | fixed in `2700c50` (`input` and `file` fields) |
+
+## Review 3 — `review-2-head..review-3-head` (reader routing and CSP, engine boundary, reader controller, linking, notes editor model, review 1–2 fixes)
+
+The review 1–2 fixes were re-checked by reverting each one in a scratch copy: every regression test failed
+without its fix.
+
+| Severity | Finding | Outcome |
+|---|---|---|
+| major | a failed autosave counted as clean: `flushSave` skipped it and an external change replaced the unsaved text | fixed in `a4c9a5a`: dirty means "not saved"; a flush retries, and an external change after a failure is the cue to retry. Still open for milestone 10: switching pages after a retry fails again drops the text, so the editor must show the failure first |
+| major | events from the previous book landed on the next one (a late `relocated` saved A's position onto B; a late selection could link A's passage into B) | fixed in `8233d75`: numbered opens echoed by `opened`, book events dropped until the matching one (D-079) |
+| major | the controller sent a second `open` that glue.js refused by design; no `close` | fixed in `8233d75`: `open` switches books in place, a new `close` command, commands run one at a time in the page (D-080) |
+| major | "book scripts never run" rested on one unverified WebKit behaviour (CSP inherited by `blob:` documents) and wasn't in the handoff | fixed in `3a270b4`: script resources vetoed, script stripped from every document (`bridge/sanitize.ts`), and the Mac check in `MACOS_HANDOFF.md` (D-082) |
+| minor | object headers with a comment between tokens were lost | fixed in `3592e57`: comments skip like whitespace, still bounded |
+| minor | a pending note reveal survived opening another page | fixed in `5e2da38` |
+| minor | no `X-Content-Type-Options: nosniff` on reader responses | fixed in `8d18efe` |
+| minor | EPUB 3 embedded objects render nothing under the CSP | **declined**: `object-src` stays `'none'`; embedded objects are rare in books and plugins are the wrong thing to let a book start (docs/READER_BRIDGE.md) |
+| minor | `highlightSelection` left the selection anchor behind | fixed in `8233d75` |
+| minor | any page, highlight or link change in the library redraws the reader's annotations | **declined as asked**: change records carry no book, a page in any book can link into the open one, and deleted rows can't be looked up. Instead the controller sends nothing when the annotations didn't change (`8233d75`) |
+| minor | the trash window made two reads per entry on the main actor | fixed in `7dd1b68`: `TrashService.overview()` in one read |
+| nit | attaching the attached engine again dead-ended the controller | fixed in `8233d75` |
+| nit | link gesture availability computed twice | fixed in `ceb00da` |
+| nit | a failed link lookup styled live links as broken; a generic `Array[safe:]` hidden in the editor model | fixed in `a4c9a5a` |
