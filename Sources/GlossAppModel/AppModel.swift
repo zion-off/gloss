@@ -13,6 +13,8 @@ import GlossCore
     public let switcher: QuickSwitcherModel
     public let router: URLRouter
     public let reader: ReaderController
+    /// This window's notes editor (one per window; the services are shared).
+    public let notes: NotesEditorModel
     public var linking: LinkingCoordinator { LinkingCoordinator(services: services, reader: reader) }
     public var changeMonitor: ExternalChangeMonitor?
 
@@ -25,9 +27,12 @@ import GlossCore
         self.switcher = QuickSwitcherModel(services: services)
         self.router = URLRouter(links: services.links)
         self.reader = ReaderController(services: services)
+        self.notes = NotesEditorModel(services: services)
         reader.openNote = { [weak self] page, range in
             try? await self?.workspace.openPage(page, revealing: range)
         }
+        // A save that changed gloss links moves markers in the open book.
+        notes.linksDidChange = { [weak self] in await self?.reader.refreshAnnotations() }
     }
 
     /// Wires the change monitor (call once at startup, after the views exist).
@@ -48,6 +53,7 @@ import GlossCore
         }
         await library.invalidate(ids: documentIDs.compactMap { DocumentID($0) })
         await workspace.refresh()
+        await notes.pageChangedExternally()
         if !pageIDs.isEmpty || !documentIDs.isEmpty {
             search.contextChanged()
         }

@@ -433,6 +433,27 @@ struct ReviewOneAppModelTests {
         #expect(!workspace.readerHistory.backStack.contains { $0.documentID == a.id })
     }
 
+    @Test("external changes reach the editor, and saving links redraws the book's markers")
+    func editorFollowsAlong() async throws {
+        let lib = TestLibrary()
+        let (book, root) = try await lib.book()
+        let app = AppModel(services: lib.services)
+        let driver = FakeDriver()
+        app.reader.attach(driver)
+        await app.reader.openShowing(book, on: driver)
+        let target = try await lib.services.links.target(for: lib.passage("q", at: "c"), in: book.id)
+        try await app.notes.load(root)
+        app.notes.textDidChange("see [this](gloss://passage/\(target.id))", selection: 0..<0)
+        await app.notes.flushSave()
+        #expect(driver.lastAnnotations?.markers.map(\.id) == [target.id])
+
+        // The cli rewrites the same page: the editor picks it up while clean.
+        try await lib.services.pages.updateBody(root.id, to: "from the cli")
+        let change = ChangeRecord(sequence: 1, entity: ChangeEntity.page, entityID: root.id.stringValue, origin: "cli", date: .testEpoch)
+        await app.handleExternalChanges([change])
+        #expect(app.notes.text == "from the cli")
+    }
+
     @Test("the reader follows the workspace focus: the book at its passage, else the saved position")
     func readerFollowsFocus() async throws {
         let lib = TestLibrary()
