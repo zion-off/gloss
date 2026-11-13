@@ -50,23 +50,11 @@ struct ReaderPopoverContent: View {
                 Task { try? await reader.recolor(focus.highlight.id, to: colour) }
             }
             Divider()
-            Button("remove highlight", role: .destructive) { remove(focus.highlight) }
+            Button("remove highlight", role: .destructive) { reader.removeHighlight(focus.highlight, undo: undoManager) }
                 .buttonStyle(.borderless)
         }
         .padding(12)
         .frame(width: 240)
-    }
-
-    /// Removes the highlight, undoable from Edit › Undo (the window's undo manager).
-    private func remove(_ highlight: Highlight) {
-        let undo = undoManager
-        Task {
-            guard let removed = try? await reader.deleteHighlight(highlight.id) else { return }
-            undo?.registerUndo(withTarget: reader) { reader in
-                Task { try? await reader.restoreHighlight(removed) }
-            }
-            undo?.setActionName("remove highlight")
-        }
     }
 
     // MARK: A marker linked from several notes: pick one
@@ -108,7 +96,7 @@ struct ReaderPopoverContent: View {
             ForEach(HighlightColor.allCases, id: \.self) { colour in
                 Button { pick(colour) } label: {
                     Circle()
-                        .fill(Self.swatch(colour))
+                        .fill(colour.swatch)
                         .frame(width: 20, height: 20)
                         .overlay {
                             if colour == current {
@@ -125,17 +113,6 @@ struct ReaderPopoverContent: View {
                 .accessibilityLabel(Text(verbatim: "\(colour.rawValue) highlight"))
                 .accessibilityAddTraits(colour == current ? .isSelected : [])
             }
-        }
-    }
-
-    /// System colours for the swatches, so they follow light/dark mode like the rest of the UI.
-    static func swatch(_ colour: HighlightColor) -> Color {
-        switch colour {
-        case .yellow: .yellow
-        case .green: .green
-        case .blue: .blue
-        case .pink: .pink
-        case .purple: .purple
         }
     }
 }
