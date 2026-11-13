@@ -29,6 +29,11 @@ import GlossNotes
         case failed(String)
     }
 
+    public enum EditorError: Error, Equatable, Sendable {
+        /// The open page's text couldn't be saved (the reason), so it wasn't replaced.
+        case unsavedChanges(String)
+    }
+
     public private(set) var page: Page?
     public private(set) var breadcrumbs: [Page] = []
     public private(set) var text = ""
@@ -72,8 +77,16 @@ import GlossNotes
 
     // MARK: Loading
 
-    public func load(_ page: Page) async {
+    /// Shows a page. The open page's unsaved text is saved first; if that fails the open page
+    /// stays and this throws `unsavedChanges`, so the text is never dropped silently. Pass
+    /// `discardingUnsaved` once the user chose to let it go.
+    public func load(_ page: Page, discardingUnsaved: Bool = false) async throws {
         await flushSave()
+        if case .failed(let reason) = saveState, !discardingUnsaved {
+            throw EditorError.unsavedChanges(reason)
+        }
+        saveTask?.cancel()
+        saveTask = nil
         self.page = page
         text = page.body
         selection = 0..<0

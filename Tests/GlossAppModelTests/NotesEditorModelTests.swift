@@ -26,10 +26,10 @@ struct NotesEditorModelTests {
         let loose = try await lib.services.pages.createSubpage(under: root.id, title: "algiers")
         try await lib.services.pages.updateBody(root.id, to: "## summer\n" + (try await lib.services.pages.page(root.id)!.body))
         let model = editor(lib)
-        await model.load(try await lib.services.pages.page(child.id)!)
+        try await model.load(try await lib.services.pages.page(child.id)!)
         #expect(model.breadcrumbs.map(\.title) == ["Noces", "tipasa"])
 
-        await model.load(try await lib.services.pages.page(root.id)!)
+        try await model.load(try await lib.services.pages.page(root.id)!)
         #expect(model.subpageRows.map(\.title) == ["tipasa"])
         #expect(model.unplacedChildren.map(\.id) == [loose.id])
         #expect(model.spans.contains { $0.role == .heading(2) })
@@ -41,7 +41,7 @@ struct NotesEditorModelTests {
         let lib = TestLibrary()
         let (_, root) = try await lib.book()
         let model = editor(lib)
-        await model.load(root)
+        try await model.load(root)
         model.textDidChange("a **bold** word", selection: 15..<15)
         #expect(model.saveState == .pending)
         #expect(!model.spans.contains { $0.role == .syntaxRevealed })
@@ -58,7 +58,7 @@ struct NotesEditorModelTests {
         let lib = TestLibrary()
         let (_, root) = try await lib.book()
         let model = NotesEditorModel(services: lib.services, saveDelay: .milliseconds(1))
-        await model.load(root)
+        try await model.load(root)
         var text = ""
         for character in "one must imagine sisyphus happy" {
             text.append(character)
@@ -78,7 +78,7 @@ struct NotesEditorModelTests {
         let model = editor(lib)
         var redraws = 0
         model.linksDidChange = { redraws += 1 }
-        await model.load(root)
+        try await model.load(root)
         model.textDidChange("plain", selection: 5..<5)
         await model.flushSave()
         #expect(redraws == 0)
@@ -99,7 +99,7 @@ struct NotesEditorModelTests {
         _ = try await lib.services.trash.trash(.page, id: child.id.stringValue)
         try await lib.services.pages.updateBody(root.id, to: "[t](gloss://page/\(child.id)) [m](gloss://page/0000000000000000000000000z)")
         let model = editor(lib)
-        await model.load(try await lib.services.pages.page(root.id)!)
+        try await model.load(try await lib.services.pages.page(root.id)!)
         let roles = Set(model.spans.map(\.role))
         #expect(roles.contains(NotesRole.trashedLink))
         #expect(roles.contains(NotesRole.brokenLink))
@@ -110,7 +110,7 @@ struct NotesEditorModelTests {
         let lib = TestLibrary()
         let (_, root) = try await lib.book()
         let model = editor(lib)
-        await model.load(root)
+        try await model.load(root)
         model.textDidChange("note\n/", selection: 6..<6)
         #expect(model.slashMenu?.items.count == 10)
         model.textDidChange("note\n/to", selection: 8..<8)
@@ -140,7 +140,7 @@ struct NotesEditorModelTests {
         let lib = TestLibrary()
         let (_, root) = try await lib.book()
         let model = editor(lib)
-        await model.load(root)
+        try await model.load(root)
         model.textDidChange("/pa", selection: 3..<3)
         let result = try #require(try await model.confirmSlashMenu(itemID: "page"))
         let child = try #require(result.openPage)
@@ -155,7 +155,7 @@ struct NotesEditorModelTests {
         let lib = TestLibrary()
         let (_, root) = try await lib.book()
         let model = editor(lib)
-        await model.load(root)
+        try await model.load(root)
         model.textDidChange("- [ ] one", selection: 9..<9)
         apply(model.returnKey(), to: model)
         #expect(model.text == "- [ ] one\n- [ ] ")
@@ -179,7 +179,7 @@ struct NotesEditorModelTests {
         let body = "[moon](gloss://passage/\(target.id)) and [web](https://x.y)\n[acts](gloss://page/\(child.id))"
         try await lib.services.pages.updateBody(root.id, to: body)
         let model = editor(lib)
-        await model.load(try await lib.services.pages.page(root.id)!)
+        try await model.load(try await lib.services.pages.page(root.id)!)
         #expect(model.glossLink(at: 2) == .passage(target.id))
         let web = body.utf16.distance(from: body.utf16.startIndex, to: body.range(of: "[web]")!.lowerBound.samePosition(in: body.utf16)!) + 1
         #expect(model.linkDestination(at: web) == "https://x.y")
@@ -196,7 +196,7 @@ struct NotesEditorModelTests {
         let lib = TestLibrary()
         let (_, root) = try await lib.book()
         let model = NotesEditorModel(services: lib.services, saveDelay: .seconds(60))
-        await model.load(root)
+        try await model.load(root)
         try await lib.services.pages.updateBody(root.id, to: "from the cli")
         await model.pageChangedExternally()
         #expect(model.text == "from the cli")
@@ -215,7 +215,7 @@ struct NotesEditorModelTests {
         let (_, root) = try await lib.book()
         let child = try await lib.services.pages.createSubpage(under: root.id, title: "draft")
         let model = NotesEditorModel(services: lib.services, saveDelay: .seconds(60))
-        await model.load(child)
+        try await model.load(child)
         model.textDidChange("my typing", selection: 9..<9)
         let entry = try await lib.services.trash.trash(.page, id: child.id.stringValue)
         await model.flushSave()
@@ -238,7 +238,7 @@ struct NotesEditorModelTests {
         let (_, root) = try await lib.book()
         let child = try await lib.services.pages.createSubpage(under: root.id, title: "draft")
         let model = NotesEditorModel(services: lib.services, saveDelay: .seconds(60))
-        await model.load(child)
+        try await model.load(child)
         model.textDidChange("keep me", selection: 7..<7)
         let entry = try await lib.services.trash.trash(.page, id: child.id.stringValue)
         await model.flushSave()
@@ -255,7 +255,7 @@ struct NotesEditorModelTests {
         let child = try await lib.services.pages.createSubpage(under: root.id, title: "draft")
         try await lib.services.pages.updateBody(child.id, to: "# saved")
         let model = editor(lib)
-        await model.load(try await lib.services.pages.page(child.id)!)
+        try await model.load(try await lib.services.pages.page(child.id)!)
         _ = try await lib.services.trash.trash(.page, id: child.id.stringValue)
         await model.pageChangedExternally()
         #expect(model.page == nil)
@@ -274,7 +274,7 @@ struct NotesEditorModelTests {
         let b = try await services.pages.createSubpage(under: root.id, title: "b")
         try await services.pages.updateBody(root.id, to: "[a](gloss://page/\(a.id))")
         let model = NotesEditorModel(services: services, saveDelay: .seconds(60))
-        await model.load(try await services.pages.page(root.id)!)
+        try await model.load(try await services.pages.page(root.id)!)
         #expect(!model.spans.contains { $0.role == NotesRole.brokenLink })
 
         flaky.failsReads = true
@@ -283,6 +283,25 @@ struct NotesEditorModelTests {
         await model.flushSave()
         #expect(model.saveState == .saved)
         #expect(!model.spans.contains { $0.role == NotesRole.brokenLink })
+    }
+
+    @Test("switching pages after a save failed keeps the text until the user lets it go")
+    func switchingWithUnsavedText() async throws {
+        let lib = TestLibrary()
+        let (_, root) = try await lib.book()
+        let child = try await lib.services.pages.createSubpage(under: root.id, title: "draft")
+        let model = NotesEditorModel(services: lib.services, saveDelay: .seconds(60))
+        try await model.load(child)
+        model.textDidChange("precious", selection: 8..<8)
+        _ = try await lib.services.trash.trash(.page, id: child.id.stringValue)
+
+        await #expect(throws: NotesEditorModel.EditorError.unsavedChanges("this page is in the trash")) {
+            try await model.load(root)
+        }
+        #expect(model.page?.id == child.id && model.text == "precious")
+
+        try await model.load(root, discardingUnsaved: true)
+        #expect(model.page?.id == root.id && model.saveState == .saved)
     }
 }
 
