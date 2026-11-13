@@ -29,6 +29,7 @@ import * as appearance from './bridge/appearance.ts'
 import * as toc from './bridge/toc.ts'
 import * as search from './bridge/search.ts'
 import * as sanitize from './bridge/sanitize.ts'
+import * as queue from './bridge/queue.ts'
 
 const view = document.querySelector('foliate-view') as View | null
 if (!view) throw new Error('gloss: <foliate-view> element is missing')
@@ -41,8 +42,8 @@ const FLASH_MS = 1500
 
 let opened = false                          // a book is open and taking commands
 let needsClose = false                      // view.open may have built a renderer
-let bookGeneration = 0                      // bumped on close: late callbacks of a closed book bail
-let searchGeneration = 0                    // bumped to stop a running search posting
+const bookGeneration = queue.makeGeneration()   // late callbacks of a closed book bail
+const searchGeneration = queue.makeGeneration() // stopped searches stop posting
 let colors: protocol.AppearanceColors | null = null
 let drawn: annotations.DrawnEntry[] = []   // annotations currently drawn
 let hadSelection = false                    // suppress selectionCleared noise
@@ -219,9 +220,9 @@ const emitSelection = (doc: Document, index: number): void => {
 view.addEventListener('load', e => {
     const { doc, index } = eventDetail<{ doc: Document; index: number }>(e)
     // a debounced selection that settles after its book closed must not reach Swift
-    const generation = bookGeneration
+    const generation = bookGeneration.value()
     const debounced = selection.makeDebouncer(() => {
-        if (generation === bookGeneration && opened) emitSelection(doc, index)
+        if (bookGeneration.isCurrent(generation) && opened) emitSelection(doc, index)
     }, SELECTION_DEBOUNCE_MS)
     doc.addEventListener('selectionchange', debounced)
 })
@@ -267,8 +268,8 @@ const applyAppearance = (payload: protocol.Appearance): void => {
 // Closes the open book, if any. After this nothing about it reaches Swift: view-level
 // listeners check `opened`, per-section ones check the generation they were made in.
 const closeBook = (): void => {
-    bookGeneration++
-    searchGeneration++
+    bookGeneration.bump()
+    searchGeneration.bump()
     opened = false
     drawn = []
     hadSelection = false
@@ -405,24 +406,24 @@ const commands: { [K in protocol.CommandType]: (payload: protocol.CommandPayload
     // it (navigation, the next search) must not wait for the whole book to be searched.
     async search({ query }: protocol.SearchPayload) {
         requireRenderer()
-        const generation = ++searchGeneration
+        const generation = searchGeneration.bump()
         const mapper = search.makeSearchMapper(query)
         void (async () => {
             try {
                 for await (const result of view.search({ query })) {
-                    if (generation !== searchGeneration) return
+                    if (!searchGeneration.isCurrent(generation)) return
                     const payload = mapper.map(result)
                     if (payload) postEvent('searchResults', payload)
                 }
             } catch (error) {
-                if (generation === searchGeneration) postError(error, 'search')
+                if (searchGeneration.isCurrent(generation)) postError(error, 'search')
             }
         })()
     },
 
     async clearSearch() {
         requireRenderer()
-        searchGeneration++
+        searchGeneration.bump()
         view.clearSearch()
     },
 
@@ -434,20 +435,29 @@ const commands: { [K in protocol.CommandType]: (payload: protocol.CommandPayload
         }
         if (section == null)
             throw new Error('revealSearchHit needs a cfi or a section')
-        // search within the spine section; foliate outlines every match like
-        // its search results do, we go to the first one and flash it
-        for await (const result of view.search({ query: text, index: section })) {
-            if (protocol.isRecord(result) && typeof result.cfi === 'string') {
-                await flashTarget(await view.goTo(result.cfi))
-                return
+        // Search within the spine section, off the command queue (review 4): a whole
+        // section scan must not hold back the commands sent after it. Foliate outlines every
+        // match like its search results do; we go to the first one and flash it.
+        const generation = searchGeneration.bump()
+        void (async () => {
+            try {
+                for await (const result of view.search({ query: text, index: section })) {
+                    if (!searchGeneration.isCurrent(generation)) return
+                    if (protocol.isRecord(result) && typeof result.cfi === 'string') {
+                        await flashTarget(await view.goTo(result.cfi))
+                        return
+                    }
+                }
+            } catch (error) {
+                if (searchGeneration.isCurrent(generation)) postError(error, 'revealSearchHit')
             }
-        }
+        })()
     },
 }
 
 // -- bridge surface ------------------------------------------------------------
 
-let commandQueue: Promise<void> = Promise.resolve()
+const commandQueue = queue.makeSerialQueue()
 
 window.glossReader = {
     // Called by Swift via callAsyncJavaScript. Invalid commands reject with
@@ -461,12 +471,10 @@ window.glossReader = {
         const { type, payload } =
             envelope as { type: protocol.CommandType; payload: unknown }
         // the payload was just validated against `type`'s spec
-        const run = commandQueue
-            .then(() => (commands[type] as (payload: unknown) => Promise<void>)(payload))
+        await commandQueue
+            .run(() => (commands[type] as (payload: unknown) => Promise<void>)(payload))
             .catch((error: unknown) => postError(
                 error, type, type === 'open' ? (payload as protocol.OpenPayload).openID : null))
-        commandQueue = run
-        await run
         return null
     },
 }
