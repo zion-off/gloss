@@ -2,12 +2,23 @@ import Foundation
 import Observation
 import GlossCore
 
+/// The library's persisted settings.
+public enum LibrarySettings {
+    /// How the grid is ordered; one choice for every window (D-112).
+    public static let sort = SettingKey<LibrarySort>("library.sort", default: .recent)
+}
+
 /// The library grid: entries, sorting, shelves, covers, and imports with progress.
 @MainActor @Observable public final class LibraryModel {
     public private(set) var entries: [LibraryEntry] = []
     public private(set) var recentlyRead: [LibraryEntry] = []
     public var sort: LibrarySort = .recent {
-        didSet { scheduleReload() }
+        didSet {
+            guard sort != oldValue else { return }
+            scheduleReload()
+            guard !syncingSort else { return }  // a synced change is already persisted
+            persistSort()
+        }
     }
     public var shelf: LibraryShelf? {
         didSet { scheduleReload() }
@@ -26,6 +37,11 @@ import GlossCore
     private var reloadGeneration = 0
     /// The file whose progress may update `importStatus` (late callbacks are dropped).
     private var importingFile: URL?
+    /// Sort writes run one after another, each writing the sort current when it runs, so the
+    /// newest choice always lands last (D-112).
+    private var persistTask: Task<Void, Never>?
+    /// Set while the sort is loaded from the store, so loads never write back.
+    private var syncingSort = false
 
     public init(services: GlossServices) {
         self.services = services
@@ -58,6 +74,43 @@ import GlossCore
         while let task = reloadTask {
             await task.value
             if reloadTask == task { break }
+        }
+    }
+
+    // MARK: The persisted sort (one choice for every window, D-112)
+
+    /// Loads the persisted sort (the window calls this once at startup, before the first reload).
+    public func loadPersistedSort() async {
+        syncingSort = true
+        sort = (try? await services.settings.value(LibrarySettings.sort)) ?? .recent
+        syncingSort = false
+    }
+
+    /// Re-reads the sort another window changed. The window's change poll calls this once a
+    /// second (the change journal can't carry it: all windows share one process origin, so the
+    /// journal skips their own writes), so every window agrees within a second.
+    public func syncSort() async {
+        let stored = (try? await services.settings.value(LibrarySettings.sort)) ?? .recent
+        guard stored != sort else { return }
+        syncingSort = true
+        sort = stored  // schedules the reload, skips the persist
+        syncingSort = false
+    }
+
+    private func persistSort() {
+        let previous = persistTask
+        persistTask = Task { [weak self] in
+            await previous?.value
+            guard let self else { return }
+            try? await self.services.settings.set(self.sort, for: LibrarySettings.sort)
+        }
+    }
+
+    /// Waits for any in-flight sort persistence (tests, teardown before quit).
+    public func flushSortPersistence() async {
+        while let task = persistTask {
+            await task.value
+            if persistTask == task { break }
         }
     }
 

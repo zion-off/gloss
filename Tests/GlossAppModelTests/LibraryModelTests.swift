@@ -62,3 +62,52 @@ struct GeneratedCoverTests {
         #expect(GeneratedCoverStyle(document: plain).author == nil)
     }
 }
+
+@MainActor
+struct LibrarySortTests {
+    @Test("the sort persists in the library database and reloads")
+    func persists() async throws {
+        let lib = TestLibrary()
+        _ = try await lib.book("Beta", author: "A")
+        lib.clock.advance(by: 1)
+        _ = try await lib.book("Alpha", author: "B")
+        let model = LibraryModel(services: lib.services)
+        await model.loadPersistedSort()
+        #expect(model.sort == .recent)
+        model.sort = .title
+        await model.settle()
+        await model.flushSortPersistence()
+        #expect(try await lib.services.settings.value(LibrarySettings.sort) == .title)
+
+        // A fresh window (a fresh LibraryModel) loads the same choice.
+        let fresh = LibraryModel(services: lib.services)
+        await fresh.loadPersistedSort()
+        #expect(fresh.sort == .title)
+    }
+
+    @Test("rapid sort changes persist the last one")
+    func race() async throws {
+        let lib = TestLibrary()
+        let model = LibraryModel(services: lib.services)
+        for sort in [LibrarySort.author, .title, .dateAdded, .author, .title] { model.sort = sort }
+        await model.settle()
+        await model.flushSortPersistence()
+        #expect(try await lib.services.settings.value(LibrarySettings.sort) == .title)
+    }
+
+    @Test("every window agrees: another window's choice syncs this one")
+    func windowsAgree() async throws {
+        let lib = TestLibrary()
+        let a = LibraryModel(services: lib.services)
+        let b = LibraryModel(services: lib.services)
+        a.sort = .author
+        await a.settle()
+        await a.flushSortPersistence()
+        #expect(try await lib.services.settings.value(LibrarySettings.sort) == .author)
+        // The other window's poll picks the stored choice up (the window loop calls syncSort).
+        await b.syncSort()
+        #expect(b.sort == .author)
+        await b.settle()
+        #expect(b.entries.isEmpty)  // the reload followed the sync (nothing imported yet)
+    }
+}
