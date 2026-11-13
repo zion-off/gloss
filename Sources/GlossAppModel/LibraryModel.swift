@@ -34,6 +34,10 @@ public enum LibrarySettings {
     /// a duplicate still has a destination (open the existing copy).
     public var lastDuplicates: [Document] { lastImport?.duplicates ?? [] }
 
+    /// Documents this window's imports added: AppModel tells the app's other windows (review 7;
+    /// the journal's origin is per-process, so their monitors never see them).
+    public var onImported: (@MainActor ([Document]) -> Void)?
+
     private let services: GlossServices
     private let shelves: [LibraryShelf]
     private var coverCache: [DocumentID: CoverImage] = [:]
@@ -190,6 +194,7 @@ public enum LibrarySettings {
         }
         lastImportedIDs = summary.imported.map(\.id)
         lastImport = summary
+        onImported?(summary.imported)
         await reload()
         return summary.imported
     }

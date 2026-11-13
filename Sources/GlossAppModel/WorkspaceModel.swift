@@ -62,6 +62,10 @@ public struct ReaderFocus: Hashable, Sendable {
         }
     }
 
+    /// Books this window opened (markOpened re-dates them): AppModel tells the app's other
+    /// windows, whose recent shelves would otherwise wait for a foreign process's write.
+    public var onOpened: (@MainActor (DocumentID) -> Void)?
+
     private let services: GlossServices
     private let persistLayoutSetting: Bool
 

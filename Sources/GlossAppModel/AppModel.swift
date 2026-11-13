@@ -44,6 +44,20 @@ import GlossReaderBridge
     }
     /// Runs the reaction to a settings change; `flushSettingsChanges` waits for it.
     private var settingsTask: Task<Void, Never>?
+    /// This window's id among the app's windows: same-process changes carry it so a window can
+    /// skip its own writes (review 7).
+    public let windowID = "window-\(UUID().uuidString)"
+    /// Same-process writes from the app's other windows (review 7): the journal can't carry
+    /// them (one origin per process), so windows post what they wrote and each applies the
+    /// others'. `@ObservationIgnored`: plumbing, not state; touched only on the main actor.
+    @ObservationIgnored private var localToken: LocalObserverToken
+    /// The observer token, kept out of the main-actor-isolated stored properties so deinit
+    /// (nonisolated) can remove it.
+    struct LocalObserverToken: @unchecked Sendable {
+        let observer: (any NSObjectProtocol)?
+    }
+    /// Runs the reaction to another window's writes; `flushLocalChanges` waits for it.
+    private var localChangesTask: Task<Void, Never>?
 
     public init(services: GlossServices, export: ExportModel? = nil) {
         self.services = services
@@ -59,6 +73,7 @@ import GlossReaderBridge
         self.export = export ?? ExportModel(service: nil)
         self.deletion = DeletionModel(services: services)
         self.settingsToken = SettingsObserverToken(observer: nil)
+        self.localToken = LocalObserverToken(observer: nil)
         reader.highlightsDidChange = { [weak self] in await self?.refreshBookSidebar() }
         reader.openNote = { [weak self] page, range in
             try? await self?.workspace.openPage(page, revealing: range)
@@ -77,12 +92,40 @@ import GlossReaderBridge
             }
         }
         self.settingsToken = SettingsObserverToken(observer: observer)
+        // The app's other windows, same process (review 7). Object-filtered to this library,
+        // so a test with its own store never hears another's windows.
+        let local = NotificationCenter.default.addObserver(forName: .glossLocalChanges, object: services.store as AnyObject, queue: nil) { [weak self] note in
+            let records = note.userInfo?[glossLocalChangesKey] as? [ChangeRecord] ?? []
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                let foreign = records.filter { $0.origin != self.windowID }
+                guard !foreign.isEmpty else { return }
+                self.localChangesTask = Task { await self.handleExternalChanges(foreign) }
+            }
+        }
+        self.localToken = LocalObserverToken(observer: local)
+        // What the models write on this window's behalf reaches the others (review 7).
+        library.onImported = { [weak self] documents in
+            guard let self else { return }
+            self.tellOtherWindows(documents.map { self.changed(ChangeEntity.document, $0.id.stringValue) })
+        }
+        trash.onWrote = { [weak self] entries in
+            guard let self else { return }
+            self.tellOtherWindows(entries.map { self.changed(Self.entity(of: $0.kind), $0.entityID) }
+                + [self.changed(ChangeEntity.trash, "")])
+        }
+        workspace.onOpened = { [weak self] id in
+            guard let self else { return }
+            self.tellOtherWindows([self.changed(ChangeEntity.document, id.stringValue)])
+        }
     }
 
     deinit {
-        // The token is only ever touched on the main actor; the window is going away.
+        // The tokens are only ever touched on the main actor; the window is going away.
         let token = settingsToken
         if let observer = token.observer { NotificationCenter.default.removeObserver(observer) }
+        let local = localToken
+        if let observer = local.observer { NotificationCenter.default.removeObserver(observer) }
     }
 
     /// Wires the change monitor (call once at startup, after the views exist).
@@ -149,6 +192,7 @@ import GlossReaderBridge
     public func moveToTrash(_ document: Document) async -> TrashEntry? {
         guard let entry = await deletion.trash(kind: .document, id: document.id.stringValue) else { return nil }
         await reactToTrashing(documentIDs: [document.id])
+        tellOtherWindows([changed(ChangeEntity.document, document.id.stringValue), changed(ChangeEntity.trash, entry.id.stringValue)])
         return entry
     }
 
@@ -165,6 +209,7 @@ import GlossReaderBridge
         guard let entry = await deletion.trash(kind: .page, id: page.id.stringValue) else { return nil }
         await reactToTrashing(documentIDs: [page.documentID],
                               vanished: (parentID: page.parentID, documentID: page.documentID))
+        tellOtherWindows([changed(ChangeEntity.page, page.id.stringValue), changed(ChangeEntity.trash, entry.id.stringValue)])
         return entry
     }
 
@@ -174,7 +219,36 @@ import GlossReaderBridge
     public func undoTrash(_ entry: TrashEntry) async -> [TrashEntry]? {
         guard let restored = await deletion.undo(entry) else { return nil }
         await reactToRestore(restored)
+        tellOtherWindows(restored.map { changed(Self.entity(of: $0.kind), $0.entityID) } + [changed(ChangeEntity.trash, "")])
         return restored
+    }
+
+    /// Tells the app's other windows what this one just wrote (review 7): the change journal
+    /// can't, because every window in this process shares its origin.
+    func tellOtherWindows(_ records: [ChangeRecord]) {
+        LocalChanges.post(records, from: windowID, to: services.store)
+    }
+
+    /// A journal-shaped record for `tellOtherWindows`.
+    func changed(_ entity: String, _ id: String) -> ChangeRecord {
+        ChangeRecord(sequence: 0, entity: entity, entityID: id, origin: windowID, date: services.time.now())
+    }
+
+    /// Which journal entity a trash entry's kind corresponds to.
+    private static func entity(of kind: TrashableKind) -> String {
+        switch kind {
+        case .document: ChangeEntity.document
+        case .page: ChangeEntity.page
+        default: ChangeEntity.trash
+        }
+    }
+
+    /// Waits for the reaction to the last same-process window change (tests, teardown).
+    public func flushLocalChanges() async {
+        while let task = localChangesTask {
+            await task.value
+            if localChangesTask == task { break }
+        }
     }
 
     /// Everything a window must do after its own user trashed something: the badge, the grid,

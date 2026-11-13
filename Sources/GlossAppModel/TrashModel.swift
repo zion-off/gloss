@@ -11,6 +11,10 @@ import GlossCore
     /// What the last restore brought back, so the view can say so ("restored “x” and 2 more").
     public private(set) var lastRestored: [TrashEntry] = []
 
+    /// Entries whose entities this window's trash actions restored or purged: AppModel tells
+    /// the app's other windows (review 7; the journal's origin is per-process).
+    public var onWrote: (@MainActor ([TrashEntry]) -> Void)?
+
     private let services: GlossServices
 
     public init(services: GlossServices) {

@@ -25,6 +25,7 @@ extension AppModel {
     /// window title and the source list read it), the notes editor when the renamed book is the
     /// one open, and the book's sidebar tree.
     public func refreshAfterDetailsEdit(of id: DocumentID) async {
+        tellOtherWindows([changed(ChangeEntity.document, id.stringValue)])  // the app's other windows (review 7)
         await library.invalidate(ids: [id])
         await workspace.refresh()
         if notes.page?.documentID == id { await notes.pageChangedExternally() }
