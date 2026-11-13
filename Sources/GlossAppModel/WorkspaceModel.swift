@@ -49,6 +49,19 @@ public struct ReaderFocus: Hashable, Sendable {
     /// A range in the open page the editor should select and scroll to (a marker click).
     public private(set) var pendingNoteReveal: Range<Int>?
 
+    /// The source list's selection (D-101). Opening a book or a page selects it; `AppModel.select`
+    /// handles clicks.
+    public internal(set) var sidebar: SidebarSelection = .library(nil)
+
+    /// What the detail column shows: the grid, the trash, or the open book.
+    public var detail: SidebarDetail {
+        switch sidebar {
+        case .library(let shelf): .library(shelf)
+        case .trash: .trash
+        case .book, .contents, .highlight, .page: document == nil ? .library(nil) : .book
+        }
+    }
+
     private let services: GlossServices
     private let persistLayoutSetting: Bool
 
@@ -65,6 +78,7 @@ public struct ReaderFocus: Hashable, Sendable {
         guard let document = try await services.library.document(id), document.trash == nil else {
             throw GlossError.notFound("that book")
         }
+        let switched = self.document?.id != id
         self.document = document
         try await services.library.markOpened(id)
         if page?.documentID != id {
@@ -74,6 +88,8 @@ public struct ReaderFocus: Hashable, Sendable {
         readerHistory.visit(ReaderFocus(documentID: id, locator: locator))
         readerFocus = readerHistory.current
         pendingPassage = nil
+        // Opening a book shows it; a selection in the previous book's section means nothing here.
+        if switched || !sidebar.showsBook { sidebar = page.map { .page($0.id) } ?? .book }
     }
 
     /// Opens a notes page at a range (from a marker click), revealing the panel if hidden.
@@ -100,6 +116,7 @@ public struct ReaderFocus: Hashable, Sendable {
         }
         self.page = page
         notesHistory.visit(id)
+        sidebar = .page(id)
     }
 
     /// Opens a book at a passage (from a `gloss://passage/…` link or a marker click).
@@ -159,6 +176,9 @@ public struct ReaderFocus: Hashable, Sendable {
             page = nil
             readerFocus = nil
             pendingPassage = nil
+            if sidebar.showsBook { sidebar = .library(nil) }
+        } else if case .page(let id) = sidebar, page?.id != id {
+            sidebar = .book  // the selected page went
         }
         // Drop history entries whose targets are gone, keeping back and forward history.
         var deadBooks: Set<DocumentID> = []
@@ -197,7 +217,7 @@ public struct ReaderFocus: Hashable, Sendable {
 
     /// The search context, derived from what is open and how the window is split.
     public var searchContext: SearchContext {
-        guard let document else { return .home }
+        guard let document, sidebar.showsBook else { return .home }
         switch layout {
         case .readerOnly: return .reader(document.id)
         case .notesOnly: return .notes(document.id)

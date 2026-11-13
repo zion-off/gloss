@@ -17,6 +17,8 @@ import GlossNotes
     public let reader: ReaderController
     /// This window's notes editor (one per window; the services are shared).
     public let notes: NotesEditorModel
+    /// The open book's highlights and pages in the source list.
+    public let bookSidebar: BookSidebarModel
     public var linking: LinkingCoordinator { LinkingCoordinator(services: services, reader: reader) }
     public var changeMonitor: ExternalChangeMonitor?
 
@@ -30,6 +32,8 @@ import GlossNotes
         self.router = URLRouter(links: services.links)
         self.reader = ReaderController(services: services)
         self.notes = NotesEditorModel(services: services)
+        self.bookSidebar = BookSidebarModel(services: services)
+        reader.highlightsDidChange = { [weak self] in await self?.refreshBookSidebar() }
         reader.openNote = { [weak self] page, range in
             try? await self?.workspace.openPage(page, revealing: range)
         }
@@ -74,6 +78,64 @@ import GlossNotes
         if changes.contains(where: { annotationEntities.contains($0.entity) }) {
             await reader.refreshAnnotations()
         }
+        let sidebarEntities: Set<String> = [ChangeEntity.page, ChangeEntity.highlight, ChangeEntity.document]
+        if changes.contains(where: { sidebarEntities.contains($0.entity) }) {
+            await showBookSidebar()
+        }
+    }
+
+    // MARK: The source list
+
+    /// The open book's table of contents, as the sidebar nests it.
+    public var contents: [ContentsNode] { ContentsNode.nodes(from: reader.toc) }
+
+    /// Loads the sidebar's section for the open book (the window calls this whenever
+    /// `workspace.document` changes).
+    public func showBookSidebar() async {
+        await bookSidebar.load(workspace.document?.id)
+        dropDanglingSelection()
+    }
+
+    func refreshBookSidebar() async {
+        await bookSidebar.refresh()
+        dropDanglingSelection()
+    }
+
+    /// A selected highlight that is gone leaves the book selected, not a ghost row.
+    private func dropDanglingSelection() {
+        if case .highlight(let id) = workspace.sidebar, !bookSidebar.highlights.contains(where: { $0.id == id }) {
+            workspace.sidebar = workspace.document == nil ? .library(nil) : .book
+        }
+    }
+
+    /// A click in the source list: shows a shelf or the trash, or goes somewhere in the open book
+    /// (revealing the pane it lands in when the layout hides it).
+    public func select(_ selection: SidebarSelection) async {
+        switch selection {
+        case .library(let shelf):
+            workspace.sidebar = selection
+            if library.shelf != shelf { library.shelf = shelf }
+        case .trash:
+            workspace.sidebar = selection
+            await trash.reload()
+        case .book:
+            guard workspace.document != nil else { return }
+            workspace.sidebar = selection
+        case .contents(let id):
+            guard workspace.document != nil, let node = ContentsNode.find(id, in: contents) else { return }
+            workspace.sidebar = selection
+            if !workspace.layout.showsReader { workspace.layout = .split }
+            await reader.go(to: node.target)
+        case .highlight(let id):
+            guard let highlight = bookSidebar.highlights.first(where: { $0.id == id }) else { return }
+            workspace.sidebar = selection
+            if !workspace.layout.showsReader { workspace.layout = .split }
+            await reader.go(to: highlight.passage.locator, flash: true)
+        case .page(let id):
+            do { try await workspace.openPage(id) } catch { return }
+            if !workspace.layout.showsNotes { workspace.layout = .split }
+        }
+        search.contextChanged()
     }
 
     /// Opens the reader where the workspace points (the window calls this whenever

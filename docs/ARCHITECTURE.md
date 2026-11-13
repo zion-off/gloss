@@ -289,7 +289,9 @@ Output follows `NO_COLOR`/`CLICOLOR_FORCE` and drops colour and status lines whe
 
 - One main `WindowGroup` plus "open in new window"; a `Settings` scene.
 - `WorkspaceModel` (GlossAppModel) holds the split layout (global), the open document/page,
-  and a `NavigationHistory` per pane (⌘[ / ⌘]).
+  a `NavigationHistory` per pane (⌘[ / ⌘]) and the source list's selection, which decides the
+  detail column (D-101). `BookSidebarModel` lists the open book's highlights and page outline;
+  `AppModel.select` turns a click into navigation.
 - `ExternalChangeMonitor` polls the change journal and refreshes models.
 - `gloss://` URLs from other apps or `gloss open` route through `URLRouter`.
 - **System components first** (D-019). `NavigationSplitView` with a source-list sidebar, a

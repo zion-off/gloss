@@ -77,6 +77,9 @@ import GlossReaderBridge
 
     /// Opens a notes page at a range (a marker click). Set by the app model.
     public var openNote: @MainActor (PageID, Range<Int>?) async -> Void = { _, _ in }
+    /// Called after this window adds, recolours, removes or restores a highlight (the sidebar's
+    /// list follows).
+    public var highlightsDidChange: @MainActor () async -> Void = {}
     /// Opens a web link from the book. Set by the Mac layer (NSWorkspace). Only schemes in
     /// `externalSchemes` get here: a book must not open files or launch apps.
     public var openExternal: @MainActor (URL) -> Void = { _ in }
@@ -267,6 +270,7 @@ import GlossReaderBridge
         self.selection = nil
         selectionAnchor = nil
         await refreshAnnotations()
+        await highlightsDidChange()
         return highlight
     }
 
@@ -274,6 +278,7 @@ import GlossReaderBridge
         let updated = try await services.highlights.recolor(id, to: color)
         if highlightFocus?.highlight.id == id { highlightFocus?.highlight = updated }
         await refreshAnnotations()
+        await highlightsDidChange()
     }
 
     /// Deletes a highlight and returns it, so the caller can offer undo.
@@ -282,12 +287,14 @@ import GlossReaderBridge
         let deleted = try await services.highlights.delete(id)
         if highlightFocus?.highlight.id == id { highlightFocus = nil }
         await refreshAnnotations()
+        await highlightsDidChange()
         return deleted
     }
 
     public func restoreHighlight(_ highlight: Highlight) async throws {
         try await services.highlights.restore(highlight)
         await refreshAnnotations()
+        await highlightsDidChange()
     }
 
     /// What hovering `marker` shows; nil when nothing links to it any more.

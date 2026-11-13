@@ -301,6 +301,13 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   sources compile line for line with `#if os(macOS)` switched on. It proves names, labels, types,
   `try`/`await` and Swift 6 isolation against the stubs; not behaviour, and only as far as the stubs
   are faithful, so a member goes into a stub only after its docs page is checked.
+- **D-101 One source list, sectioned like Mail or Music.** "library" holds the shelves (all, books,
+  pdfs: the brief's filters) and the trash; while a book is open, a section named for it holds its
+  contents, highlights and notes pages (collapsible). The selection decides the detail column: the
+  cover grid, the trash, or reader + notes. Opening a book selects its notes page, so the book's
+  section always shows where you are; picking a shelf keeps the book open one click away. Rejected:
+  Preview's sidebar that swaps its content by a menu (hides the library while reading) and a third
+  column (too wide next to reader + notes).
 - **D-100 Non-isolated Apple protocols are satisfied with `nonisolated` methods plus
   `MainActor.assumeIsolated`**, never isolated conformances (`@MainActor Protocol`): those need
   Swift 6.2 and the package declares tools 6.1. PDFKit and TextKit 2 call them on the main thread.
