@@ -202,6 +202,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
             storage.replaceCharacters(in: NSRange(location: 0, length: storage.length), with: model.text)
             storage.endEditing()
             textView.setSelectedRange(selection)
+            lastRuns = []  // replaced text has no attributes; the diff must not skip it
             restyle()
         }
         // Only on the page it was meant for, once that page is installed (a marker click may
@@ -237,6 +238,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         storage.replaceCharacters(in: NSRange(location: 0, length: storage.length), with: text)
         storage.endEditing()
         textView.setSelectedRange(NSRange(location: 0, length: 0))
+        lastRuns = []  // see the external-change branch of sync
         restyle()
         textView.scroll(NSPoint(x: 0, y: 0))
     }
@@ -264,6 +266,11 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
 
     func textViewDidChangeSelection(_ notification: Notification) {
         guard let textView else { return }
+        // A delete or paste moves the selection while the view's text has already changed and the
+        // model has not heard yet (`textDidChange` follows). Styling or snapping against the
+        // model's old text here ran past the new text's end, and the exception was swallowed by
+        // AppKit halfway through the edit, leaving the view and the model out of step.
+        guard textView.string == model.text else { return }
         // A subpage row is one block: its markdown is hidden under the row, so a caret inside it
         // (an arrow key can land there) would split the link on Return or typing. Snap it to
         // the nearer end of the line.
@@ -355,7 +362,8 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     /// Restyles what moved: only the ranges whose runs changed get new attributes, so a cursor
     /// move in a long page doesn't touch the whole layout.
     private func restyle() {
-        guard let textView else { return }
+        guard let textView, let storage = textView.textStorage,
+              storage.length == model.text.utf16.count else { return }  // not in step: the next change restyles
         displayedSpans = model.spans
         let length = model.text.utf16.count
         let runs = notesTheme.runs(for: model.spans, length: length)
@@ -363,7 +371,6 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         lastRuns = runs
         guard !changed.isEmpty else { return }
 
-        guard let storage = textView.textStorage else { return }
         storage.beginEditing()
         defer { storage.endEditing() }
         for range in changed {
