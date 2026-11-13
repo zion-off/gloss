@@ -10,8 +10,9 @@ import GlossReaderBridge
 public protocol ReaderSession: AnyObject {
     var view: NSView { get }
     var driver: any ReaderDriving { get }
-    /// Stops delivering events and lets the engine go (the pane is switching engines).
-    func invalidate()
+    /// Stops delivering events and waits until the queued ones were delivered, so nothing from
+    /// this session lands after the next one is attached (review 4).
+    func invalidate() async
 }
 
 /// Makes reader sessions for the document kinds it reads (open/closed: a new engine is

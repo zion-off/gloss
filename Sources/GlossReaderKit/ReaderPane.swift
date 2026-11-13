@@ -26,7 +26,7 @@ public struct ReaderPane: View {
             placeholder
         }
         .task(id: reader.document?.kind) {
-            host.prepare(for: reader.document?.kind, engines: engines, reader: reader)
+            await host.prepare(for: reader.document?.kind, engines: engines, reader: reader)
         }
     }
 
@@ -55,9 +55,9 @@ public struct ReaderPane: View {
     private(set) var session: (any ReaderSession)?
     private var kind: DocumentKind?
 
-    func prepare(for kind: DocumentKind?, engines: ReadingEngineRegistry, reader: ReaderController) {
+    func prepare(for kind: DocumentKind?, engines: ReadingEngineRegistry, reader: ReaderController) async {
         guard let kind, kind != self.kind else { return }
-        session?.invalidate()
+        await session?.invalidate()
         session = nil
         self.kind = kind
         guard let engine = engines.engine(for: kind) else { return }

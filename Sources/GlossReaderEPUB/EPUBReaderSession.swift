@@ -56,8 +56,10 @@ final class EPUBReaderSession: NSObject, ReaderSession, WKNavigationDelegate {
         _ = webView.load(URLRequest(url: ReaderResourceRouter.indexURL))
     }
 
-    func invalidate() {
-        inbox.close()
+    func invalidate() async {
+        // Drains: the queued events are delivered (and dropped by the controller's guards)
+        // before the next session attaches, so nothing of ours lands after that.
+        await inbox.closeAndDrain()
         contentController.removeScriptMessageHandler(forName: Self.messageHandlerName)
         webView.navigationDelegate = nil
         messages.session = nil
