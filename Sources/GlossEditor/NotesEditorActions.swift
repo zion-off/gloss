@@ -12,13 +12,19 @@ import GlossNotes
     /// The notes text view has keyboard focus (the Format menu and ⌘[ are enabled only then).
     public internal(set) var isEditing = false
     /// Called whenever the focus state changes (the window routes history shortcuts by it).
-    var onFocusChange: ((Bool) -> Void)?
+    public var onFocusChange: ((Bool) -> Void)?
 
     public init() {}
 
     /// A format bar button or Format menu item.
     public func run(_ item: FormatBarItem) {
         coordinator?.run(item.command)
+    }
+
+    /// Applies an edit made elsewhere in the window (⌘K, add to notes) through the text view,
+    /// as one undo step. Nothing happens when no editor is on screen.
+    public func apply(_ edit: EditResult) {
+        coordinator?.apply(edit)
     }
 
     /// A click on a slash menu row.

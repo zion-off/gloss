@@ -18,15 +18,21 @@ public struct NotesEditor: View {
     @State private var selectionRect: OverlayRect?
     @State private var caretRect: OverlayRect?
 
+    let onActionsReady: @MainActor (NotesEditorActions) -> Void
+
+    /// - Parameter actions: receives the editor's actions once it's on screen (the window wires
+    ///   ⌘K, add to notes and focus-routed history through them).
     public init(model: NotesEditorModel, reveal: NotesReveal?,
                 onOpenGlossLink: @escaping @MainActor (GlossLink) async -> Void,
                 onOpenWebLink: @escaping @MainActor (URL) -> Void,
-                onOpenPage: @escaping @MainActor (PageID) -> Void) {
+                onOpenPage: @escaping @MainActor (PageID) -> Void,
+                actions onActionsReady: @escaping @MainActor (NotesEditorActions) -> Void = { _ in }) {
         self.model = model
         self.reveal = reveal
         self.onOpenGlossLink = onOpenGlossLink
         self.onOpenWebLink = onOpenWebLink
         self.onOpenPage = onOpenPage
+        self.onActionsReady = onActionsReady
     }
 
     public var body: some View {
@@ -40,6 +46,7 @@ public struct NotesEditor: View {
                 .overlay(alignment: .topLeading) { overlays(in: geometry.size) }
         }
         .focusedSceneValue(\.notesEditorActions, actions)
+        .onAppear { onActionsReady(actions) }
     }
 
     @ViewBuilder private func overlays(in size: CGSize) -> some View {

@@ -83,6 +83,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
         actions.isEditing = false
         hoverTask?.cancel()
         hover.close()
+        actions.focusChanged(false)  // the editor is gone: ⌘[ goes back to the reader
     }
 
     // MARK: Hover

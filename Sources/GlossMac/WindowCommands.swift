@@ -2,6 +2,7 @@
 import SwiftUI
 import GlossAppModel
 import GlossCore
+import GlossEditor
 import GlossMarkdown
 
 /// The window's commands that need the focused pane: "link to passage" (⌘K) and "add to
@@ -27,22 +28,23 @@ public final class WindowCommands {
     public func linkToPassage() {
         guard let app else { return }
         Task {
-            if let edit = try? await app.linkSelectionToPassage(),
-               let coordinator = editorCoordinator {
-                coordinator.apply(edit)
-            }
+            if let edit = try? await app.linkSelectionToPassage() { editor?.apply(edit) }
         }
     }
 
     public var canQuote: Bool { app?.reader.selection != nil }
 
-    public func addToNotes() {
+    /// Into the editor at the caret when it shows the book's page, else straight to the page.
+    public func addToNotes() async {
         guard let app else { return }
-        Task {
-            if let edit = try? await app.quoteSelectionIntoNotes(), let coordinator = editorCoordinator {
-                coordinator.apply(edit)
-            }
-        }
+        if let edit = try? await app.addReaderSelectionToNotes() { editor?.apply(edit) }
+    }
+
+    // MARK: Layout
+
+    public var layout: SplitLayout {
+        get { app?.workspace.layout ?? .split }
+        set { app?.workspace.layout = newValue }
     }
 
     // MARK: History
@@ -64,8 +66,8 @@ public final class WindowCommands {
         }
     }
 
-    /// The window's editor coordinator (set by the notes pane).
-    var editorCoordinator: NotesEditorCoordinator?
+    /// The window's notes editor, while one is on screen (set by the notes pane).
+    @ObservationIgnored weak var editor: NotesEditorActions?
 }
 
 /// The commands themselves. ⌘K is the plan's Edit-menu "link to passage"; ⌘[ / ⌘] are the
@@ -76,6 +78,15 @@ public struct GlossWindowCommands: Commands {
     public init() {}
 
     public var body: some Commands {
+        CommandGroup(after: .sidebar) {
+            Divider()
+            ForEach(Self.layouts, id: \.layout) { entry in
+                Toggle(entry.title, isOn: Binding(get: { commands?.layout == entry.layout },
+                                                  set: { if $0 { commands?.layout = entry.layout } }))
+                    .keyboardShortcut(entry.key, modifiers: [.command, .option])
+                    .disabled(commands == nil)
+            }
+        }
         CommandMenu("go") {
             Button("back") { commands?.goBack() }
                 .keyboardShortcut("[", modifiers: .command)
@@ -90,11 +101,20 @@ public struct GlossWindowCommands: Commands {
                 .keyboardShortcut("k", modifiers: .command)
                 .disabled(commands?.canLink != true)
                 .help(commands?.linkHint ?? "")
-            Button("add to notes") { commands?.addToNotes() }
+            Button("add to notes") { Task { await commands?.addToNotes() } }
                 .disabled(commands?.canQuote != true)
                 .help("the book's selection, quoted at the cursor")
         }
     }
+}
+
+extension GlossWindowCommands {
+    /// The View menu's layout items, Preview-style ⌥⌘ numbers (D-095).
+    static let layouts: [(layout: SplitLayout, title: String, key: KeyEquivalent)] = [
+        (.split, "reader and notes", "1"),
+        (.readerOnly, "reader only", "2"),
+        (.notesOnly, "notes only", "3"),
+    ]
 }
 
 extension FocusedValues {

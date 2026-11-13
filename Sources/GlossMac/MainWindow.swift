@@ -5,6 +5,7 @@ import GlossAppModel
 import GlossCore
 import GlossEditor
 import GlossNotes
+import GlossReaderBridge
 import GlossReaderKit
 
 /// One window: the library in the sidebar, the reader in the detail column. Each window has its
@@ -16,13 +17,17 @@ struct MainWindow: View {
     @State private var selection: DocumentID?
     @State private var reveal: NotesReveal?
     @State private var unsavedFailure: String?
-    @State private var commands = WindowCommands()
+    @State private var commands: WindowCommands
+    /// The reader's engine session lives with the window, so hiding the reader keeps the book.
+    @State private var readerHost = ReaderSessionHost()
 
     init(root: AppRoot) {
         self.root = root
         let app = AppModel(services: root.services)
+        let commands = WindowCommands()
+        commands.bind(app)
         _app = State(initialValue: app)
-        _commands = State(initialValue: WindowCommands().bound(app))
+        _commands = State(initialValue: commands)
     }
 
     var body: some View {
@@ -30,16 +35,18 @@ struct MainWindow: View {
             LibrarySidebar(library: app.library, selection: $selection)
         } detail: {
             if started {
-                // The real split view is milestone 11; this lays the two panes out by the
-                // workspace's layout setting so the editor is reachable now.
+                // Reader and notes side by side with a draggable divider; the View menu and the
+                // toolbar switch the layout (persisted, shared by all windows).
                 HSplitView {
                     if app.workspace.layout.showsReader {
-                        ReaderPane(reader: app.reader, engines: root.engines)
-                            .onAppear { commands.notesFocused = false }
+                        ReaderPane(reader: app.reader, engines: root.engines, host: readerHost,
+                                   addToNotes: { await commands.addToNotes() })
+                            .frame(minWidth: 320)
                     }
                     if app.workspace.layout.showsNotes {
                         NotesPane(app: app, reveal: reveal, unsavedFailure: $unsavedFailure,
                                   commands: commands)
+                            .frame(minWidth: 280)
                     }
                 }
             } else {
@@ -47,6 +54,8 @@ struct MainWindow: View {
             }
         }
         .navigationTitle(app.reader.document?.title ?? "gloss")
+        .toolbar { toolbar }
+        .focusedSceneValue(\.windowCommands, commands)
         .task { await run() }
         .task(id: selection) { await open(selection) }
         .task(id: app.workspace.readerFocus) { await app.showReaderFocus() }
@@ -74,6 +83,29 @@ struct MainWindow: View {
         }
     }
 
+    /// Back/forward on the leading edge (Safari, Finder); the layout switch on the trailing side.
+    @ToolbarContentBuilder private var toolbar: some ToolbarContent {
+        ToolbarItem(placement: .navigation) {
+            ControlGroup {
+                Button { commands.goBack() } label: { Label("back", systemImage: "chevron.left") }
+                    .disabled(!commands.canGoBack)
+                    .help("back (⌘[)")
+                Button { commands.goForward() } label: { Label("forward", systemImage: "chevron.right") }
+                    .disabled(!commands.canGoForward)
+                    .help("forward (⌘])")
+            }
+        }
+        ToolbarItem {
+            Picker("layout", selection: Binding(get: { commands.layout }, set: { commands.layout = $0 })) {
+                Label("reader and notes", systemImage: "rectangle.split.2x1").tag(SplitLayout.split)
+                Label("reader only", systemImage: "book").tag(SplitLayout.readerOnly)
+                Label("notes only", systemImage: "note.text").tag(SplitLayout.notesOnly)
+            }
+            .pickerStyle(.segmented)
+            .help("layout (⌥⌘1, ⌥⌘2, ⌥⌘3)")
+        }
+    }
+
     /// Stays on the page the editor still shows (its unsaved text intact): the workspace goes
     /// back there, and reloading the page already shown keeps the editor's text.
     private func keepEditing() async {
@@ -89,6 +121,7 @@ struct MainWindow: View {
     /// until the window closes (the task is cancelled with it).
     private func run() async {
         await root.prepare()
+        await app.workspace.loadPersistedLayout()
         app.reader.openExternal = { url in _ = NSWorkspace.shared.open(url) }
         await app.library.reload()
         await app.startMonitoringChanges()
@@ -150,7 +183,7 @@ struct NotesPane: View {
                         onOpenWebLink: { url in _ = NSWorkspace.shared.open(url) },
                         onOpenPage: { id in Task { try? await app.workspace.openPage(id) } },
                         actions: { actions in
-                            commands.editorCoordinator = actions.coordinator
+                            commands.editor = actions
                             actions.onFocusChange = { focused in commands.notesFocused = focused }
                         })
                 .overlay(alignment: .bottom) {
