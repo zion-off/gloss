@@ -22,6 +22,31 @@ scripts/check.sh            # works here too; it skips the stub type-check on a 
                             # (the real build already type-checks the Mac targets)
 ```
 
+## First Mac session (what ran, what broke)
+
+Run on macOS 26 / Xcode 26.2 / Swift 6.2 (Node 22.18 for the web tests; Node 23.7 breaks jsdom, and
+corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
+
+- **Compiled with three fixes:** `Columns.date` overload ambiguity, `NSApplication.ModalResponse.OK`
+  (not `.ok`), `NSItemProvider.loadObject` returns a non-discardable `Progress`. Stub and notes follow.
+- **Verified by hand:** the EPUB opens from the database, contents jumps, position restore, switching
+  books and kinds; library grid, sidebar, trash view; passage links both ways (⌘K, marker click, hover,
+  undo); markdown styling, format bar, slash menu open and filter.
+- **Failed, fixed (all `[mac-unverified]` until re-checked):** the PDF pane stayed blank (the PDF session
+  never posted `.ready`); a crash opening a book after a PDF (model text outran its parse in
+  `SlashTrigger.detect`); PDF covers overflowing the grid cell; notes text black on black in dark mode
+  (no foreground colour on styled runs); the subpage row invisible in dark mode (drawing appearance and
+  an untinted icon); no way to name a page (the title field above the body, brief 21, was missing);
+  I-beam over the format bar; book sections and layout switch shown on the library; title before the
+  chevrons in the toolbar; the heading button's icon read as a font-size control.
+- **Still unverified:** the first crash (`.relocated` handled in `ReaderController`, a SIGBUS inside
+  Observation) has not recurred but was never explained; click targets of links/markers feel small.
+- **Stubs owed (Linux `mac-typecheck.py`):** `NSAppearance.currentDrawing()` /
+  `performAsCurrentDrawingAppearance`, `NSImage(size:flipped:drawingHandler:)`, `NSColor.set()`,
+  `NSWindow.titleVisibility`, `NSView.viewDidMoveToWindow`, `NSCursor.arrow`/`set()`, SwiftUI
+  `onContinuousHover`, `onSubmit`, `onChange(of:initial:)`, conditional `ToolbarContent`. Verify each in
+  Apple's docs JSON before adding (CLAUDE.md); the Mac build already type-checks them for real.
+
 ## Verify first (riskiest parts)
 
 1. **EPUB opens from the database in the web view.** Written in milestone 9: import a book with
@@ -433,7 +458,7 @@ scripts/check.sh            # works here too; it skips the stub type-check on a 
   width (`GeometryReader`); check both stay inside the pane near either edge and at the top.
 - `NotesEditorActions.swift`
   - The Format menu replaces the system's text formatting group (Font, Text submenus): its items
-    carry Notes' shortcuts (⌘B, ⌘I, ⇧⌘H, ⇧⌘7, ⌘', ⇧⌘M, ⇧⌘K) and are enabled only while the notes
+    carry Notes' shortcuts (⌘B, ⌘I, ⇧⌘7, ⌘ quote, ⇧⌘M, ⇧⌘K; no heading button, headings come from slash) and are enabled only while the notes
     text view has focus (`becomeFirstResponder`/`resignFirstResponder` overrides).
   - With focus in the reader, ⌘B does nothing (the item is disabled) and never bolds the book.
   - Two windows: the menu acts on the key window's editor (`focusedSceneValue`).
