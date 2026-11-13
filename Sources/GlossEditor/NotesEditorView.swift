@@ -55,11 +55,13 @@ public struct NotesEditor: View {
             // Position by top edge: the bar sits over the selection when there's room, under
             // it when there isn't.
             FormatBarView(model: model, actions: actions)
+                .arrowCursor()
                 .position(x: OverlayGeometry.clampCenter(rect.midX, width: FormatBarView.width, in: size.width),
                           y: OverlayGeometry.above(anchor: rect, height: FormatBarView.height) + FormatBarView.height / 2)
         }
         if let menu = model.slashMenu, let rect = caretRect {
             SlashMenuView(model: model, confirm: { id in Task { await actions.confirmSlash(id) } })
+                .arrowCursor()
                 .position(x: OverlayGeometry.clampCenter(rect.minX + SlashMenuView.width / 2, width: SlashMenuView.width, in: size.width),
                           y: OverlayGeometry.belowCenter(anchor: rect, height: SlashMenuView.height))
                 .id(menu.trigger.range.lowerBound)
@@ -69,6 +71,16 @@ public struct NotesEditor: View {
 }
 
 /// The format bar: the standard buttons, in a system material, floating over the selection.
+extension View {
+    /// The text view underneath asks for an I-beam over its whole area, floating controls
+    /// included; they want the arrow, set again on every move over them.
+    fileprivate func arrowCursor() -> some View {
+        onContinuousHover { phase in
+            if case .active = phase { NSCursor.arrow.set() }
+        }
+    }
+}
+
 struct FormatBarView: View {
     static let width: CGFloat = CGFloat(FormatBar.items.count) * 28 + 12
     static let height: CGFloat = 32

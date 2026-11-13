@@ -8,6 +8,8 @@ import GlossNotes
 /// `draw(at:in:)` this overrides.
 final class SubpageRowFragment: NSTextLayoutFragment {
     var row: SubpageRow?
+    /// The text view's appearance when the fragment was made (light, dark, high contrast).
+    var appearance: NSAppearance?
 
     /// The row's title as drawn (live, not the label in the text).
     static func titleAttributes(trashed: Bool) -> [NSAttributedString.Key: Any] {
@@ -18,6 +20,12 @@ final class SubpageRowFragment: NSTextLayoutFragment {
 
     override func draw(at point: CGPoint, in context: CGContext) {
         guard let row else { return super.draw(at: point, in: context) }
+        (appearance ?? NSAppearance.currentDrawing()).performAsCurrentDrawingAppearance {
+            drawRow(row, at: point)
+        }
+    }
+
+    private func drawRow(_ row: SubpageRow, at point: CGPoint) {
         let frame = layoutFragmentFrame
         let origin = CGPoint(x: point.x + frame.origin.x, y: point.y + frame.origin.y)
         let bounds = CGRect(origin: origin, size: frame.size)
@@ -25,7 +33,15 @@ final class SubpageRowFragment: NSTextLayoutFragment {
         // The icon: a document glyph; a plain rounded rect if symbols are unavailable.
         let iconRect = CGRect(x: bounds.minX + 2, y: bounds.midY - 8, width: 16, height: 16)
         if let image = NSImage(systemSymbolName: "doc.text", accessibilityDescription: nil) {
-            image.draw(in: iconRect)
+            // A symbol drawn as is comes out black; tint a copy with the (resolved) label colour.
+            let color: NSColor = row.isTrashed ? .tertiaryLabelColor : .secondaryLabelColor
+            let tinted = NSImage(size: iconRect.size, flipped: false) { rect in
+                image.draw(in: rect)
+                color.set()
+                rect.fill(using: .sourceAtop)
+                return true
+            }
+            tinted.draw(in: iconRect)
         } else {
             NSColor.tertiaryLabelColor.setFill()
             NSBezierPath(roundedRect: iconRect, xRadius: 3, yRadius: 3).fill()

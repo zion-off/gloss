@@ -34,7 +34,9 @@ import GlossNotes
 
     /// The attributes a run draws with (everything the style sets, nothing else).
     func attributes(for style: TextStyle) -> [NSAttributedString.Key: Any] {
-        var attributes: [NSAttributedString.Key: Any] = [:]
+        // Every run sets its colour: `setAttributes` replaces the whole attribute set, and an
+        // attributed string with no foreground colour draws black, which vanishes in dark mode.
+        var attributes: [NSAttributedString.Key: Any] = [.foregroundColor: NSColor.textColor]
         var font = baseFont(style.font ?? .body)
         if style.bold == true { font = Self.withTraits(font, .bold) }
         if style.italic == true { font = Self.withTraits(font, .italic) }

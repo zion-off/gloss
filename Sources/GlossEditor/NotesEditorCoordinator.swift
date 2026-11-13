@@ -129,7 +129,15 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
                                        in textElement: NSTextElement) -> NSTextLayoutFragment {
         let fragment = SubpageRowFragment(textElement: textElement, range: nil)
         if let paragraph = Self.offsets(of: textElement, in: textLayoutManager) {
-            fragment.row = MainActor.assumeIsolated { SubpageRows.row(covering: paragraph, in: model.subpageRows) }
+            // Dynamic colours resolve against the drawing appearance, which is not the view's while
+            // a fragment draws: carry it along (dark mode drew black on black). AppKit objects,
+            // touched here on the main thread only.
+            nonisolated(unsafe) var appearance: NSAppearance?
+            fragment.row = MainActor.assumeIsolated {
+                appearance = textView?.effectiveAppearance
+                return SubpageRows.row(covering: paragraph, in: model.subpageRows)
+            }
+            fragment.appearance = appearance
         }
         return fragment
     }
