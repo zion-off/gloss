@@ -311,7 +311,6 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
 - **D-100 Non-isolated Apple protocols are satisfied with `nonisolated` methods plus
   `MainActor.assumeIsolated`**, never isolated conformances (`@MainActor Protocol`): those need
   Swift 6.2 and the package declares tools 6.1. PDFKit and TextKit 2 call them on the main thread.
-
 - **D-102 Each pane moves on its own; a link changes the pane it points into** (brief 15: "following
   a cross-book link swaps the book pane", each pane with its own back and forward). A passage or book
   link in the notes swaps the reader; a page link, subpage row, breadcrumb, the outline or a marker
@@ -324,3 +323,20 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   highlights); its notes outline is the notes pane's book, headed with that book's title when the two
   differ. Before this, every navigation dragged the other pane along, so the two always showed one
   book.
+
+- **D-110 The library's covers are one Apple Books-style grid** (`LibraryGrid`, replacing the
+  placeholder list): `LazyVGrid` of adaptive columns, each cell a cover with the kind badge
+  (bottom-trailing, the format's own word via `FormatRegistry.badge`), a thin progress bar only
+  once the book has been opened, then title and author. A single click opens the book; arrow-key
+  selection is deliberately absent (Books opens on click; a selection ring would be new chrome).
+- **D-111 The "recently read" shelf shows only on "all".** A filtered shelf means "show me this
+  kind", and the row would repeat what the grid below already holds; with nothing recent the
+  section is simply gone (no empty shelf-within-a-shelf).
+- **D-115 A never-opened book shows no progress bar: absence is the "new" state.** A bar under
+  the cover appears only once reading has started, so the empty state can't be mistaken for a
+  bug; VoiceOver reads "not started yet" vs "n% read".
+- **D-116 The generated cover's look is decided portably and never changes.** `GeneratedCoverStyle`
+  (GlossAppModel) picks the tint from a fixed ten-colour palette by a stable FNV-1a hash of the
+  document's id (ids never change, so no launch-to-launch or window-to-window drift), wraps the
+  title to at most three 14-character lines with an ellipsis cut, and trims the author. The Mac
+  view only draws it (serif title, white text on the tint).

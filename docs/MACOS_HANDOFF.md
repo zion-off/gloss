@@ -202,6 +202,37 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
   stay disclosed while the reader moves; untitled pages show as "untitled".
 - The title bar follows the detail column: the shelf's name, "library", "trash", or the book's title.
 
+### `Sources/GlossUI/LibraryGrid.swift` + `LibraryFeatures.swift` + `LibraryCommands.swift` (milestone 12)
+
+- The library grid: covers in adaptive columns (Books-style), the format's badge bottom-trailing
+  on the cover, a thin progress bar only under books that were opened, title and author below.
+  Check light/dark, and that the generated fallback (title/author on a tinted cover) never
+  changes colour for the same book across relaunches.
+- A single click opens the book; the context menu offers open, edit details…, move to trash
+  (trash is a no-op until the trash slice is wired at merge — the item should appear but do
+  nothing yet).
+- The "recently read" shelf shows above the grid on "all" only, and disappears on a filtered
+  shelf or when nothing was opened yet.
+- The sort menu (trailing toolbar, arrow.up.arrow.down) switches recent/title/author/date added;
+  the choice survives relaunch and a **second open window** follows within a second (its menu
+  checkmark moves too).
+- Empty states: no books at all → "nothing glossed yet" with an import… button; a filtered shelf
+  with no books → "no pdfs yet" (the shelf's name).
+- File › import… (⇧⌘A) opens an NSOpenPanel as a sheet: multiple files AND folders, filtered to
+  epub/pdf. Importing shows the bottom status line ("reading…", "storing…", "added …") and never
+  beachballs. Importing a duplicate shows the "already in your library" alert; "open it" opens
+  the existing copy.
+- Drag files or a folder anywhere onto the window: the library rings with "drop to add to your
+  library" and the import runs. **Verify a drop over the reader's web view still reaches the
+  window-level drop zone** — WKWebView has no public drag API (MAC_API_NOTES), but if it
+  swallows file drags the drop needs a grid-level `onDrop` too.
+- Dropping a non-book file (a .png, say) anywhere outside the details sheet is silently ignored
+  (the extension filter drops it); check nothing looks broken.
+- Import progress while the library isn't the visible detail (a book is open): the status line
+  isn't visible then — acceptable, but check the import still completes and the grid updates
+  when you go back to it.
+- Two windows: import from one; the other's grid follows within a second (its change poll).
+
 ### `Sources/GlossEditor/` (milestone 10)
 
 - `NotesEditorTheme.swift` — system fonts and colours only; check light/dark, Increase Contrast
@@ -301,3 +332,18 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
   `NSTextElementProvider`, which it implements) and `NSTextParagraph.elementRange` mapping to
   UTF-16 offsets via `offset(from:to:)` — each verified, the composition needs a run.
 - `PDFDocument` and `PDFPage.thumbnail(of:for:)` off the main thread (imports run there).
+- `NSOpenPanel()`/`NSSavePanel()` (no initializer docs page; Apple sample code calls them) and
+  `beginSheetModal(for:)` with the key window grabbed from `NSApplication.shared.keyWindow` out
+  of SwiftUI — the sheet attaches to the SwiftUI window only if it is the key window when the
+  command runs; if the import panel ever appears detached, that is why.
+- `NSOpenPanel` with both `allowedContentTypes` set and `canChooseDirectories = true`: the type
+  filter should apply to files while folders stay selectable — the docs don't spell the
+  combination out; if folders grey out, drop `allowedContentTypes` and filter in code.
+- `UTType(filenameExtension:)` returns nil for extensions no app on the Mac claims, so a
+  registered format with such an extension would be unpickable in the import panel (epub and
+  pdf are both system-claimed; only a future exotic format could hit this).
+- `NSItemProvider.loadObject(ofClass: URL.self)` for Finder drags (the bridged generic overload)
+  and one `onDrop` at window level receiving drops over the WKWebView reader — both need a run.
+- The details sheet's image panel presented as a sheet on the sheet (`beginSheetModal` for the
+  cover panel while the details sheet is the key window): nested sheets are standard AppKit,
+  but the stacking needs a look.

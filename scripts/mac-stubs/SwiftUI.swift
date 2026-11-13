@@ -459,6 +459,64 @@ nonisolated public struct ControlGroup<Content: View>: View {
     public var body: Never { fatalError() }
 }
 
+/// swiftui/lazyvgrid — `nonisolated struct LazyVGrid<Content> where Content : View`
+nonisolated public struct LazyVGrid<Content: View>: View {
+    /// swiftui/lazyvgrid/init(columns:alignment:spacing:pinnedviews:content:) (macOS 11)
+    public init(columns: [GridItem], alignment: HorizontalAlignment = .center, spacing: CGFloat? = nil, pinnedViews: PinnedScrollableViews = .init(), @ViewBuilder content: () -> Content) {}
+    public var body: Never { fatalError() }
+}
+
+/// swiftui/griditem — `struct GridItem : Sendable`
+public struct GridItem: Sendable {
+    /// swiftui/griditem/init(_:spacing:alignment:) (macOS 11)
+    public init(_ size: GridItem.Size = .flexible(minimum: 10), spacing: CGFloat? = nil, alignment: Alignment? = nil) {}
+    /// swiftui/griditem/size-swift.property (macOS 11)
+    public var size: GridItem.Size { .flexible() }
+    /// swiftui/griditem/size-swift.enum (macOS 11); adaptive's default is verified, the rest
+    /// are declared without defaults the docs don't spell out.
+    public enum Size: Sendable {
+        /// swiftui/griditem/size-swift.enum/adaptive(minimum:maximum:) (macOS 11)
+        case adaptive(minimum: CGFloat, maximum: CGFloat = .infinity)
+        /// swiftui/griditem/size-swift.enum/fixed(_:) (macOS 11)
+        case fixed(CGFloat)
+        /// swiftui/griditem/size-swift.enum/flexible(minimum:maximum:) (macOS 11)
+        case flexible(minimum: CGFloat = 10, maximum: CGFloat = .infinity)
+    }
+}
+
+/// swiftui/pinnedscrollableviews (macOS 11)
+public struct PinnedScrollableViews: Sendable {
+    public init() {}
+    /// swiftui/pinnedscrollableviews/sectionheaders
+    public static let sectionHeaders = PinnedScrollableViews()
+    /// swiftui/pinnedscrollableviews/sectionfooters
+    public static let sectionFooters = PinnedScrollableViews()
+}
+
+/// swiftui/menu — `nonisolated struct Menu<Label, Content> where Label : View, Content : View`
+nonisolated public struct Menu<Label: View, Content: View>: View {
+    /// swiftui/menu/init(content:label:) (macOS 11)
+    public init(@ViewBuilder content: () -> Content, @ViewBuilder label: () -> Label) {}
+    public var body: Never { fatalError() }
+}
+extension Menu where Label == Text {
+    /// swiftui/menu/init(_:content:)-7v768 (macOS 11)
+    public init(_ titleKey: LocalizedStringKey, @ViewBuilder content: () -> Content) {}
+    /// swiftui/menu/init(_:content:)-7tkrw (macOS 11)
+    @_disfavoredOverload public init<S: StringProtocol>(_ title: S, @ViewBuilder content: () -> Content) {}
+}
+
+/// swiftui/textfield — `nonisolated struct TextField<Label> where Label : View`
+nonisolated public struct TextField<Label: View>: View {
+    public var body: Never { fatalError() }
+}
+extension TextField where Label == Text {
+    /// swiftui/textfield/init(_:text:) (macOS 10.15)
+    public init(_ titleKey: LocalizedStringKey, text: Binding<String>) {}
+    /// swiftui/textfield/init(_:text:)-2laoi (macOS 10.15)
+    @_disfavoredOverload public init<S: StringProtocol>(_ title: S, text: Binding<String>) {}
+}
+
 // MARK: - Shapes, colours, styles
 
 /// swiftui/shapestyle
@@ -469,6 +527,10 @@ nonisolated public struct Color: View, ShapeStyle, Hashable {
     public init(nsColor: NSColor) {}
     public var body: Never { fatalError() }
     public func opacity(_ opacity: Double) -> Color { self }
+    /// swiftui/color/init(_:red:green:blue:opacity:) (macOS 10.15)
+    public init(_ colorSpace: Color.RGBColorSpace = .sRGB, red: Double, green: Double, blue: Double, opacity: Double = 1) {}
+    /// swiftui/color/rgbcolorspace (macOS 10.15)
+    public enum RGBColorSpace: Sendable { case sRGB, sRGBLinear, displayP3 }
     public static let clear = Color(), black = Color(), white = Color(), gray = Color(), red = Color()
     public static let orange = Color(), yellow = Color(), green = Color(), mint = Color(), teal = Color()
     public static let cyan = Color(), blue = Color(), indigo = Color(), purple = Color(), pink = Color()
@@ -713,6 +775,14 @@ extension View {
     nonisolated public func position(_ position: CGPoint) -> some View { _Modified(self) }
     nonisolated public func offset(x: CGFloat = 0, y: CGFloat = 0) -> some View { _Modified(self) }
     nonisolated public func layoutPriority(_ value: Double) -> some View { _Modified(self) }
+    /// swiftui/view/aspectratio(_:contentmode:) (macOS 10.15)
+    nonisolated public func aspectRatio(_ aspectRatio: CGFloat?, contentMode: ContentMode) -> some View { _Modified(self) }
+    /// swiftui/view/clipped(antialiased:) (macOS 10.15)
+    nonisolated public func clipped(antialiased: Bool = false) -> some View { _Modified(self) }
+    /// swiftui/view/scaledtofill() (macOS 10.15)
+    nonisolated public func scaledToFill() -> some View { _Modified(self) }
+    /// swiftui/view/controlsize(_:) (macOS 10.15)
+    nonisolated public func controlSize(_ controlSize: ControlSize) -> some View { _Modified(self) }
 
     // Appearance
     nonisolated public func font(_ font: Font?) -> some View { _Modified(self) }
@@ -792,12 +862,18 @@ extension View {
     nonisolated public func contextMenu<MenuItems: View>(@ViewBuilder menuItems: () -> MenuItems) -> some View { _Modified(self) }
     /// swiftui/view/ondeletecommand(perform:) (macOS 10.15)
     nonisolated public func onDeleteCommand(perform action: (() -> Void)?) -> some View { _Modified(self) }
+    /// swiftui/view/ondrop(of:istargeted:perform:) (macOS 11)
+    nonisolated public func onDrop(of supportedContentTypes: [UTType], isTargeted: Binding<Bool>?, perform action: @escaping ([NSItemProvider]) -> Bool) -> some View { _Modified(self) }
     /// swiftui/view/navigationsplitviewcolumnwidth(min:ideal:max:) (macOS 13)
     nonisolated public func navigationSplitViewColumnWidth(min: CGFloat? = nil, ideal: CGFloat, max: CGFloat? = nil) -> some View { _Modified(self) }
 }
 
 public enum TextAlignment: Hashable, Sendable { case leading, center, trailing }
 public enum Visibility: Hashable, Sendable { case automatic, visible, hidden }
+/// swiftui/contentmode (macOS 10.15)
+public enum ContentMode: Sendable { case fit, fill }
+/// swiftui/controlsize (macOS 10.15)
+public enum ControlSize: Sendable { case mini, small, regular, large }
 public struct AccessibilityChildBehavior: Hashable, Sendable {
     public static let ignore = AccessibilityChildBehavior(), contain = AccessibilityChildBehavior(), combine = AccessibilityChildBehavior()
 }

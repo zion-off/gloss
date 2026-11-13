@@ -817,6 +817,60 @@ nonisolated func navigationSplitViewColumnWidth(min: CGFloat? = nil, ideal: CGFl
 nonisolated init<S>(_ title: S, systemImage name: String) where S : StringProtocol   // Label, -2z97t: data, not a localization key
 ```
 
+# Milestone 12 additions — the library (verified 2026-11-13, same method)
+
+```swift
+nonisolated init(columns: [GridItem], alignment: HorizontalAlignment = .center, spacing: CGFloat? = nil, pinnedViews: PinnedScrollableViews = .init(), @ContentBuilder content: () -> Content)   // LazyVGrid, 11.0+
+init(_ size: GridItem.Size = .flexible(), spacing: CGFloat? = nil, alignment: Alignment? = nil)      // GridItem, 11.0+
+case adaptive(minimum: CGFloat, maximum: CGFloat = .infinity)                                       // GridItem.Size, 11.0+
+case flexible(minimum: CGFloat = 10, maximum: CGFloat = .infinity)                                  // GridItem.Size; flexible's defaults are the stub's (docs page lists no defaults)
+struct PinnedScrollableViews { init(); static let sectionHeaders, sectionFooters }                   // 11.0+
+nonisolated init(@ViewBuilder content: () -> Content, @ViewBuilder label: () -> Label)               // Menu, 11.0+
+nonisolated init(_ titleKey: LocalizedStringKey, @ContentBuilder content: () -> Content)           // Menu where Label == Text, -7v768, 11.0+
+nonisolated init(_ titleKey: LocalizedStringKey, text: Binding<String>)                              // TextField where Label == Text, 10.15+
+nonisolated func aspectRatio(_ aspectRatio: CGFloat?, contentMode: ContentMode) -> some View        // 10.15+; CGSize overload -771ow unused
+enum ContentMode { case fit, fill }                                                                 // 10.15+
+nonisolated func clipped(antialiased: Bool = false) -> some View                                    // 10.15+ (docs slug is clipped(antialiased:))
+nonisolated func scaledToFill() -> some View                                                        // 10.15+
+nonisolated func controlSize(_ controlSize: ControlSize) -> some View                                // 10.15+; ControlSize mini/small/regular/large
+nonisolated func onDrop(of supportedContentTypes: [UTType], isTargeted: Binding<Bool>?, perform action: @escaping ([NSItemProvider]) -> Bool) -> some View   // 11.0+ (the [String] and CGPoint overloads exist too)
+init(_ colorSpace: Color.RGBColorSpace = .sRGB, red: Double, green: Double, blue: Double, opacity: Double = 1)   // Color, 10.15+; RGBColorSpace sRGB/sRGBLinear/displayP3
+convenience init?(data: Data)                                                                       // NSImage; docs metadata omits introducedAt (it predates 10.10)
+```
+
+- `dropDestination(for:action:isTargeted:)` is **deprecated macOS 27.3** (introduced 13.0); its
+  replacement `dropDestination(for:isEnabled:action:)` is **macOS 26.0+** — unusable at the
+  macOS 14 target, so the drop uses `onDrop` + `NSItemProvider` instead (D-118).
+
+### Import panels and providers
+
+```swift
+@MainActor class NSSavePanel                                                            // allowedContentTypes 11.0+; message/prompt are String!
+var allowedContentTypes: [UTType] { get set }
+var message: String! { get set } / var prompt: String! { get set }
+func beginSheetModal(for window: NSWindow, completionHandler handler: @escaping (NSApplication.ModalResponse) -> Void)   // 10.6+; also an async variant
+func runModal() -> NSApplication.ModalResponse
+@MainActor class NSOpenPanel: NSSavePanel
+var canChooseFiles: Bool / canChooseDirectories: Bool / allowsMultipleSelection: Bool  // NSOpenPanel
+var urls: [URL] { get }                                                                 // NSOpenPanel
+weak var keyWindow: NSWindow? { get }                                                   // NSApplication
+struct ModalResponse { init(_ rawValue: UInt); static let ok, cancel, continue, stop, abort, … }   // NSApplication.ModalResponse
+init?(filenameExtension: String, conformingTo supertype: UTType = .data)                // UTType, 11.0+ (one page covers both spellings)
+static var image: UTType { get }                                                       // UTType, 11.0+ ("public.image")
+```
+
+- **UNVERIFIED:** `NSOpenPanel()`/`NSSavePanel()` have no initializer docs page (NSObject's
+  `init` reaches them); Apple's sample code calls them, as with `WKWebViewConfiguration()`.
+- **Modelling choice:** `beginSheetModal`'s completion has no isolation in the docs; the stub
+  declares it `@MainActor` (AppKit runs it on the main thread), like other AppKit completions.
+- **Modelling choice:** `NSItemProvider.loadObject(ofClass:completionHandler:)`'s generic
+  overload is documented as `T : _ObjectiveCBridgeable, T._ObjectiveCType : NSItemProviderReading`
+  (URL qualifies on a Mac). corelibs Foundation has no `_ObjectiveCBridgeable`, so the stub
+  drops the constraint; `loadObject(ofClass: URL.self)` still compiles line for line on a Mac.
+  Only use it with bridged types (URL, String).
+- `NSItemProvider`/`NSItemProviderReading` are Darwin Foundation (corelibs lacks them), so they
+  live in the AppKit stub's Darwin section; `canLoadObject(ofClass:)` 10.13+, `loadObject` 10.13+.
+
 ---
 
 ## Verified vs UNVERIFIED

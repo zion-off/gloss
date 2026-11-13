@@ -42,7 +42,8 @@ public struct MainWindow: View {
             if started {
                 switch app.workspace.detail {
                 case .library:
-                    LibraryList(library: app.library, open: open)
+                    LibraryGrid(library: app.library, presentation: app.presentation, open: open,
+                               moveToTrash: moveToTrash)
                 case .trash:
                     ContentUnavailableView("trash", systemImage: "trash")
                 case .book:
@@ -143,12 +144,19 @@ public struct MainWindow: View {
         try? await app.notes.load(page, discardingUnsaved: true)
     }
 
+    /// brief 39's move-to-trash (with its undo toast) lands with the trash slice; the lead wires
+    /// this closure at merge. The grid takes it as a parameter so that slice owns the behaviour.
+    private func moveToTrash(document: Document) {
+        _ = document
+    }
+
     /// Starts the window, then polls for changes from the cli and other windows once a second
     /// until the window closes (the task is cancelled with it).
     private func run() async {
         await prepare()
         await app.workspace.loadPersistedLayout()
         app.reader.openExternal = { url in _ = NSWorkspace.shared.open(url) }
+        await app.library.loadPersistedSort()  // one sort for every window, before the first grid
         await app.library.reload()
         await app.trash.reload()  // the source list's badge
         await app.startMonitoringChanges()
@@ -156,44 +164,13 @@ public struct MainWindow: View {
         while !Task.isCancelled {
             try? await Task.sleep(for: .seconds(1))
             await app.changeMonitor?.poll()
+            await app.library.syncSort()  // a sort changed in another window lands here within a second
         }
     }
 
     private func open(_ id: DocumentID) async {
         // A book that just went (trashed from the cli) stays unopened; the next poll drops it.
         try? await app.workspace.openDocument(id)
-    }
-}
-
-/// The library as a plain list until the cover grid lands; a click opens the book.
-struct LibraryList: View {
-    let library: LibraryModel
-    let open: @MainActor (DocumentID) async -> Void
-
-    var body: some View {
-        List(selection: Binding<DocumentID?>(get: { nil }, set: { id in
-            if let id { Task { await open(id) } }
-        })) {
-            ForEach(library.entries) { entry in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: entry.document.title)
-                        .lineLimit(2)
-                    if !entry.document.author.isEmpty {
-                        Text(verbatim: entry.document.author)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                }
-                .tag(entry.id)
-            }
-        }
-        .overlay {
-            if library.entries.isEmpty {
-                ContentUnavailableView("no books yet", systemImage: "books.vertical",
-                                       description: Text("add some with gloss import in terminal"))
-            }
-        }
     }
 }
 

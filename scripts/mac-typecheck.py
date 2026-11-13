@@ -46,7 +46,7 @@ OUT = Path(os.environ.get("TMPDIR", "/tmp")) / f"gloss-mac-typecheck-{hashlib.sh
 STUBS = ROOT / "scripts" / "mac-stubs"
 
 # Stand-in frameworks, in dependency order (each may import the ones before it).
-STUB_MODULES = ["AppKit", "UniformTypeIdentifiers", "SwiftUI", "WebKit", "PDFKit"]
+STUB_MODULES = ["UniformTypeIdentifiers", "AppKit", "SwiftUI", "WebKit", "PDFKit"]
 # Mac targets in dependency order; True marks targets that own SwiftPM resources (Bundle.module).
 MAC_TARGETS = [
     ("GlossReaderKit", False),

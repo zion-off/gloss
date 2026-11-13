@@ -15,6 +15,7 @@
 #if canImport(FoundationNetworking)
 @_exported import FoundationNetworking  // URLRequest, URLResponse: part of Foundation on Darwin
 #endif
+import UniformTypeIdentifiers
 
 // MARK: - Darwin Foundation / CoreGraphics (not in swift-corelibs-foundation)
 
@@ -156,6 +157,66 @@ open class NSWorkspace: NSObject {
 @MainActor open class NSApplication: NSResponder {
     public class var shared: NSApplication { fatalError() }
     open func activate() {}
+    /// appkit/nsapplication/keywindow — `weak var keyWindow: NSWindow? { get }`
+    open var keyWindow: NSWindow? { nil }
+    /// appkit/nsapplication/modalresponse — `struct ModalResponse`
+    public struct ModalResponse: Equatable, Sendable {
+        public let rawValue: UInt
+        public init(_ rawValue: UInt) { self.rawValue = rawValue }
+        /// appkit/nsapplication/modalresponse/ok
+        public static let ok = ModalResponse(1)
+        /// appkit/nsapplication/modalresponse/cancel
+        public static let cancel = ModalResponse(0)
+    }
+}
+
+// MARK: - Open and save panels
+
+/// appkit/nssavepanel — `@MainActor class NSSavePanel`. `NSSavePanel()`/`NSOpenPanel()` have no
+/// initializer page of their own (NSObject's `init` reaches them); Apple's sample code calls
+/// them, like `WKWebViewConfiguration()` (see MAC_API_NOTES).
+@MainActor open class NSSavePanel: NSResponder {
+    /// appkit/nssavepanel/allowedcontenttypes (macOS 11)
+    open var allowedContentTypes: [UTType] { get { fatalError() } set {} }
+    /// appkit/nssavepanel/message — `var message: String!`
+    open var message: String! { get { "" } set {} }
+    /// appkit/nssavepanel/prompt — `var prompt: String!`
+    open var prompt: String! { get { "" } set {} }
+    /// appkit/nssavepanel/beginsheetmodal(for:completionhandler:) (macOS 10.6). The docs show
+    /// no isolation on the handler; it runs on the main thread (AppKit), so the stub — like
+    /// other AppKit completions here — models it as @MainActor.
+    open func beginSheetModal(for window: NSWindow, completionHandler handler: @escaping @MainActor (NSApplication.ModalResponse) -> Void) {}
+    /// appkit/nssavepanel/runmodal()
+    open func runModal() -> NSApplication.ModalResponse { fatalError() }
+}
+
+/// appkit/nsopenpanel — `class NSOpenPanel`
+@MainActor open class NSOpenPanel: NSSavePanel {
+    /// appkit/nsopenpanel/canchoosefiles
+    open var canChooseFiles: Bool { get { false } set {} }
+    /// appkit/nsopenpanel/canchoosedirectories
+    open var canChooseDirectories: Bool { get { false } set {} }
+    /// appkit/nsopenpanel/allowsmultipleselection
+    open var allowsMultipleSelection: Bool { get { false } set {} }
+    /// appkit/nsopenpanel/urls
+    open var urls: [URL] { [] }
+}
+
+// MARK: - Drag and drop (Foundation on Darwin; corelibs Foundation has no NSItemProvider)
+
+/// foundation/nsitemproviderreading
+public protocol NSItemProviderReading: NSObjectProtocol {}
+
+/// foundation/nsitemprovider — `class NSItemProvider` (macOS 10.10). The generic members below
+/// are documented with a `T : _ObjectiveCBridgeable, T._ObjectiveCType : NSItemProviderReading`
+/// constraint (URL qualifies on a Mac); the stub drops that underscored constraint because
+/// corelibs Foundation on Linux has no `_ObjectiveCBridgeable`. Use them only with bridged
+/// types (URL, String).
+open class NSItemProvider: NSObject {
+    /// foundation/nsitemprovider/canloadobject(ofclass:)-40grc (macOS 10.13)
+    public func canLoadObject<T>(ofClass: T.Type) -> Bool { false }
+    /// foundation/nsitemprovider/loadobject(ofclass:completionhandler:)-6pysm (macOS 10.13)
+    @discardableResult public func loadObject<T>(ofClass: T.Type, completionHandler: @escaping @Sendable (T?, (any Error)?) -> Void) -> Progress { fatalError() }
 }
 
 // MARK: - Colours, fonts, images, drawing
@@ -209,6 +270,9 @@ open class NSFontDescriptor: NSObject, @unchecked Sendable {
 /// appkit/nsimage — `class NSImage`
 open class NSImage: NSObject {
     public init?(systemSymbolName name: String, accessibilityDescription description: String?) {}
+    /// appkit/nsimage/init(data:) — `convenience init?(data: Data)` (docs metadata omits the
+    /// version; it predates 10.10)
+    public convenience init?(data: Data) { fatalError() }
     open var tiffRepresentation: Data? { nil }
     open func draw(in rect: NSRect) {}
 }
