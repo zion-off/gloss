@@ -90,3 +90,28 @@ test failed without its fix.
 | nit | opening at a passage resolves the CFI twice (once as `position`, once to flash) | **declined**: the flash needs the second resolve; a `flash` flag on `open` saves one round trip but adds protocol for nothing user-visible |
 | nit | the trash title cache's double optional deserved a comment | fixed in `36408e7` |
 | nit | SMIL `set`/`animate` targeting `on*` attributes wasn't covered | fixed in `e71a839` |
+
+## Review 5 — `review-4-head..review-5-head` (review 4 fixes, milestone 10 Mac editor)
+
+The reviewer re-verified every review-4 fix by reverting it in a scratch copy: each regression
+test failed without its fix, and the `application/xml` vector was confirmed against the vendored
+foliate loader.
+
+| Severity | Finding | Outcome |
+|---|---|---|
+| critical | the Mac editor could not compile: `runs` was called on the wrong theme, `textStorage` unwrapped five times, a struct cached fonts from a non-mutating method | fixed in `0048bb2` |
+| major | overlay anchors were mirrored vertically (AppKit bottom-left vs SwiftUI top-left) | fixed in `fd4bac4`: the flip and placement are `OverlayGeometry` (GlossAppModel), Linux-tested |
+| major | undo history survived page switches, so ⌘Z replayed the old page's edit into the new one and the autosave persisted it | fixed in `0048bb2`: installs and external replaces clear the undo history |
+| major | subpage row matching depended on whether the paragraph range includes its newline — unverifiable off a Mac | fixed in `45e4706`: overlap matching in `SubpageRows.row(covering:in:)`, Linux-tested |
+| major | an engine throw during an open left the reader wedged (only the event path unwedged) | fixed in `a461491`, with a throwing-driver regression test |
+| minor | rapid document-kind switches could clobber the fresh session (async prepare, no cancellation check) | fixed in `65bb2e9` |
+| minor | link-status changes never restyled until the next keystroke | fixed in `65bb2e9` (span tracking in sync) |
+| minor | closing a window dropped up to 500 ms of typed notes and the last position | fixed in `40a6bc7` (`onDisappear` flushes both) |
+| minor | a `<template>` in a generic XML document crashed the sanitizer's promise (fail-closed, but the section died) | fixed in `a303e25`, duck-typed fragment |
+| minor | the unsaved-changes alert's title didn't match its cause, and Escape couldn't dismiss it | fixed in `40a6bc7` ("this page has unsaved changes", keep = cancel role) |
+| minor | REVIEWS.md claimed every fix has a failing-without-it test, untrue for glue.ts and Mac-only fixes | fixed in `cc32fc7`: the header says where the platform forbids it |
+| nit | milestone-10 decisions missing from DECISIONS.md | fixed in `cc32fc7` (D-089…D-094) |
+| nit | dead `max(length, 1)` in the restyle clamp | fixed in `0048bb2` |
+| nit | every external change refetched the editor's page | fixed in `cc32fc7` (scoped to the changed page ids) |
+| nit | the coordinator's closures were wired only at creation | fixed in `cc32fc7` (rewired every update) |
+| nit | handoff gaps: the fragment subclass's isolation, the paragraph-range semantics, undoManager presence | fixed in `cc32fc7` |
