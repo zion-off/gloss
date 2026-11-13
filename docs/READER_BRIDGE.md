@@ -27,7 +27,8 @@ protocol. Both sides implement it and are tested against the same fixtures:
 ## Shared types
 
 - `Rect`: `{ "x": number, "y": number, "width": number, "height": number }` in CSS pixels, relative to the
-  web view's viewport (top-left origin). JS adds the section iframe's offset.
+  web view's viewport (top-left origin). JS adds the section iframe's offset. Every engine's anchors
+  (`ReaderRect`) follow this top-left contract; the PDF engine converts with `ReaderRect.fromBottomLeft`.
 - `HighlightColorName`: `"yellow" | "green" | "blue" | "pink" | "purple"`.
 - `TocItem`: `{ "label": string, "href": string, "children": [TocItem] }`.
 - `Appearance` (computed in Swift by `GlossReaderBridge.AppearanceStyler`):

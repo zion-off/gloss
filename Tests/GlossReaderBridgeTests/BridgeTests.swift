@@ -210,3 +210,14 @@ struct ReaderProgressTests {
         #expect(payload.markers == [ReaderMarkerAnnotation(id: target.id.stringValue, cfi: "cfi-b")])
     }
 }
+
+@Suite("reader rects")
+struct ReaderRectTests {
+    @Test("bottom-left measurements flip into the top-left contract")
+    func fromBottomLeft() {
+        // 20 tall, ending 30 from the bottom of a 500-tall view: its top is 450 from the top.
+        #expect(ReaderRect.fromBottomLeft(x: 4, y: 10, width: 8, height: 20, containerHeight: 500)
+                == ReaderRect(x: 4, y: 470, width: 8, height: 20))
+        #expect(ReaderRect.fromBottomLeft(x: 0, y: 480, width: 1, height: 20, containerHeight: 500).y == 0)
+    }
+}

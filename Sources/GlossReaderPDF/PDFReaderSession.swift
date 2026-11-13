@@ -181,15 +181,23 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
         inbox.post(.selectionChanged(passage, anchor: anchor))
     }
 
-    /// The selection's first line, in the reader's coordinates (what popovers anchor to).
+    /// The selection's first line, in the reader's top-left-origin coordinates (what popovers
+    /// anchor to).
     private func anchorRect(for selection: PDFSelection, in pdf: PDFDocument) -> ReaderRect {
         for line in selection.selectionsByLine() {
             guard let page = line.pages.first else { continue }
-            let bounds = line.bounds(for: page)
-            let inView = pdfView.convert(bounds, from: page)
-            return ReaderRect(x: inView.minX, y: inView.minY, width: inView.width, height: inView.height)
+            return Self.readerRect(pdfView.convert(line.bounds(for: page), from: page), in: pdfView)
         }
         return ReaderRect(x: 0, y: 0, width: 0, height: 0)
+    }
+
+    /// A rect in `view`'s coordinates, in the reader contract's top-left origin. Whether
+    /// `PDFView` is flipped isn't documented, so ask the view rather than assume.
+    static func readerRect(_ rect: NSRect, in view: NSView) -> ReaderRect {
+        view.isFlipped
+            ? ReaderRect(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height)
+            : .fromBottomLeft(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height,
+                              containerHeight: view.bounds.height)
     }
 
     // MARK: Drawing help
@@ -305,8 +313,12 @@ final class PDFPageOverlay: NSView {
             }
         }
         guard !highlights.isEmpty || !markers.isEmpty else { return }
-        let inView = pdfView.convert(NSRect(x: inPage.x, y: inPage.y, width: 1, height: 1), from: page)
-        onActivate(highlights, markers, ReaderRect(x: inView.minX, y: inView.minY, width: 8, height: inView.height + 8))
+        // Anchor the popover to the clicked mark's rect, in the reader's coordinates.
+        let mark = marks.first { $0.rects.contains { $0.contains(x: inPage.x, y: inPage.y, slop: 2) } }
+        let rect = mark?.rects.first { $0.contains(x: inPage.x, y: inPage.y, slop: 2) }
+            ?? PDFPageRect(x: inPage.x, y: inPage.y, width: 1, height: 1)
+        let inView = pdfView.convert(NSRect(x: rect.x, y: rect.y, width: rect.width, height: rect.height), from: page)
+        onActivate(highlights, markers, PDFReaderSession.readerRect(inView, in: pdfView))
     }
 
     private func hit(point: NSPoint, in pdfView: PDFView) -> Bool? {

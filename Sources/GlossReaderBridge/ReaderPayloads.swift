@@ -19,6 +19,16 @@ public struct ReaderRect: Codable, Hashable, Sendable {
     }
 }
 
+extension ReaderRect {
+    /// A rect measured in a bottom-left-origin view (AppKit unflipped, PDF page space after
+    /// conversion), in the reader's top-left-origin coordinates — the contract every
+    /// `ReaderEngineEvent` anchor follows (docs/READER_BRIDGE.md, "Shared types").
+    public static func fromBottomLeft(x: Double, y: Double, width: Double, height: Double,
+                                      containerHeight: Double) -> ReaderRect {
+        ReaderRect(x: x, y: containerHeight - (y + height), width: width, height: height)
+    }
+}
+
 /// Reading flow.
 public enum ReaderFlow: String, Codable, Sendable {
     case paginated
