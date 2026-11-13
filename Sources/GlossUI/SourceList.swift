@@ -72,15 +72,16 @@ struct SourceList: View {
 
     // MARK: The open book
 
-    /// The book's table of contents, nested as the book nests it (none for a book without one).
+    /// The book's table of contents, indented as the book nests it (none for a book without one).
     @ViewBuilder private var contents: some View {
         let nodes = app.contents
         if !nodes.isEmpty {
             Section("contents", isExpanded: $showsContents) {
-                OutlineGroup(nodes, children: \.children) { node in
-                    Text(verbatim: node.label)
+                ForEach(OutlineRow.rows(nodes, children: \.children)) { row in
+                    Text(verbatim: row.node.label)
                         .lineLimit(2)
-                        .tag(SidebarSelection.contents(node.id))
+                        .padding(.leading, Self.indent(row.depth))
+                        .tag(SidebarSelection.contents(row.node.id))
                 }
             }
         }
@@ -113,10 +114,12 @@ struct SourceList: View {
     /// with its book.
     private var notes: some View {
         Section(isExpanded: $showsNotes) {
-            OutlineGroup(app.bookSidebar.pages, children: \.children) { page in
+            ForEach(OutlineRow.rows(app.bookSidebar.pages, children: \.children)) { row in
+                let page = row.node
                 // The editor's subpage rows use the same symbol.
                 Label(page.title, systemImage: "doc.text")
                     .lineLimit(1)
+                    .padding(.leading, Self.indent(row.depth))
                     .tag(SidebarSelection.page(page.id))
                     .contextMenu {
                         if page.id != app.bookSidebar.pages.first?.id {
@@ -134,6 +137,10 @@ struct SourceList: View {
             }
         }
     }
+
+    /// How far a nested contents entry or notes page sits in, per level: the trees are indented
+    /// rows, not expandable outline rows (D-147), so every row keeps the library's alignment.
+    static func indent(_ depth: Int) -> CGFloat { CGFloat(depth) * 14 }
 
     /// Edit › Delete (and the delete key) removes the selection: a highlight, a notes page, or
     /// the open book. A page that can't go to the trash says so in a toast.

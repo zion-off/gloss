@@ -253,8 +253,13 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
 - Highlights: colour dot, two lines of passage, its location label. Right-click › "remove
   highlight" and the delete key (Edit › Delete via `onDeleteCommand`) both remove it; ⌘Z brings it
   back and the row returns.
-- Long tables of contents: check scrolling and that nested entries disclose (`OutlineGroup`) and
-  stay disclosed while the reader moves; untitled pages show as "untitled".
+- Long tables of contents: check scrolling; nested entries are indented rows now, always shown
+  (D-147, no disclosure triangles); untitled pages show as "untitled".
+- **Row alignment (D-147), unverified:** with a book open, "all", the shelves and "trash" sit
+  exactly where they sit on the library (icons and titles at the same x); click "all" and back to
+  the book: nothing in the sidebar moves sideways. Nested contents entries and subpages step in
+  14 pt per level. If rows still shift, the collapsible `Section(isExpanded:)` headers are the
+  next suspect.
 - The title bar follows the detail column: the shelf's name, "library", "trash", or the book's title.
 
 ### `Sources/GlossUI/LibraryGrid.swift` + `LibraryFeatures.swift` + `LibraryCommands.swift` (milestone 12)

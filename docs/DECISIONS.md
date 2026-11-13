@@ -510,3 +510,9 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   body-font title looked bigger than the notes); the row's icon is the symbol configured at the
   body font's size and drawn at its own aspect; the hover block clears on a row click and when
   another page's text is installed.
+- **D-147 The sidebar's contents and notes trees are indented rows, not `OutlineGroup`s.** An
+  expandable row makes the sidebar's outline view reserve the disclosure triangle's room for every
+  row (Mail does this too), so with a book open "library" and "reading" shifted right of where they
+  sit on the library, and jumped back on "all". `OutlineRow.rows` flattens a tree with depths
+  (GlossAppModel, tested) and the list indents nested rows 14 pt per level; the trees no longer
+  collapse per node (Books' contents don't either), only per section.

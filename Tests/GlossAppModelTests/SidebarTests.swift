@@ -182,3 +182,21 @@ struct SidebarTests {
         #expect(app.bookSidebar.pages.first?.children == nil)
     }
 }
+
+@Suite("outline rows")
+struct OutlineRowTests {
+    @Test("a tree flattens in reading order with each entry's depth")
+    func flatten() {
+        let target = Locator(scheme: FakeFormat.scheme, value: "0")
+        let tree = [
+            ContentsNode(id: "0", label: "one", target: target, children: [
+                ContentsNode(id: "0.0", label: "one.a", target: target, children: [
+                    ContentsNode(id: "0.0.0", label: "one.a.i", target: target, children: nil)]),
+            ]),
+            ContentsNode(id: "1", label: "two", target: target, children: nil),
+        ]
+        let rows = OutlineRow.rows(tree, children: \.children)
+        #expect(rows.map(\.id) == ["0", "0.0", "0.0.0", "1"])
+        #expect(rows.map(\.depth) == [0, 1, 2, 0])
+    }
+}

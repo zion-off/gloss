@@ -62,6 +62,21 @@ public struct ContentsNode: Hashable, Identifiable, Sendable {
     }
 }
 
+/// A tree laid out as rows with their depth, in order: the source list indents nested entries
+/// itself instead of using expandable outline rows, whose disclosure triangles made the sidebar
+/// shift every row, the library's too, whenever a book was open (D-147).
+public struct OutlineRow<Node: Identifiable>: Identifiable {
+    public let node: Node
+    public let depth: Int
+    public var id: Node.ID { node.id }
+
+    public static func rows(_ nodes: [Node], children: KeyPath<Node, [Node]?>, depth: Int = 0) -> [OutlineRow<Node>] {
+        nodes.flatMap { node in
+            [OutlineRow(node: node, depth: depth)] + rows(node[keyPath: children] ?? [], children: children, depth: depth + 1)
+        }
+    }
+}
+
 /// One notes page in the sidebar's read-only outline (brief 25: no drag to reorder).
 public struct PageOutlineNode: Hashable, Identifiable, Sendable {
     public var id: PageID
