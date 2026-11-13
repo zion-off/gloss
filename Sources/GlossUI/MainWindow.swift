@@ -57,7 +57,7 @@ public struct MainWindow: View {
         .focusedSceneValue(\.windowCommands, commands)
         .task { await run() }
         .task(id: app.workspace.readerFocus) { await app.showReaderFocus() }
-        .task(id: app.workspace.document?.id) { await app.showBookSidebar() }
+        .task(id: app.bookSidebarSubjects) { await app.showBookSidebar() }
         .task(id: app.workspace.pendingNoteReveal) {
             if let range = app.workspace.pendingNoteReveal, let page = app.workspace.page {
                 reveal = NotesReveal(pageID: page.id, range: range)
@@ -204,12 +204,14 @@ struct NotesPane: View {
     @Binding var unsavedFailure: String?
     /// The window's commands: ⌘K, add to notes and history reach the editor through these.
     let commands: WindowCommands
+    /// Why the last link clicked in the notes went nowhere (shown in an alert).
+    @State private var linkProblem: RouteProblem?
 
     var body: some View {
         VStack(spacing: 0) {
             breadcrumbs
             NotesEditor(model: app.notes, reveal: reveal,
-                        onOpenGlossLink: { link in await app.follow(link) },
+                        onOpenGlossLink: { link in linkProblem = await app.follow(link).problem },
                         onOpenWebLink: { url in _ = NSWorkspace.shared.open(url) },
                         onOpenPage: { id in Task { try? await app.workspace.openPage(id) } },
                         actions: { actions in
@@ -228,6 +230,12 @@ struct NotesPane: View {
                 }
         }
         .task(id: app.workspace.page?.id) { await loadPage() }
+        .alert(Text(verbatim: linkProblem?.title ?? ""),
+               isPresented: Binding(get: { linkProblem != nil }, set: { if !$0 { linkProblem = nil } })) {
+            Button("ok", role: .cancel) {}
+        } message: {
+            Text(verbatim: linkProblem?.detail ?? "")
+        }
     }
 
     private var failedMessage: String? {

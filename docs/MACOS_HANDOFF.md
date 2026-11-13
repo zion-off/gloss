@@ -46,6 +46,13 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
    - Rest the pointer on the link: a popover shows the passage's quote, label and book.
    - Delete the link, then ⌘Z: the marker goes and comes back. Remove it with `gloss page write`
      from the terminal: the marker goes within about a second (the change monitor).
+   - **Across books (D-102):** with book A's notes open, follow a link to book B (or go back in the
+     reader to B): the reader swaps, the notes stay on A, and the sidebar's notes section reads
+     "notes · A". Select words in A's notes and a passage in B, press ⌘K: the marker appears in B.
+     Click it: A's note opens beside B without the reader moving. Click into the reader and press ⌘[:
+     only the reader goes back; click into the notes and press ⌘[: only the notes do.
+   - A link to something in the trash or deleted for good says so in an alert instead of doing
+     nothing.
 3. **Native markdown editor with links and the floating formatting bar.** Written in milestone 10;
    details in the `Sources/GlossEditor/` section below.
    - Type markdown (headings, emphasis, lists, task boxes, quotes, code): it styles as you type and the

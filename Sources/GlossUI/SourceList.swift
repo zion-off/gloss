@@ -90,14 +90,22 @@ struct SourceList: View {
         }
     }
 
-    /// The book's notes pages as a read-only tree (brief 25: no drag to reorder or reparent).
+    /// The notes pane's pages as a read-only tree (brief 25: no drag to reorder or reparent). After
+    /// a cross-book link they belong to another book than the reader's, and the header says
+    /// which (D-102).
     private var notes: some View {
-        Section("notes", isExpanded: $showsNotes) {
+        Section(isExpanded: $showsNotes) {
             OutlineGroup(app.bookSidebar.pages, children: \.children) { page in
                 // The editor's subpage rows use the same symbol.
                 Label(page.title, systemImage: "doc.text")
                     .lineLimit(1)
                     .tag(SidebarSelection.page(page.id))
+            }
+        } header: {
+            if let title = app.bookSidebar.notesTitle {
+                Text(verbatim: "notes · \(title)")
+            } else {
+                Text("notes")
             }
         }
     }
