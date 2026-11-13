@@ -17,10 +17,11 @@ struct WireContractTests {
 
     /// Every command type, plus each nullable field in its empty form.
     static let commands: [(name: String, command: ReaderCommand)] = [
-        ("open", .open(ReaderOpenPayload(url: "gloss-reader://app/book/01m78xptr8fa4r6vwtr0f789s9",
+        ("open", .open(ReaderOpenPayload(openID: 1, url: "gloss-reader://app/book/01m78xptr8fa4r6vwtr0f789s9",
                                          position: "epubcfi(/6/8!/4/2/1:0)", appearance: appearance))),
-        ("open-without-position", .open(ReaderOpenPayload(url: "gloss-reader://app/book/01m78xptr8fa4r6vwtr0f789s9",
+        ("open-without-position", .open(ReaderOpenPayload(openID: 2, url: "gloss-reader://app/book/01m78xptr8fa4r6vwtr0f789s9",
                                                           position: nil, appearance: appearance))),
+        ("close", .close),
         ("goTo-cfi", .goTo(ReaderGoToPayload(target: .cfi("epubcfi(/6/10!/4/2/2/1:12)"), flash: true))),
         ("goTo-href", .goTo(ReaderGoToPayload(target: .href("text/ch001.xhtml")))),
         ("goTo-fraction", .goTo(ReaderGoToPayload(target: .fraction(0.5)))),
@@ -70,13 +71,13 @@ struct WireContractTests {
 
     @Test("empty nullable fields go on the wire as null")
     func nullsAreExplicit() throws {
-        let open = try Self.encode(.open(ReaderOpenPayload(url: "u", position: nil, appearance: Self.appearance)))
+        let open = try Self.encode(.open(ReaderOpenPayload(openID: 1, url: "u", position: nil, appearance: Self.appearance)))
         #expect(open.contains("\"position\" : null"))
         let reveal = try Self.encode(.revealSearchHit(ReaderRevealSearchHitPayload(text: "t")))
         #expect(reveal.contains("\"cfi\" : null"))
         #expect(reveal.contains("\"section\" : null"))
         // And they still decode back.
         #expect(try JSONDecoder().decode(ReaderCommand.self, from: Data(open.utf8))
-                == .open(ReaderOpenPayload(url: "u", position: nil, appearance: Self.appearance)))
+                == .open(ReaderOpenPayload(openID: 1, url: "u", position: nil, appearance: Self.appearance)))
     }
 }

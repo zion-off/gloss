@@ -137,21 +137,25 @@ public struct ReaderTocItem: Codable, Hashable, Sendable {
 // the key (docs/READER_BRIDGE.md), and synthesized Codable would leave nil keys out.
 
 public struct ReaderOpenPayload: Codable, Hashable, Sendable {
+    /// Echoed by `opened`, so the app can tell which open a reply belongs to.
+    public var openID: Int
     public var url: String
     /// The CFI to return to, or nil to start at the beginning (sent as null).
     public var position: String?
     public var appearance: ReaderAppearance
 
-    public init(url: String, position: String?, appearance: ReaderAppearance) {
+    public init(openID: Int, url: String, position: String?, appearance: ReaderAppearance) {
+        self.openID = openID
         self.url = url
         self.position = position
         self.appearance = appearance
     }
 
-    private enum CodingKeys: String, CodingKey { case url, position, appearance }
+    private enum CodingKeys: String, CodingKey { case openID, url, position, appearance }
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(openID, forKey: .openID)
         try container.encode(url, forKey: .url)
         try container.encode(position, forKey: .position)
         try container.encode(appearance, forKey: .appearance)
@@ -281,12 +285,15 @@ public struct ReaderSetAppearancePayload: Codable, Hashable, Sendable {
 // MARK: Event payloads
 
 public struct ReaderOpenedPayload: Codable, Hashable, Sendable {
+    /// The `openID` of the `open` this answers.
+    public var openID: Int
     public var toc: [ReaderTocItem]
     public var sectionCount: Int
     public var direction: ReaderDirection
     public var fixedLayout: Bool
 
-    public init(toc: [ReaderTocItem], sectionCount: Int, direction: ReaderDirection, fixedLayout: Bool) {
+    public init(openID: Int, toc: [ReaderTocItem], sectionCount: Int, direction: ReaderDirection, fixedLayout: Bool) {
+        self.openID = openID
         self.toc = toc
         self.sectionCount = sectionCount
         self.direction = direction

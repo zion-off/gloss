@@ -8,6 +8,7 @@
 export const PROTOCOL_VERSION = 1;
 export const COMMAND_TYPES = Object.freeze([
     'open',
+    'close',
     'goTo',
     'turnPage',
     'setAppearance',
@@ -151,10 +152,12 @@ const goToTargetSpec = {
 // -- payload specs ---------------------------------------------------------
 export const COMMAND_PAYLOAD_SPECS = {
     open: {
+        openID: { t: 'number', min: 1, int: true },
         url: STR,
         position: { t: 'string', nullable: true },
         appearance: APPEARANCE,
     },
+    close: {},
     goTo: {
         target: goToTargetSpec,
         flash: BOOL,
@@ -199,6 +202,7 @@ export const COMMAND_PAYLOAD_SPECS = {
 export const EVENT_PAYLOAD_SPECS = {
     ready: {},
     opened: {
+        openID: { t: 'number', min: 1, int: true },
         toc: { t: 'array', item: { t: 'tocitem' } },
         sectionCount: { t: 'number', min: 1, int: true },
         direction: { t: 'enum', values: DIRECTIONS },

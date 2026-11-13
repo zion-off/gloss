@@ -6,7 +6,7 @@
 // pinned commit; see foliate/VENDORED.md).
 //
 // Not testable under Node (needs WebKit); keep it small and readable.
-import 'foliate/view.js';
+import { makeBook } from 'foliate/view.js';
 import { Overlayer } from 'foliate/overlayer.js';
 import * as protocol from './bridge/protocol.js';
 import * as annotations from './bridge/annotations.js';
@@ -22,7 +22,10 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 const SELECTION_DEBOUNCE_MS = 150;
 const FLASH_MS = 1500;
 // -- state -----------------------------------------------------------------
-let opened = false;
+let opened = false; // a book is open and taking commands
+let needsClose = false; // view.open may have built a renderer
+let bookGeneration = 0; // bumped on close: late callbacks of a closed book bail
+let searchGeneration = 0; // bumped to stop a running search posting
 let colors = null;
 let drawn = []; // annotations currently drawn
 let hadSelection = false; // suppress selectionCleared noise
@@ -97,6 +100,8 @@ view.addEventListener('draw-annotation', e => {
     draw(makeDraw(annotations.styleFor(entryAt(annotation.value), colors)));
 });
 view.addEventListener('show-annotation', e => {
+    if (!opened)
+        return;
     const { value, range, index } = eventDetail(e);
     postEvent('annotationActivated', {
         ...annotations.idsAt(value, drawn),
@@ -104,11 +109,17 @@ view.addEventListener('show-annotation', e => {
     });
 });
 // -- navigation ------------------------------------------------------------
-view.addEventListener('relocate', e => postEvent('relocated', progress.makeRelocated(eventDetail(e), view.renderer)));
+view.addEventListener('relocate', e => {
+    if (!opened)
+        return;
+    postEvent('relocated', progress.makeRelocated(eventDetail(e), view.renderer));
+});
 // External links: foliate would `window.open` them; we prevent that and hand
 // them to Swift instead. Internal links are handled by foliate itself.
 view.addEventListener('external-link', e => {
     e.preventDefault();
+    if (!opened)
+        return;
     postEvent('linkActivated', {
         href: eventDetail(e).href_,
         external: true,
@@ -165,7 +176,12 @@ const emitSelection = (doc, index) => {
 };
 view.addEventListener('load', e => {
     const { doc, index } = eventDetail(e);
-    const debounced = selection.makeDebouncer(() => emitSelection(doc, index), SELECTION_DEBOUNCE_MS);
+    // a debounced selection that settles after its book closed must not reach Swift
+    const generation = bookGeneration;
+    const debounced = selection.makeDebouncer(() => {
+        if (generation === bookGeneration && opened)
+            emitSelection(doc, index);
+    }, SELECTION_DEBOUNCE_MS);
     doc.addEventListener('selectionchange', debounced);
 });
 // -- keyboard ---------------------------------------------------------------
@@ -202,25 +218,48 @@ const applyAppearance = (payload) => {
             view.renderer?.setStyles?.(op.css);
     }
 };
+// -- book lifecycle ------------------------------------------------------------
+// Closes the open book, if any. After this nothing about it reaches Swift: view-level
+// listeners check `opened`, per-section ones check the generation they were made in.
+const closeBook = () => {
+    bookGeneration++;
+    searchGeneration++;
+    opened = false;
+    drawn = [];
+    hadSelection = false;
+    if (needsClose) {
+        needsClose = false;
+        try {
+            view.close();
+        }
+        catch (error) {
+            postError(error, 'close');
+        }
+    }
+};
 // -- command handlers ---------------------------------------------------------
 const requireRenderer = () => {
-    if (!view.renderer)
+    // after `close`, foliate leaves `renderer` pointing at the destroyed element
+    if (!opened || !view.renderer)
         throw new Error('no book is open');
     return view.renderer;
 };
 const commands = {
-    async open({ url, position, appearance: appearancePayload }) {
-        if (opened)
-            throw new Error('a book is already open');
+    async open({ openID, url, position, appearance: appearancePayload }) {
+        // switching books happens in place: the previous one closes first
+        closeBook();
         const res = await fetch(url);
         if (!res.ok)
             throw new Error(`fetch ${url} failed: ${res.status} ${res.statusText}`);
         const blob = await res.blob();
         const file = new File([blob], 'book.epub', { type: 'application/epub+zip' });
-        await view.open(file);
+        const book = await makeBook(file);
+        needsClose = true;
+        await view.open(book);
         opened = true;
         applyAppearance(appearancePayload);
         postEvent('opened', {
+            openID,
             toc: toc.normalizeToc(view.book.toc),
             sectionCount: view.book.sections.length,
             direction: view.book.dir === 'rtl' ? 'rtl' : 'ltr',
@@ -230,6 +269,9 @@ const commands = {
             lastLocation: position ?? undefined,
             showTextStart: !position,
         });
+    },
+    async close() {
+        closeBook();
     },
     async goTo({ target, flash }) {
         requireRenderer();
@@ -286,17 +328,31 @@ const commands = {
         requireRenderer();
         view.deselect();
     },
+    // Starts the search and returns: results stream as events, and commands queued behind
+    // it (navigation, the next search) must not wait for the whole book to be searched.
     async search({ query }) {
         requireRenderer();
+        const generation = ++searchGeneration;
         const mapper = search.makeSearchMapper(query);
-        for await (const result of view.search({ query })) {
-            const payload = mapper.map(result);
-            if (payload)
-                postEvent('searchResults', payload);
-        }
+        void (async () => {
+            try {
+                for await (const result of view.search({ query })) {
+                    if (generation !== searchGeneration)
+                        return;
+                    const payload = mapper.map(result);
+                    if (payload)
+                        postEvent('searchResults', payload);
+                }
+            }
+            catch (error) {
+                if (generation === searchGeneration)
+                    postError(error, 'search');
+            }
+        })();
     },
     async clearSearch() {
         requireRenderer();
+        searchGeneration++;
         view.clearSearch();
     },
     async revealSearchHit({ cfi, section, text }) {
@@ -318,22 +374,24 @@ const commands = {
     },
 };
 // -- bridge surface ------------------------------------------------------------
+let commandQueue = Promise.resolve();
 window.glossReader = {
     // Called by Swift via callAsyncJavaScript. Invalid commands reject with
     // an Error whose message starts with "bridge:"; runtime failures become
     // `error` events. Returns null (commands reply through events).
+    // Commands run one at a time, in the order they arrive, so an `open` that is still
+    // fetching never interleaves with the commands sent after it.
     async receive(envelope) {
         const res = protocol.validateCommand(envelope);
         if (!res.ok)
             throw new Error(res.error);
         const { type, payload } = envelope;
-        try {
-            // the payload was just validated against `type`'s spec
-            await commands[type](payload);
-        }
-        catch (error) {
-            postError(error, type);
-        }
+        // the payload was just validated against `type`'s spec
+        const run = commandQueue
+            .then(() => commands[type](payload))
+            .catch((error) => postError(error, type));
+        commandQueue = run;
+        await run;
         return null;
     },
 };

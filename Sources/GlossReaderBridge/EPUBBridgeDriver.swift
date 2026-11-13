@@ -14,10 +14,14 @@ public final class EPUBBridgeDriver: ReaderDriving, ReflowableAppearanceApplying
         self.send = send
     }
 
-    public func open(_ document: Document, at position: Locator?) async throws {
+    public func open(_ document: Document, at position: Locator?, openID: Int) async throws {
         let cfi = position.flatMap { $0.scheme == EPUBLocators.cfiScheme ? $0.value : nil }
-        try await send(.open(ReaderOpenPayload(url: ReaderResourceRouter.bookURL(document.id).absoluteString,
+        try await send(.open(ReaderOpenPayload(openID: openID, url: ReaderResourceRouter.bookURL(document.id).absoluteString,
                                                position: cfi, appearance: appearance)))
+    }
+
+    public func close() async throws {
+        try await send(.close)
     }
 
     public func go(to locator: Locator, flash: Bool) async throws {
@@ -80,7 +84,7 @@ public final class EPUBBridgeDriver: ReaderDriving, ReflowableAppearanceApplying
         case .ready:
             return .ready
         case .opened(let payload):
-            return .opened(toc: payload.toc.map(tocEntry))
+            return .opened(toc: payload.toc.map(tocEntry), openID: payload.openID)
         case .relocated(let payload):
             return .relocated(ReaderLocation(
                 locator: Locator(scheme: EPUBLocators.cfiScheme, value: payload.cfi), progression: payload.fraction,

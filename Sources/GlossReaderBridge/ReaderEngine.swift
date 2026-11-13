@@ -72,7 +72,8 @@ public struct ReaderAnnotations: Hashable, Sendable {
 public enum ReaderEngineEvent: Hashable, Sendable {
     /// The engine can take commands.
     case ready
-    case opened(toc: [ReaderTocEntry])
+    /// The open with this id finished. Events about the book come after it, never before.
+    case opened(toc: [ReaderTocEntry], openID: Int)
     case relocated(ReaderLocation)
     /// The user selected a passage; `anchor` is where to point popovers (view coordinates).
     case selectionChanged(Passage, anchor: ReaderRect)
@@ -89,9 +90,15 @@ public enum ReaderDrivingError: Error, Equatable, Sendable {
 }
 
 /// The commands every engine supports.
+///
+/// `open` may be called while another book is open: the engine closes it first. Engines
+/// answer every `open` with `.opened(openID:)` carrying the id they were given, and stop
+/// reporting events about the previous book before they report it.
 @MainActor
 public protocol ReaderDriving: AnyObject {
-    func open(_ document: Document, at position: Locator?) async throws
+    func open(_ document: Document, at position: Locator?, openID: Int) async throws
+    /// Closes the open book, if any; the engine shows nothing until the next `open`.
+    func close() async throws
     func go(to locator: Locator, flash: Bool) async throws
     func turnPage(forward: Bool) async throws
     func show(_ annotations: ReaderAnnotations) async throws

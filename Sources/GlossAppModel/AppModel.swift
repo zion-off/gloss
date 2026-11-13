@@ -55,7 +55,7 @@ import GlossCore
         if let open = reader.document, documentIDs.contains(open.id.stringValue) {
             do {
                 let current = try await services.library.document(open.id)
-                if current == nil || current?.trash != nil { reader.close() }
+                if current == nil || current?.trash != nil { await reader.close() }
             } catch {
                 // A failed read proves nothing; keep the book open.
             }

@@ -16,6 +16,8 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
 ## Verify first (riskiest parts)
 
 1. **EPUB opens from the database in the web view.** _(not written yet)_
+   - **Switching books in place:** open book A, then B from the library, then A again quickly; the reader
+     always ends on the last one asked for, and A's position is never saved onto B.
 2. **Passage links resolve in both directions** (notes → book and book marker → note). _(not written yet)_
 3. **Native markdown editor with links and the floating formatting bar.** _(not written yet)_
 

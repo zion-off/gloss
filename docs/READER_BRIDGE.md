@@ -48,7 +48,8 @@ protocol. Both sides implement it and are tested against the same fixtures:
 
 | type | payload | effect |
 |---|---|---|
-| `open` | `{ "url": string, "position": string \| null, "appearance": Appearance }` | fetch the book, `view.open(file)`, apply appearance, `view.init({ lastLocation: position })` or show the text start; emits `opened` then `relocated` |
+| `open` | `{ "openID": int ≥ 1, "url": string, "position": string \| null, "appearance": Appearance }` | close the open book if any, fetch the new one, `view.open(book)`, apply appearance, `view.init({ lastLocation: position })` or show the text start; emits `opened` (echoing `openID`) then `relocated` |
+| `close` | `{}` | close the open book (`view.close()`); the reader shows nothing until the next `open` |
 | `goTo` | `{ "target": { "cfi": string } \| { "href": string } \| { "fraction": number }, "flash": bool }` | navigate; with `flash`, briefly outline the target range (≈1.5 s) |
 | `turnPage` | `{ "direction": "forward" \| "backward" }` | `view.next()` / `view.prev()` |
 | `setAppearance` | `Appearance` | re-apply styles, layout attributes and flow; redraw annotations with the new colours |
@@ -63,7 +64,7 @@ protocol. Both sides implement it and are tested against the same fixtures:
 | type | payload | when |
 |---|---|---|
 | `ready` | `{}` | the bridge loaded and waits for `open` |
-| `opened` | `{ "toc": [TocItem], "sectionCount": number, "direction": "ltr" \| "rtl", "fixedLayout": bool }` | after `view.open` |
+| `opened` | `{ "openID": int, "toc": [TocItem], "sectionCount": number, "direction": "ltr" \| "rtl", "fixedLayout": bool }` | after `view.open`; `openID` is the one the `open` carried |
 | `relocated` | `{ "cfi": string, "fraction": number, "section": { "index": number, "count": number }, "tocLabel": string \| null, "pageLabel": string \| null, "pagesLeftInSection": number \| null, "atStart": bool, "atEnd": bool }` | every foliate `relocate` |
 | `selectionChanged` | `{ "cfi": string, "text": string, "label": string \| null, "fraction": number \| null, "rect": Rect }` | a non-collapsed selection settles (debounced ≈150 ms) |
 | `selectionCleared` | `{}` | the selection collapses or is removed |
@@ -71,6 +72,21 @@ protocol. Both sides implement it and are tested against the same fixtures:
 | `linkActivated` | `{ "href": string, "external": bool }` | the user clicks an external link in the book |
 | `searchResults` | `{ "query": string, "items": [{ "cfi": string, "label": string \| null, "excerpt": { "pre": string, "match": string, "post": string } }], "progress": number, "done": bool }` | while a `search` runs |
 | `error` | `{ "message": string, "context": string \| null }` | anything that failed on the JS side |
+
+## Switching books
+
+Events carry no book identity, so opens are numbered (review 3):
+
+- Swift gives every `open` a new `openID`; `opened` echoes it. `ReaderController` drops book events
+  (`relocated`, `selectionChanged`, `selectionCleared`, `annotationActivated`, `linkActivated`) from the
+  moment it asks for a book until the `opened` with that id arrives, and ignores `opened` replies to
+  opens a newer one replaced. Book commands wait for the `opened` too.
+- The glue runs commands one at a time in arrival order (`search` only *starts* there; its results
+  stream as events, and a newer `search`, `clearSearch`, `close` or `open` stops it).
+- `open` closes the previous book before fetching the next, in the same page. Once a book is closed
+  nothing about it reaches Swift: view-level listeners check that a book is open, and per-section
+  listeners (the debounced selection) check the generation they were created in. So every event after
+  `opened` belongs to the new book.
 
 ## Behaviour notes
 

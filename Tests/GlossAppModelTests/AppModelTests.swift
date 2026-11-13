@@ -400,8 +400,7 @@ struct ReviewOneAppModelTests {
         let app = AppModel(services: lib.services)
         let first = FakeDriver()
         app.reader.attach(first)
-        await app.reader.handle(.ready)
-        await app.reader.open(book)
+        await app.reader.openShowing(book, on: first)
         await app.reader.handle(.relocated(ReaderLocation(locator: Locator(scheme: FakeFormat.scheme, value: "here"),
                                                           progression: 0.3, label: nil, progressText: "")))
         // The web view crashed and was recreated: the new engine reopens at the same place.
@@ -415,6 +414,7 @@ struct ReviewOneAppModelTests {
         await app.handleExternalChanges([change])
         #expect(app.reader.document == nil)
         #expect(app.reader.location == nil)
+        #expect(second.calls.last == .close)  // the engine stops showing it too
     }
 
     @Test("trashed pages name their book")

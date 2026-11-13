@@ -20,26 +20,28 @@ struct EPUBBridgeDriverTests {
     func commands() async throws {
         let (driver, sent) = driver()
         let cfi = Locator(scheme: EPUBLocators.cfiScheme, value: "epubcfi(/6/8!/4/2/1:3)")
-        try await driver.open(document, at: cfi)
+        try await driver.open(document, at: cfi, openID: 7)
         try await driver.go(to: cfi, flash: true)
         try await driver.go(to: Locator(scheme: EPUBLocators.hrefScheme, value: "ch1.xhtml"), flash: false)
         try await driver.turnPage(forward: false)
         try await driver.clearSelection()
         try await driver.reveal(searchHit: Locator(scheme: EPUBLocators.sectionScheme, value: "3"), text: "whale")
+        try await driver.close()
         #expect(sent() == [
-            .open(ReaderOpenPayload(url: "gloss-reader://app/book/\(document.id)", position: cfi.value, appearance: appearance)),
+            .open(ReaderOpenPayload(openID: 7, url: "gloss-reader://app/book/\(document.id)", position: cfi.value, appearance: appearance)),
             .goTo(ReaderGoToPayload(target: .cfi(cfi.value), flash: true)),
             .goTo(ReaderGoToPayload(target: .href("ch1.xhtml"), flash: false)),
             .turnPage(ReaderTurnPagePayload(direction: .backward)),
             .clearSelection,
             .revealSearchHit(ReaderRevealSearchHitPayload(cfi: nil, section: 3, text: "whale")),
+            .close,
         ])
     }
 
     @Test("positions from other engines open at the start; foreign locators are refused")
     func foreignLocators() async throws {
         let (driver, sent) = driver()
-        try await driver.open(document, at: Locator(scheme: LocatorScheme("pdf"), value: "{}"))
+        try await driver.open(document, at: Locator(scheme: LocatorScheme("pdf"), value: "{}"), openID: 1)
         guard case .open(let payload) = sent().first else { Issue.record(); return }
         #expect(payload.position == nil)
         await #expect(throws: ReaderDrivingError.unsupportedLocator(EPUBLocators.sectionScheme)) {
@@ -68,7 +70,7 @@ struct EPUBBridgeDriverTests {
         night.theme = .night
         let dark = AppearanceStyler().appearance(for: night)
         try await driver.apply(dark)
-        try await driver.open(document, at: nil)
+        try await driver.open(document, at: nil, openID: 2)
         guard case .open(let payload) = sent().last else { Issue.record(); return }
         #expect(payload.appearance == dark)
     }
@@ -85,7 +87,8 @@ struct EPUBBridgeDriverTests {
         guard case .relocated(let location)?? = translated["relocated"] else { Issue.record(); return }
         #expect(location.locator == Locator(scheme: EPUBLocators.cfiScheme, value: "epubcfi(/6/8!/4/2/1:23)"))
         #expect(location.progressText == "7 pages left in Chapter 1. Loomings")
-        guard case .opened(let toc)?? = translated["opened"] else { Issue.record(); return }
+        guard case .opened(let toc, let openID)?? = translated["opened"] else { Issue.record(); return }
+        #expect(openID == 3)
         #expect(toc.first?.children.first?.target == Locator(scheme: EPUBLocators.hrefScheme, value: "text/ch001.xhtml"))
         guard case .annotationActivated(let highlights, let markers, _)?? = translated["annotationActivated"] else { Issue.record(); return }
         // Fixture ids are 20 characters (not gloss ids), so they drop out rather than crash.

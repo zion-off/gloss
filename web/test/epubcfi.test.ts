@@ -105,6 +105,7 @@ test('joinIndir with a section base CFI produces a string the bridge accepts', (
     assert.deepEqual(validateCommand({
         v: 1, type: 'open',
         payload: {
+            openID: 1,
             url: 'gloss-reader://books/x.blob',
             position: cfi,
             appearance: validAppearance(),

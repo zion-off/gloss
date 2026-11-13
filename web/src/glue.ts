@@ -6,7 +6,7 @@
 //
 // Not testable under Node (needs WebKit); keep it small and readable.
 
-import 'foliate/view.js'
+import { makeBook } from 'foliate/view.js'
 import { Overlayer } from 'foliate/overlayer.js'
 import type {
     OverlayerDrawFunction,
@@ -35,7 +35,10 @@ const FLASH_MS = 1500
 
 // -- state -----------------------------------------------------------------
 
-let opened = false
+let opened = false                          // a book is open and taking commands
+let needsClose = false                      // view.open may have built a renderer
+let bookGeneration = 0                      // bumped on close: late callbacks of a closed book bail
+let searchGeneration = 0                    // bumped to stop a running search posting
 let colors: protocol.AppearanceColors | null = null
 let drawn: annotations.DrawnEntry[] = []   // annotations currently drawn
 let hadSelection = false                    // suppress selectionCleared noise
@@ -129,6 +132,7 @@ view.addEventListener('draw-annotation', e => {
 })
 
 view.addEventListener('show-annotation', e => {
+    if (!opened) return
     const { value, range, index } = eventDetail<{
         value: string
         range: Range
@@ -142,14 +146,16 @@ view.addEventListener('show-annotation', e => {
 
 // -- navigation ------------------------------------------------------------
 
-view.addEventListener('relocate', e =>
-    postEvent('relocated',
-        progress.makeRelocated(eventDetail<RelocateDetail>(e), view.renderer)))
+view.addEventListener('relocate', e => {
+    if (!opened) return
+    postEvent('relocated', progress.makeRelocated(eventDetail<RelocateDetail>(e), view.renderer))
+})
 
 // External links: foliate would `window.open` them; we prevent that and hand
 // them to Swift instead. Internal links are handled by foliate itself.
 view.addEventListener('external-link', e => {
     e.preventDefault()
+    if (!opened) return
     postEvent('linkActivated', {
         href: eventDetail<{ href_: string }>(e).href_,
         external: true,
@@ -207,8 +213,11 @@ const emitSelection = (doc: Document, index: number): void => {
 
 view.addEventListener('load', e => {
     const { doc, index } = eventDetail<{ doc: Document; index: number }>(e)
-    const debounced = selection.makeDebouncer(
-        () => emitSelection(doc, index), SELECTION_DEBOUNCE_MS)
+    // a debounced selection that settles after its book closed must not reach Swift
+    const generation = bookGeneration
+    const debounced = selection.makeDebouncer(() => {
+        if (generation === bookGeneration && opened) emitSelection(doc, index)
+    }, SELECTION_DEBOUNCE_MS)
     doc.addEventListener('selectionchange', debounced)
 })
 
@@ -248,25 +257,50 @@ const applyAppearance = (payload: protocol.Appearance): void => {
     }
 }
 
+// -- book lifecycle ------------------------------------------------------------
+
+// Closes the open book, if any. After this nothing about it reaches Swift: view-level
+// listeners check `opened`, per-section ones check the generation they were made in.
+const closeBook = (): void => {
+    bookGeneration++
+    searchGeneration++
+    opened = false
+    drawn = []
+    hadSelection = false
+    if (needsClose) {
+        needsClose = false
+        try {
+            view.close()
+        } catch (error) {
+            postError(error, 'close')
+        }
+    }
+}
+
 // -- command handlers ---------------------------------------------------------
 
 const requireRenderer = (): Renderer => {
-    if (!view.renderer) throw new Error('no book is open')
+    // after `close`, foliate leaves `renderer` pointing at the destroyed element
+    if (!opened || !view.renderer) throw new Error('no book is open')
     return view.renderer
 }
 
 const commands: { [K in protocol.CommandType]: (payload: protocol.CommandPayloads[K]) => Promise<void> } = {
-    async open({ url, position, appearance: appearancePayload }: protocol.OpenPayload) {
-        if (opened) throw new Error('a book is already open')
+    async open({ openID, url, position, appearance: appearancePayload }: protocol.OpenPayload) {
+        // switching books happens in place: the previous one closes first
+        closeBook()
         const res = await fetch(url)
         if (!res.ok)
             throw new Error(`fetch ${url} failed: ${res.status} ${res.statusText}`)
         const blob = await res.blob()
         const file = new File([blob], 'book.epub', { type: 'application/epub+zip' })
-        await view.open(file)
+        const book = await makeBook(file)
+        needsClose = true
+        await view.open(book)
         opened = true
         applyAppearance(appearancePayload)
         postEvent('opened', {
+            openID,
             toc: toc.normalizeToc(view.book.toc),
             sectionCount: view.book.sections.length,
             direction: view.book.dir === 'rtl' ? 'rtl' : 'ltr',
@@ -276,6 +310,10 @@ const commands: { [K in protocol.CommandType]: (payload: protocol.CommandPayload
             lastLocation: position ?? undefined,
             showTextStart: !position,
         })
+    },
+
+    async close() {
+        closeBook()
     },
 
     async goTo({ target, flash }: protocol.GoToPayload) {
@@ -334,17 +372,28 @@ const commands: { [K in protocol.CommandType]: (payload: protocol.CommandPayload
         view.deselect()
     },
 
+    // Starts the search and returns: results stream as events, and commands queued behind
+    // it (navigation, the next search) must not wait for the whole book to be searched.
     async search({ query }: protocol.SearchPayload) {
         requireRenderer()
+        const generation = ++searchGeneration
         const mapper = search.makeSearchMapper(query)
-        for await (const result of view.search({ query })) {
-            const payload = mapper.map(result)
-            if (payload) postEvent('searchResults', payload)
-        }
+        void (async () => {
+            try {
+                for await (const result of view.search({ query })) {
+                    if (generation !== searchGeneration) return
+                    const payload = mapper.map(result)
+                    if (payload) postEvent('searchResults', payload)
+                }
+            } catch (error) {
+                if (generation === searchGeneration) postError(error, 'search')
+            }
+        })()
     },
 
     async clearSearch() {
         requireRenderer()
+        searchGeneration++
         view.clearSearch()
     },
 
@@ -369,21 +418,25 @@ const commands: { [K in protocol.CommandType]: (payload: protocol.CommandPayload
 
 // -- bridge surface ------------------------------------------------------------
 
+let commandQueue: Promise<void> = Promise.resolve()
+
 window.glossReader = {
     // Called by Swift via callAsyncJavaScript. Invalid commands reject with
     // an Error whose message starts with "bridge:"; runtime failures become
     // `error` events. Returns null (commands reply through events).
+    // Commands run one at a time, in the order they arrive, so an `open` that is still
+    // fetching never interleaves with the commands sent after it.
     async receive(envelope: unknown): Promise<null> {
         const res = protocol.validateCommand(envelope)
         if (!res.ok) throw new Error(res.error)
         const { type, payload } =
             envelope as { type: protocol.CommandType; payload: unknown }
-        try {
-            // the payload was just validated against `type`'s spec
-            await (commands[type] as (payload: unknown) => Promise<void>)(payload)
-        } catch (error) {
-            postError(error, type)
-        }
+        // the payload was just validated against `type`'s spec
+        const run = commandQueue
+            .then(() => (commands[type] as (payload: unknown) => Promise<void>)(payload))
+            .catch((error: unknown) => postError(error, type))
+        commandQueue = run
+        await run
         return null
     },
 }

@@ -7,6 +7,11 @@ import GlossReaderBridge
 /// The reader pane's behaviour, independent of the engine: open at the saved position, keep
 /// highlights and note markers drawn, remember where the reader is, track the selection for the
 /// link gesture, and answer clicks on highlights and markers.
+///
+/// Engine events carry no book identity, so every open gets an id the engine echoes in
+/// `.opened`. Between asking for a book and the matching `.opened`, events about books
+/// (positions, selections, clicks) belong to the previous book and are dropped; so are
+/// `.opened` replies to opens that a newer one replaced.
 @MainActor @Observable public final class ReaderController {
     /// Pages that link to a clicked marker, shown as a small list to choose from.
     public struct MarkerChoice: Equatable, Sendable {
@@ -29,7 +34,10 @@ import GlossReaderBridge
     public private(set) var markerChoice: MarkerChoice?
     public private(set) var highlightFocus: HighlightFocus?
     public private(set) var errorMessage: String?
+    /// The engine can take commands.
     public private(set) var isReady = false
+    /// The book in `document` is on screen and its events are taken.
+    public private(set) var isShowingBook = false
 
     /// Opens a notes page at a range (a marker click). Set by the app model.
     public var openNote: @MainActor (PageID, Range<Int>?) async -> Void = { _, _ in }
@@ -41,48 +49,60 @@ import GlossReaderBridge
     private var pendingOpen: (document: Document, locator: Locator?)?
     private var pendingFocus: Locator?
     private var positionTask: Task<Void, Never>?
+    /// Bumped by every `open`/`close` call, so one that was overtaken while it waited stops.
+    private var openRequests = 0
+    /// The id of the last open sent to the engine.
+    private var lastOpenID = 0
+    /// The open whose `.opened` is awaited; nil when none is in flight.
+    private var awaitedOpenID: Int?
+    /// What the engine was last asked to draw for the book on screen.
+    private var shownAnnotations: ReaderAnnotations?
 
     public init(services: GlossServices) {
         self.services = services
     }
 
-    /// Connects the engine the view created. Commands wait until it reports `ready`. Attaching
-    /// again (the web view reloaded after a crash) reopens the book where the reader was.
+    /// Connects a freshly created engine (a new web view, or one reloaded after a crash).
+    /// Commands wait until it reports `ready`; then the book reopens where the reader was.
+    /// Attaching the engine that is already attached changes nothing.
     public func attach(_ driver: any ReaderDriving) {
+        guard driver !== self.driver else { return }
         self.driver = driver
         isReady = false
+        stopShowingBook()
         if pendingOpen == nil, let document {
             pendingOpen = (document, location?.locator)
         }
     }
 
     /// Closes the book (it was trashed or purged, here or from another process).
-    public func close() {
+    public func close() async {
+        openRequests += 1
         document = nil
         pendingOpen = nil
         pendingFocus = nil
+        stopShowingBook()
         toc = []
         location = nil
-        selection = nil
-        selectionAnchor = nil
-        markerChoice = nil
-        highlightFocus = nil
+        if isReady { try? await driver?.close() }
     }
 
     /// Opens a document, at `locator` (a passage) or else at the saved reading position.
     public func open(_ document: Document, at locator: Locator? = nil) async {
-        if self.document?.id == document.id, isReady, let locator {
-            await go(to: locator, flash: true)
+        if self.document?.id == document.id, isShowingBook || pendingOpen != nil || awaitedOpenID != nil {
+            // Already open or opening: just go to the passage (once the book is there).
+            if let locator { await go(to: locator, flash: true) }
             return
         }
+        openRequests += 1
+        let request = openRequests
         self.document = document
+        stopShowingBook()
         toc = []
         location = nil
-        selection = nil
-        markerChoice = nil
-        highlightFocus = nil
         pendingFocus = locator
         let saved = locator == nil ? (try? await services.library.position(of: document.id))?.locator : nil
+        guard request == openRequests else { return }  // a newer open or a close took over
         pendingOpen = (document, locator ?? saved)
         if isReady { await performPendingOpen() }
     }
@@ -92,7 +112,10 @@ import GlossReaderBridge
         case .ready:
             isReady = true
             await performPendingOpen()
-        case .opened(let toc):
+        case .opened(let toc, let openID):
+            guard openID == awaitedOpenID else { return }  // a reply to a replaced open
+            awaitedOpenID = nil
+            isShowingBook = true
             self.toc = toc
             errorMessage = nil
             await refreshAnnotations()
@@ -101,19 +124,23 @@ import GlossReaderBridge
                 await go(to: focus, flash: true)
             }
         case .relocated(let location):
+            guard isShowingBook else { return }
             self.location = location
             savePosition(location)
         case .selectionChanged(let passage, let anchor):
-            guard let document else { return }
+            guard isShowingBook, let document else { return }
             selection = BookSelection(documentID: document.id, passage: passage)
             selectionAnchor = anchor
             highlightFocus = nil
         case .selectionCleared:
+            guard isShowingBook else { return }
             selection = nil
             selectionAnchor = nil
         case .annotationActivated(let highlightIDs, let markerIDs, let anchor):
+            guard isShowingBook else { return }
             await activate(highlights: highlightIDs, markers: markerIDs, anchor: anchor)
         case .externalLink(let url):
+            guard isShowingBook else { return }
             openExternal(url)
         case .failed(let message):
             errorMessage = message
@@ -122,24 +149,44 @@ import GlossReaderBridge
 
     // MARK: Commands
 
+    /// Goes to a locator in the open book; while the book is still opening, it lands there
+    /// once it has.
     public func go(to locator: Locator, flash: Bool = false) async {
+        guard isShowingBook else {
+            if document != nil { pendingFocus = locator }
+            return
+        }
         do { try await driver?.go(to: locator, flash: flash) } catch { errorMessage = Self.describe(error) }
     }
 
     public func turnPage(forward: Bool) async {
+        guard isShowingBook else { return }
         try? await driver?.turnPage(forward: forward)
     }
 
     public func reveal(searchHit locator: Locator?, text: String) async {
+        guard isShowingBook else { return }
         do { try await driver?.reveal(searchHit: locator, text: text) } catch { errorMessage = Self.describe(error) }
     }
 
     /// Redraws highlights and markers from the store (after edits, links, external changes).
+    /// Nothing is sent when they didn't change: external changes anywhere in the library land
+    /// here, and change records can't say which book they touch (a page in any book may link
+    /// into this one).
     public func refreshAnnotations() async {
-        guard let document, isReady, let driver else { return }
-        let highlights = (try? await services.highlights.highlights(in: document.id)) ?? []
-        let linked = (try? await services.links.linkedPassages(in: document.id)) ?? []
-        try? await driver.show(ReaderAnnotations(highlights: highlights, linkedPassages: linked))
+        guard let document, isShowingBook, let driver else { return }
+        let highlights: [Highlight]
+        let linked: [LinkedPassage]
+        do {
+            highlights = try await services.highlights.highlights(in: document.id)
+            linked = try await services.links.linkedPassages(in: document.id)
+        } catch {
+            return  // a failed read proves nothing; keep what is drawn
+        }
+        let annotations = ReaderAnnotations(highlights: highlights, linkedPassages: linked)
+        guard annotations != shownAnnotations, isShowingBook, self.document?.id == document.id else { return }
+        shownAnnotations = annotations
+        do { try await driver.show(annotations) } catch { shownAnnotations = nil }
     }
 
     /// Highlights the current selection.
@@ -147,8 +194,9 @@ import GlossReaderBridge
     public func highlightSelection(_ color: HighlightColor = .yellow) async throws -> Highlight? {
         guard let selection else { return nil }
         let highlight = try await services.highlights.add(selection.passage, color: color, in: selection.documentID)
-        try? await driver?.clearSelection()
+        if isShowingBook { try? await driver?.clearSelection() }
         self.selection = nil
+        selectionAnchor = nil
         await refreshAnnotations()
         return highlight
     }
@@ -198,12 +246,26 @@ import GlossReaderBridge
     private func performPendingOpen() async {
         guard let pending = pendingOpen, let driver else { return }
         pendingOpen = nil
+        lastOpenID += 1
+        let openID = lastOpenID
+        awaitedOpenID = openID
         do {
-            try await driver.open(pending.document, at: pending.locator)
+            try await driver.open(pending.document, at: pending.locator, openID: openID)
             try await services.library.markOpened(pending.document.id)
         } catch {
             errorMessage = Self.describe(error)
         }
+    }
+
+    /// Stops taking events about the book on screen (another is coming, or none).
+    private func stopShowingBook() {
+        isShowingBook = false
+        awaitedOpenID = nil
+        shownAnnotations = nil
+        selection = nil
+        selectionAnchor = nil
+        markerChoice = nil
+        highlightFocus = nil
     }
 
     /// Saves are chained so the newest position always lands last.

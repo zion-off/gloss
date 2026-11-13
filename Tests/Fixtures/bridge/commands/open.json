@@ -2,6 +2,7 @@
   "v": 1,
   "type": "open",
   "payload": {
+    "openID": 3,
     "url": "gloss-reader://books/01J8ZC0M4G5H6K7P8Q9R.blob",
     "position": "epubcfi(/6/8!/4/2/1:0)",
     "appearance": {

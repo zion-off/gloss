@@ -44,6 +44,7 @@ test('tolerates missing or malformed input', () => {
 
 test('normalized toc validates as the opened payload', () => {
     const envelope = makeEvent('opened', {
+        openID: 1,
         toc: normalizeToc([{
             label: 'A', href: 'a.xhtml',
             subitems: [{ label: 'B', href: 'b.xhtml' }],

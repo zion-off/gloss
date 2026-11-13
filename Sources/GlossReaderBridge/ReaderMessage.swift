@@ -14,6 +14,8 @@ public enum ReaderBridge {
 /// Every command the app can send to the reader.
 public enum ReaderCommand: Equatable, Sendable {
     case open(ReaderOpenPayload)
+    /// Closes the open book (it was trashed); the reader shows nothing until the next `open`.
+    case close
     case goTo(ReaderGoToPayload)
     case turnPage(ReaderTurnPagePayload)
     case setAppearance(ReaderSetAppearancePayload)
@@ -24,7 +26,7 @@ public enum ReaderCommand: Equatable, Sendable {
     case revealSearchHit(ReaderRevealSearchHitPayload)
 
     public static let typeNames = [
-        "open", "goTo", "turnPage", "setAppearance", "setAnnotations", "clearSelection", "search", "clearSearch", "revealSearchHit",
+        "open", "close", "goTo", "turnPage", "setAppearance", "setAnnotations", "clearSelection", "search", "clearSearch", "revealSearchHit",
     ]
 }
 
@@ -61,6 +63,9 @@ extension ReaderCommand: Codable {
         func payload<P: Codable>(_ type: P.Type) throws -> P { try container.decode(P.self, forKey: .payload) }
         switch type {
         case "open": self = .open(try payload(ReaderOpenPayload.self))
+        case "close":
+            self = .close
+            _ = try container.nestedContainer(keyedBy: EmptyKeys.self, forKey: .payload)
         case "goTo": self = .goTo(try payload(ReaderGoToPayload.self))
         case "turnPage": self = .turnPage(try payload(ReaderTurnPagePayload.self))
         case "setAppearance": self = .setAppearance(try payload(ReaderSetAppearancePayload.self))
@@ -84,6 +89,9 @@ extension ReaderCommand: Codable {
         case .open(let payload):
             try container.encode("open", forKey: .type)
             try container.encode(payload, forKey: .payload)
+        case .close:
+            try container.encode("close", forKey: .type)
+            try container.encode([String: String](), forKey: .payload)
         case .goTo(let payload):
             try container.encode("goTo", forKey: .type)
             try container.encode(payload, forKey: .payload)

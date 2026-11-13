@@ -85,12 +85,16 @@ declare module 'foliate/view.js' {
         next(distance?: number): Promise<void>
         prev(distance?: number): Promise<void>
     }
+    /** opens a File (EPUB, CBZ, FB2, MOBI, …) as a foliate book */
+    export function makeBook(file: File): Promise<Book>
     export class View extends HTMLElement {
         book: Book
         renderer?: Renderer
         isFixedLayout: boolean
         lastLocation?: RelocateDetail | null
-        open(book: File | string): Promise<void>
+        open(book: File | string | Book): Promise<void>
+        /** destroys the renderer; `renderer` keeps pointing at the destroyed element */
+        close(): void
         init(options: { lastLocation?: string; showTextStart?: boolean }): Promise<void>
         addAnnotation(annotation: { value: string }, remove?: boolean):
             Promise<{ index: number; label: string }>

@@ -9,6 +9,7 @@ export const PROTOCOL_VERSION = 1
 
 export type CommandType =
     | 'open'
+    | 'close'
     | 'goTo'
     | 'turnPage'
     | 'setAppearance'
@@ -20,6 +21,7 @@ export type CommandType =
 
 export const COMMAND_TYPES: readonly CommandType[] = Object.freeze([
     'open',
+    'close',
     'goTo',
     'turnPage',
     'setAppearance',
@@ -117,6 +119,8 @@ export interface MarkerAnnotation {
 }
 
 export interface OpenPayload {
+    // echoed by `opened`, so Swift can tell which open a reply belongs to
+    openID: number
     url: string
     position: string | null
     appearance: Appearance
@@ -152,6 +156,7 @@ export interface RevealSearchHitPayload {
 
 export interface CommandPayloads {
     open: OpenPayload
+    close: Record<string, never>
     goTo: GoToPayload
     turnPage: TurnPagePayload
     setAppearance: SetAppearancePayload
@@ -163,6 +168,8 @@ export interface CommandPayloads {
 }
 
 export interface OpenedPayload {
+    // the `openID` of the `open` this answers
+    openID: number
     toc: TocItem[]
     sectionCount: number
     direction: Direction
@@ -371,10 +378,12 @@ const goToTargetSpec: FieldSpec = {
 
 export const COMMAND_PAYLOAD_SPECS: Record<CommandType, Record<string, FieldSpec>> = {
     open: {
+        openID: { t: 'number', min: 1, int: true },
         url: STR,
         position: { t: 'string', nullable: true },
         appearance: APPEARANCE,
     },
+    close: {},
     goTo: {
         target: goToTargetSpec,
         flash: BOOL,
@@ -420,6 +429,7 @@ export const COMMAND_PAYLOAD_SPECS: Record<CommandType, Record<string, FieldSpec
 export const EVENT_PAYLOAD_SPECS: Record<EventType, Record<string, FieldSpec>> = {
     ready: {},
     opened: {
+        openID: { t: 'number', min: 1, int: true },
         toc: { t: 'array', item: { t: 'tocitem' } },
         sectionCount: { t: 'number', min: 1, int: true },
         direction: { t: 'enum', values: DIRECTIONS },
