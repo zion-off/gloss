@@ -257,4 +257,8 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
 - **D-087 The development app bundle is `dev.gloss.app`, built by `scripts/run-mac.sh`.** SwiftPM's
   resource bundles go in `Contents/Resources`, where `ReaderBundle` looks before SwiftPM's own lookup,
   so the bundle can move without the build directory.
+- **D-088 Reader errors name their open.** `error` events carry the `openID` of the failed `open`
+  (null otherwise), so the controller can un-wedge exactly that open and ignore failures of opens a
+  newer one replaced (review 4). The alternative — treating any failure during an open window as that
+  open's — cancels the wrong open when a stale failure lands late.
 

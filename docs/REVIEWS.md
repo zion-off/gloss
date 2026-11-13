@@ -67,3 +67,24 @@ without its fix.
 | nit | attaching the attached engine again dead-ended the controller | fixed in `8233d75` |
 | nit | link gesture availability computed twice | fixed in `ceb00da` |
 | nit | a failed link lookup styled live links as broken; a generic `Array[safe:]` hidden in the editor model | fixed in `a4c9a5a` |
+
+## Review 4 — `review-3-head..review-4-head` (review 3 fixes, milestone 9 Mac reader)
+
+The reviewer re-verified every review-3 fix by reverting it in a scratch copy: each regression
+test failed without its fix.
+
+| Severity | Finding | Outcome |
+|---|---|---|
+| major | the sanitizer only covered XHTML/HTML/SVG: an `application/xml` spine item or iframe target reached the sandbox frame with its script intact, defeating two of the three layers | fixed in `e71a839`: every `xml`/`html`/`xsl` type is sanitized (parsed as XML, serialized back), `xml-stylesheet` instructions go, and the Mac test book covers the vector |
+| major | a failed `open` wedged the reader: the JS failure left `awaitedOpenID` set, so re-opening the same book short-circuited forever | fixed in `6f8577d`: `error` events carry the failed `open`'s id (`openID`), the controller unwedges only on a match, and the placeholder offers "try again" (`retryOpen`) |
+| minor | a failed position read opened at the start, and the first relocation then overwrote the real saved position | fixed in `f27fae7`: a failed read doesn't open; retry works once the store answers |
+| minor | template content was never cleaned (`isConnected` skip) | fixed in `e71a839`: template content is walked, nested included |
+| minor | a replaced session's inbox wasn't drained: stale events could land after the next engine attached | fixed in `6797207`: `invalidate()` drains before the pane attaches the next session |
+| minor | reader files were read synchronously on the main actor | fixed in `6fb2e88`: the read runs off the main actor |
+| minor | `revealSearchHit`'s fallback scan held the command queue and wasn't generation-guarded | fixed in `4163730`: it detaches like `search`, and the queue/generation logic now lives in `bridge/queue.ts` (Node-tested) |
+| minor | command errors while a book shows are set but never rendered, and a stale error spoke for the next open | half fixed in `6ebb8be`: errors no longer outlive their open; rendering lands with the reader's status line (milestone 10/11 UI, where `progressText` already goes) |
+| nit | `img-src`/`font-src 'self'` lets a book reference another book's bytes | **declined**: without script the bytes can't come back to the page, and the target ids are 128-bit random; scoping needs either a second scheme or CSP source expressions with custom schemes, which can't be verified off a Mac |
+| nit | the command queue lived in glue.ts, untestable under Node | fixed in `4163730` (`bridge/queue.ts`) |
+| nit | opening at a passage resolves the CFI twice (once as `position`, once to flash) | **declined**: the flash needs the second resolve; a `flash` flag on `open` saves one round trip but adds protocol for nothing user-visible |
+| nit | the trash title cache's double optional deserved a comment | fixed in `36408e7` |
+| nit | SMIL `set`/`animate` targeting `on*` attributes wasn't covered | fixed in `e71a839` |
