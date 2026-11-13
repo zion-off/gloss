@@ -20,10 +20,12 @@ public struct StyleRole: RawRepresentable, Hashable, Sendable, CustomStringConve
     public static let link = StyleRole("link")
     public static let linkDestination = StyleRole("linkDestination")
     public static let thematicBreak = StyleRole("thematicBreak")
-    /// Markdown syntax characters, drawn dimmed.
+    /// Markdown syntax characters: kept in the text, not shown (D-141).
     public static let syntax = StyleRole("syntax")
-    /// Syntax characters of the element under the cursor, drawn at full strength.
+    /// Syntax characters of the element the cursor touches: shown, dimmed.
     public static let syntaxRevealed = StyleRole("syntaxRevealed")
+    /// A link's destination while the cursor touches the link: shown, dimmed.
+    public static let linkDestinationRevealed = StyleRole("linkDestinationRevealed")
 
     /// Whether the editor draws this role dimmed (the cursor reveals it).
     public var isSyntax: Bool { self == .syntax || self == .syntaxRevealed }
@@ -106,10 +108,10 @@ public struct StyleRuleSet: Sendable {
 public enum SyntaxReveal {
     public static func apply(_ spans: [StyleSpan], selection: Range<Int>) -> [StyleSpan] {
         spans.map { span in
-            guard span.role == .syntax, let element = span.element,
+            guard span.role == .syntax || span.role == .linkDestination, let element = span.element,
                   selection.lowerBound <= element.upperBound, selection.upperBound >= element.lowerBound else { return span }
             var revealed = span
-            revealed.role = .syntaxRevealed
+            revealed.role = span.role == .syntax ? .syntaxRevealed : .linkDestinationRevealed
             return revealed
         }
     }
@@ -117,7 +119,8 @@ public enum SyntaxReveal {
     /// Element ranges whose syntax is revealed for `selection` (lets the editor restyle only
     /// what changed when the cursor moves).
     public static func revealedElements(in spans: [StyleSpan], selection: Range<Int>) -> Set<Range<Int>> {
-        Set(apply(spans, selection: selection).filter { $0.role == .syntaxRevealed }.compactMap(\.element))
+        Set(apply(spans, selection: selection).filter { $0.role == .syntaxRevealed || $0.role == .linkDestinationRevealed }
+            .compactMap(\.element))
     }
 }
 

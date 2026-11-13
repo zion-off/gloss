@@ -66,6 +66,12 @@ import GlossNotes
             attributes[.paragraphStyle] = paragraph
         }
         if style.hidden == true { attributes[.foregroundColor] = NSColor.clear }
+        if style.collapsed == true {
+            // No glyph and no width, yet still characters: the caret and selection keep working,
+            // and the cursor touching the element swaps this for the revealed style.
+            attributes[.foregroundColor] = NSColor.clear
+            attributes[.font] = NSFont.systemFont(ofSize: 0.1)
+        }
         return attributes
     }
 

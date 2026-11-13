@@ -31,21 +31,22 @@ struct NotesThemeTests {
         }
     }
 
-    @Test("layers combine: dimmed syntax inside a heading keeps the heading font")
+    @Test("layers combine: collapsed syntax inside a heading keeps the heading font")
     func layering() {
         let text = "# a **bold** word"
         let result = runs(text, selection: 0..<0)
         let star = style(at: 4, in: result)  // the first `*`
-        #expect(star?.font == .heading(1) && star?.bold == true && star?.color == .tertiary)
+        #expect(star?.font == .heading(1) && star?.bold == true && star?.collapsed == true)
         let bold = style(at: 7, in: result)
         #expect(bold?.font == .heading(1) && bold?.bold == true && bold?.color == nil)
     }
 
-    @Test("the cursor reveals syntax at full strength")
+    @Test("syntax is collapsed until the cursor touches its element, then shown dimmed")
     func revealed() {
         let text = "a **bold** word"
-        #expect(style(at: 2, in: runs(text))?.color == .tertiary)
-        #expect(style(at: 2, in: runs(text, selection: 5..<5))?.color == nil)
+        #expect(style(at: 2, in: runs(text))?.collapsed == true)
+        let revealed = style(at: 2, in: runs(text, selection: 5..<5))
+        #expect(revealed?.collapsed == nil && revealed?.color == .tertiary)
     }
 
     @Test("gloss links are styled by kind and status")

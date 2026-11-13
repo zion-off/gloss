@@ -164,6 +164,13 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
 - **D-055 "Syntax dims, and shows on the cursor" = two colours, never hidden glyphs.** Syntax
   characters render in a faint colour and at secondary-label strength for every element touching
   the selection. Hiding glyphs would break caret movement and selection in TextKit.
+- **D-141 (supersedes D-055) Markdown syntax is collapsed, and shows when the cursor touches its
+  element.** Marks (`**`, `#`, backticks, link brackets) and link destinations keep their characters
+  but get a ~0pt font and a clear colour (`TextStyle.collapsed`); an element the selection touches
+  shows them again, dimmed. Reason: the first Mac run showed asterisks and `gloss://passage/…` urls
+  around every styled word, which no first-party notes app does. Caret movement stays sane because the
+  element reveals as soon as the caret reaches it. Also: a caret never rests inside a subpage row's
+  hidden markdown (it snaps to an end of the line).
 - **D-056 Bold/italic with an empty selection wraps the word under the caret,** or inserts an empty
   pair between words — the common behaviour of native markdown editors.
 - **D-057 Text gloss writes into notes is escaped minimally** (`\ * [ ] ~ \``, word-boundary `_`,

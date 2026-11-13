@@ -32,9 +32,12 @@ public struct TextStyle: Hashable, Sendable {
     public var block: Block?
     /// Kept in the text but not drawn (a subpage line under its row).
     public var hidden: Bool?
+    /// Kept in the text but shrunk to nothing: no glyph, no width (hidden markdown syntax).
+    public var collapsed: Bool?
 
     public init(font: FontRole? = nil, bold: Bool? = nil, italic: Bool? = nil, color: ColorRole? = nil,
-                strikethrough: Bool? = nil, underline: Underline? = nil, block: Block? = nil, hidden: Bool? = nil) {
+                strikethrough: Bool? = nil, underline: Underline? = nil, block: Block? = nil, hidden: Bool? = nil,
+                collapsed: Bool? = nil) {
         self.font = font
         self.bold = bold
         self.italic = italic
@@ -43,13 +46,15 @@ public struct TextStyle: Hashable, Sendable {
         self.underline = underline
         self.block = block
         self.hidden = hidden
+        self.collapsed = collapsed
     }
 
     /// This style with every property `other` sets taking its value.
     public func merging(_ other: TextStyle) -> TextStyle {
         TextStyle(font: other.font ?? font, bold: other.bold ?? bold, italic: other.italic ?? italic,
                   color: other.color ?? color, strikethrough: other.strikethrough ?? strikethrough,
-                  underline: other.underline ?? underline, block: other.block ?? block, hidden: other.hidden ?? hidden)
+                  underline: other.underline ?? underline, block: other.block ?? block, hidden: other.hidden ?? hidden,
+                  collapsed: other.collapsed ?? collapsed)
     }
 }
 
@@ -103,10 +108,12 @@ public struct NotesTheme: Sendable {
             .taskBoxChecked: Entry(TextStyle(font: .monospaced, color: .accent), layer: 6),
             .taskDone: Entry(TextStyle(color: .secondary, strikethrough: true), layer: 6),
             .thematicBreak: Entry(TextStyle(color: .tertiary), layer: 6),
-            .linkDestination: Entry(TextStyle(color: .tertiary, underline: nil), layer: 7),
-            .syntax: Entry(TextStyle(color: .tertiary), layer: 8),
-            // Revealed syntax is drawn like the text of its element: no override.
-            .syntaxRevealed: Entry(TextStyle(), layer: 8),
+            // Syntax and link destinations are in the text but not on the page (D-141); the cursor
+            // touching their element brings them back, dimmed.
+            .linkDestination: Entry(TextStyle(collapsed: true), layer: 7),
+            .linkDestinationRevealed: Entry(TextStyle(color: .tertiary, underline: nil), layer: 7),
+            .syntax: Entry(TextStyle(collapsed: true), layer: 8),
+            .syntaxRevealed: Entry(TextStyle(color: .tertiary), layer: 8),
             NotesRole.subpageBlock: Entry(TextStyle(hidden: true), layer: 9),
         ]
         for level in 1...6 {
