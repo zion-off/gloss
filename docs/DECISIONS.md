@@ -584,3 +584,13 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   `.automatic` ("in order of leading to trailing") and, on macOS 26, a
   `ToolbarSpacer(.flexible)` declared first pushes the cluster to the right edge, search last.
   macOS 14/15 keep the system-pinned search field at the right with the `.automatic` items before it.
+- **D-157 (supersedes D-150's custom title) The window shows the system's own toolbar title.**
+  D-150/D-153/D-156 kept `toolbar(removing: .title)` (macOS 15+) and drew the title as a custom
+  `.navigation` item. In SwiftUI's macOS toolbar the inline title is what separates the leading
+  items from the rest; with it removed, every ordinary item packed in right after the chevrons
+  whatever its placement (the 00:42 and 00:46 builds), and only the system search field (pinned by
+  AppKit) reached the right edge, which is why the very first build looked half right and
+  `ToolbarSpacer(.flexible)` changed nothing. Now `navigationTitle` stays, `toolbar(removing:)` and
+  the custom title item are gone, and on macOS 26 `DefaultToolbarItem(kind: .title, placement:
+  .navigation)` puts the system title right after back/forward explicitly. The `.automatic`
+  trailing items and the flexible spacer (D-156) stay, search last.

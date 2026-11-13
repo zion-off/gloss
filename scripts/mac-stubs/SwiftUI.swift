@@ -1176,6 +1176,8 @@ public struct SpacerSizing: Sendable {
 @available(macOS 26.0, *)
 public struct ToolbarDefaultItemKind: Sendable {
     public static let search = ToolbarDefaultItemKind()
+    /// toolbardefaultitemkind/title (macOS 15.0)
+    public static let title = ToolbarDefaultItemKind()
 }
 @available(macOS 26.0, *)
 extension ToolbarContent {

@@ -925,6 +925,7 @@ nonisolated func searchable(text: Binding<String>, isPresented: Binding<Bool>, p
 nonisolated init(_ sizing: SpacerSizing = .flexible, placement: ToolbarItemPlacement = .automatic)                 // ToolbarSpacer, macOS 26.0; SpacerSizing.flexible / .fixed
 // ToolbarItemPlacement.primaryAction — docs: "In macOS … the location for the primary action is the leading edge of the toolbar"
 // ToolbarItemPlacement.automatic — docs: "In macOS … places items in the current toolbar section in order of leading to trailing"
+// ToolbarDefaultItemKind.title — macOS 15.0, "the title and subtitle shown in title bar"; toolbar(removing:) takes it (macOS 14.0 per the SDK interface)
 nonisolated init(kind: ToolbarDefaultItemKind, placement: ToolbarItemPlacement = .automatic)                        // DefaultToolbarItem, macOS 26.0; ToolbarDefaultItemKind.search, macOS 26.0
 nonisolated func sharedBackgroundVisibility(_ visibility: Visibility) -> some ToolbarContent                         // ToolbarContent, macOS 26.0 (stub returns Self)
 var accessibilityReduceMotion: Bool { get }                                                                          // EnvironmentValues, macOS 10.15

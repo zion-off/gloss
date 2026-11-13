@@ -68,8 +68,11 @@ public struct MainWindow: View {
         .onChange(of: showsBook, initial: true) { _, isBook in
             withAnimation { columnVisibility = isBook ? .detailOnly : .all }
         }
+        // The system's own inline title, after back/forward (the navigation placement goes "ahead
+        // of the inline title"). It is also what splits the toolbar into a leading and a trailing
+        // part: removing it (`toolbar(removing: .title)`, D-150's custom title item) left nothing
+        // between them, and every item packed in after the chevrons (D-157).
         .navigationTitle(title)
-        .hidingSystemTitle()
         .toolbar { toolbar }
         .glossSearch(model: app.search)
         .libraryFeatures(app: app)  // the drop zone, ⇧⌘A, the import alert, the details sheet, the sort menu
@@ -179,30 +182,20 @@ public struct MainWindow: View {
         }
     }
 
-    /// Whether the title is drawn by our toolbar (it is where the system one can be removed).
-    private static let titleInToolbar: Bool = {
-        if #available(macOS 15.0, *) { true } else { false }
-    }()
-
     /// Back and forward, then the title, on the leading edge (Finder, Safari); the layout switch
     /// right beside the search field on the trailing side. Back/forward is its own item, a
     /// `ControlGroup` in the navigation style, so the system draws Finder's grouped pair (one
-    /// capsule, system chevrons, hover and disabled states); the title is a second navigation
-    /// item after it, without a capsule of its own (D-150).
+    /// capsule, system chevrons, hover and disabled states); the system's inline title follows it
+    /// (D-150, D-157).
     @ToolbarContentBuilder private var toolbar: some ToolbarContent {
         ToolbarItem(placement: .navigation) { backForward }
-        if Self.titleInToolbar {
-            if #available(macOS 26.0, *) {
-                ToolbarItem(placement: .navigation) { titleLabel }
-                    .sharedBackgroundVisibility(.hidden)
-            } else {
-                ToolbarItem(placement: .navigation) { titleLabel }
-            }
+        // On macOS 26 the system title is placed explicitly, right after the chevrons (an early
+        // build once drew the title before them).
+        if #available(macOS 26.0, *) {
+            DefaultToolbarItem(kind: .title, placement: .navigation)
         }
-        // The trailing cluster, flush right like Finder's: `.primaryAction` is the toolbar's LEADING
-        // edge on macOS (its docs), which is why search and the layout picker sat right after the
-        // title. `.automatic` items run leading to trailing after the navigation items, and on
-        // macOS 26 a flexible spacer in front pushes them to the right edge (D-156).
+        // The trailing cluster, flush right like Finder's, after the system title: `.automatic`
+        // items, a flexible spacer first on macOS 26 (D-156), search last (D-157).
         if #available(macOS 26.0, *) {
             ToolbarSpacer(.flexible, placement: .automatic)
         }
@@ -258,9 +251,6 @@ public struct MainWindow: View {
         .controlGroupStyle(.navigation)
     }
 
-    private var titleLabel: some View {
-        Text(verbatim: title).font(.headline).lineLimit(1)
-    }
 
     /// Stays on the page the editor still shows (its unsaved text intact): the workspace goes
     /// back there, and reloading the page already shown keeps the editor's text.
@@ -462,13 +452,6 @@ struct NotesPane: View {
     }
 }
 
-extension View {
-    /// Takes the system's title out of the toolbar where the SDK allows it (macOS 15+), so the
-    /// toolbar can draw it after back and forward. Older systems keep the system title.
-    @ViewBuilder fileprivate func hidingSystemTitle() -> some View {
-        if #available(macOS 15.0, *) { self.toolbar(removing: .title) } else { self }
-    }
-}
 
 
 /// The reader card on the left, the notes on the right, with a grab area between them that you
