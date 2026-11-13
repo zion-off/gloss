@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import GlossCore
+import GlossExport
 import GlossMarkdown
 import GlossNotes
 
@@ -21,12 +22,14 @@ import GlossNotes
     public let bookSidebar: BookSidebarModel
     /// This window's library presentation state (the details sheet, the import panel).
     public let presentation = LibraryPresentationModel()
+    /// Export and print (the composition root hands in the model over the cli's ExportService).
+    public let export: ExportModel
     public var linking: LinkingCoordinator { LinkingCoordinator(services: services, reader: reader) }
     public var changeMonitor: ExternalChangeMonitor?
-
     /// Why the last URL from outside couldn't be opened; the window shows it in a small alert.
     public private(set) var externalURLMessage: String?
-    public init(services: GlossServices) {
+
+    public init(services: GlossServices, export: ExportModel? = nil) {
         self.services = services
         self.workspace = WorkspaceModel(services: services)
         self.library = LibraryModel(services: services)
@@ -37,6 +40,7 @@ import GlossNotes
         self.reader = ReaderController(services: services)
         self.notes = NotesEditorModel(services: services)
         self.bookSidebar = BookSidebarModel(services: services)
+        self.export = export ?? ExportModel(service: nil)
         reader.highlightsDidChange = { [weak self] in await self?.refreshBookSidebar() }
         reader.openNote = { [weak self] page, range in
             try? await self?.workspace.openPage(page, revealing: range)

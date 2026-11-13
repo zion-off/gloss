@@ -34,7 +34,7 @@ let package = Package(
         ]),
         .target(name: "GlossPDF", dependencies: ["GlossCore", "GlossArchive"]),
         .target(name: "GlossReaderPDFSupport", dependencies: ["GlossCore", "GlossPDF", "GlossReaderBridge"]),
-        .target(name: "GlossAppModel", dependencies: ["GlossCore", "GlossNotes", "GlossReaderBridge"]),
+        .target(name: "GlossAppModel", dependencies: ["GlossCore", "GlossNotes", "GlossReaderBridge", "GlossExport"]),
         .target(name: "GlossTerminal"),
         .target(name: "GlossMemoryStore", dependencies: ["GlossCore"]),
         .target(name: "GlossTestSupport", dependencies: ["GlossCore", "GlossMemoryStore", "GlossArchive"]),

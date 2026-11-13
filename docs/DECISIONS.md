@@ -327,6 +327,10 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   classifier (`IncomingURLClassifier`: gloss link / registered file / other) and the routing are
   testable on Linux, and pane-independent navigation (brief 15) can switch the one call inside.
   Failures land in one copy helper (`UnopenableLinkCopy`), ready for main's `RouteOutcome.problem`.
+- **D-133 GlossUI does not depend on GlossExport.** `GlossAppModel` does (it already owns the
+  window models), and its `ExportModel` wraps the `ExportService` the composition root builds —
+  the same wiring the cli's root has. Views only see `ExportModel`, so no view constructs a
+  service and no new Mac-target dependency is needed beyond GlossAppModel itself.
 - **D-135 Finder double-clicks are imports, duplicates open the existing copy.** A file URL
   arriving through `onOpenURL` is classified by the registered formats' extensions and goes
   through the one import entry point, `LibraryModel.importFiles`; `lastDuplicates` records what
