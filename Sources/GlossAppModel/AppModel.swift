@@ -45,8 +45,8 @@ import GlossReaderBridge
     /// Runs the reaction to a settings change; `flushSettingsChanges` waits for it.
     private var settingsTask: Task<Void, Never>?
     /// This window's id among the app's windows: same-process changes carry it so a window can
-    /// skip its own writes (review 7).
-    public let windowID = "window-\(UUID().uuidString)"
+    /// skip its own writes (review 7). Internal: only the fan-out plumbing reads it.
+    let windowID = "window-\(UUID().uuidString)"
     /// Same-process writes from the app's other windows (review 7): the journal can't carry
     /// them (one origin per process), so windows post what they wrote and each applies the
     /// others'. `@ObservationIgnored`: plumbing, not state; touched only on the main actor.
