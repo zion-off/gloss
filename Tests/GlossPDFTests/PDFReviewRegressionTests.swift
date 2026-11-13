@@ -131,4 +131,30 @@ struct PDFReviewRegressionTests {
         let chunks = try PDFFormat().extractText(from: Data(pdf.utf8))
         #expect(chunks.map(\.text) == ["x", "A"])
     }
+
+    // Review 3.
+
+    @Test("comments and long whitespace runs inside object headers are allowed", arguments: [
+        "2 0 % the info dictionary\nobj",
+        "2%a\r0%b\r\nobj",
+        "2 0" + String(repeating: " ", count: 100) + "obj",
+    ])
+    func headerSeparators(_ header: String) throws {
+        let pdf = """
+        %PDF-1.7
+        1 0 obj << /Type /Catalog /Pages 3 0 R >> endobj
+        \(header) << /Title (commented) >> endobj
+        3 0 obj << /Type /Pages /Kids [] /Count 0 >> endobj
+        trailer << /Root 1 0 R /Info 2 0 R >>
+        %%EOF
+        """
+        #expect(try metadataTitle(pdf) == "commented")
+    }
+
+    @Test("a comment cut off by the header bound isn't read as a token")
+    func overlongHeaderComment() {
+        let bytes = Array(("2 0 %" + String(repeating: "7", count: 300) + " obj\n").utf8)
+        #expect(PDFDocument.matchObjectHeader(bytes, at: 0) == nil)
+    }
 }
+

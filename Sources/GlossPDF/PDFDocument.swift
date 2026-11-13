@@ -167,8 +167,8 @@ struct PDFDocument: Sendable {
     }
 
     /// Matches `N G obj` at `start`: N where the previous byte isn't part of a number, then
-    /// whitespace, G, whitespace and the keyword `obj`. Reads at most ~150 bytes.
-    /// Returns the numbers, the header's offset and where the body starts.
+    /// whitespace or comments, G, whitespace or comments and the keyword `obj`. Reads at most
+    /// ~530 bytes. Returns the numbers, the header's offset and where the body starts.
     static func matchObjectHeader(_ bytes: [UInt8], at start: Int) -> (n: Int, g: Int, offset: Int, bodyStart: Int)? {
         func isDigit(_ i: Int) -> Bool { i < bytes.count && bytes[i] >= 0x30 && bytes[i] <= 0x39 }
         guard isDigit(start) else { return nil }
@@ -185,14 +185,27 @@ struct PDFDocument: Sendable {
             }
             return i > begin && !isDigit(i) ? value : nil
         }
-        func whitespace(at i: inout Int) -> Bool {
+        /// Whitespace and `%` comments, as the lexer skips them (review 3: `3 0 % c\nobj` is a
+        /// legal header). Bounded so scanning hostile bytes stays linear; a comment cut off by
+        /// the bound fails rather than letting its text be read as a token.
+        func separator(at i: inout Int) -> Bool {
             let begin = i
-            while i < bytes.count, PDFBytes.isWhitespace(bytes[i]), i - begin < 64 { i += 1 }
+            let limit = min(bytes.count, i + 256)
+            while i < limit {
+                if PDFBytes.isWhitespace(bytes[i]) {
+                    i += 1
+                } else if bytes[i] == 0x25 {
+                    while i < limit, bytes[i] != 0x0A, bytes[i] != 0x0D { i += 1 }
+                    if i == limit, limit < bytes.count { return false }
+                } else {
+                    break
+                }
+            }
             return i > begin
         }
         var i = start
-        guard let n = number(at: &i, maxDigits: 10), whitespace(at: &i),
-              let g = number(at: &i, maxDigits: 5), whitespace(at: &i),
+        guard let n = number(at: &i, maxDigits: 10), separator(at: &i),
+              let g = number(at: &i, maxDigits: 5), separator(at: &i),
               i + 3 <= bytes.count, bytes[i] == 0x6F, bytes[i + 1] == 0x62, bytes[i + 2] == 0x6A else { return nil }
         i += 3
         guard i == bytes.count || !PDFBytes.isRegular(bytes[i]) else { return nil }
