@@ -13,7 +13,7 @@
         },
         "marker" : "rgba(59, 47, 30, 0.45)"
       },
-      "css" : ":root { color-scheme: light; }\nhtml { color: #3b2f1e; background: #f8f1e3; }\nbody { font-size: 17px; line-height: 1.6;\n       font-family: -apple-system, 'Iowan Old Style', Georgia, serif; }\np, li { text-align: justify; }\na { color: inherit; }\nimg, svg { max-width: 100%; }",
+      "css" : ":root { color-scheme: light; }\nhtml { color: #3b2f1e !important; background: #f8f1e3 !important; }\nbody { color: inherit !important; background: transparent !important;\n       font-size: 17px; line-height: 1.6;\n       font-family: -apple-system, 'Iowan Old Style', Georgia, serif; }\np, li { text-align: justify; }\na { color: inherit; }\nimg, svg { max-width: 100%; }",
       "flow" : "paginated",
       "layout" : {
         "gap" : 0.06,

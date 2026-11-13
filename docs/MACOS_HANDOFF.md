@@ -132,6 +132,14 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
   - Kill the web content process (Activity Monitor, "gloss Web Content"): the page reloads and the book
     comes back where it was.
   - `underPageBackgroundColor` matches the theme when scrolling past the edges (sepia by default).
+  - **One page colour (D-144), unverified:** open a paginated EPUB in the reader-only layout, in
+    light and in dark system appearance, with each theme (light, sepia, night). The whole reader
+    card is one solid colour: margins, the gap between the two columns, below a chapter's last
+    lines, the blank page sliding in at a chapter end, and while rubber-banding in scrolled flow.
+    Changing the theme in ⌘, recolours all of it live, including the rubber-band area. Night: a
+    book that sets its own dark text colour reads light-on-dark; links and highlights still show.
+    If white still shows anywhere, inspect (Develop menu) whether `html` of the reader page has
+    `--gloss-background` set and whether the iframe's `html` computed background is the theme's.
   - In debug builds the page is inspectable in Safari's Develop menu.
   - **Page turning feels like Books (D-142), paginated flow, a long reflowable book:**
     1. Two-finger swipe left slowly: the page follows the fingers. Lift under halfway: it slides back;

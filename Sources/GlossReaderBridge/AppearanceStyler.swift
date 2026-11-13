@@ -39,11 +39,17 @@ public struct AppearanceStyler: Sendable {
 
     public func appearance(for settings: ReaderSettings) -> ReaderAppearance {
         let palette = Palette.for(settings.theme)
+        let dark = settings.theme == .night
+        // One page colour (D-144): the theme's background on `html` only, which paints the whole
+        // section document and is what foliate copies to its margins; book backgrounds on `body`
+        // would paint just the column boxes, so they go. Text takes the theme colour; a dark
+        // theme also overrides the book's own text and box colours, which assume a light page.
         let css = """
-        :root { color-scheme: \(settings.theme == .night ? "dark" : "light"); }
-        html { color: \(palette.foreground); background: \(palette.background); }
-        body { font-size: \(Self.number(settings.fontSize))px; line-height: \(Self.number(settings.lineHeight));
-               font-family: \(palette.fontFamily); }
+        :root { color-scheme: \(dark ? "dark" : "light"); }
+        html { color: \(palette.foreground) !important; background: \(palette.background) !important; }
+        body { color: inherit !important; background: transparent !important;
+               font-size: \(Self.number(settings.fontSize))px; line-height: \(Self.number(settings.lineHeight));
+               font-family: \(palette.fontFamily); }\(dark ? "\nbody * { color: inherit !important; background-color: transparent !important; }" : "")
         p, li { text-align: justify; }
         a { color: inherit; }
         img, svg { max-width: 100%; }

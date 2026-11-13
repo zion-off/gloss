@@ -2,7 +2,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { appearanceOps } from '../src/bridge/appearance.ts'
+import { appearanceOps, colorSchemeFor } from '../src/bridge/appearance.ts'
 import type { Appearance } from '../src/bridge/protocol.ts'
 
 const appearance: Appearance = {
@@ -44,4 +44,12 @@ test('attr ops only use names in the paginator observedAttributes', () => {
         'max-inline-size', 'max-block-size', 'max-column-count']
     for (const op of appearanceOps(appearance))
         if (op.op === 'attr') assert.ok(observed.includes(op.name), op.name)
+})
+
+test('the page colour scheme follows the theme background', () => {
+    assert.equal(colorSchemeFor('#f8f1e3'), 'light')
+    assert.equal(colorSchemeFor('#ffffff'), 'light')
+    assert.equal(colorSchemeFor('#1c1c1e'), 'dark')
+    assert.equal(colorSchemeFor('#000'), 'dark')
+    assert.equal(colorSchemeFor('rgb(0, 0, 0)'), 'light')
 })

@@ -371,8 +371,17 @@ const applyMotion = () => {
     view.renderer?.toggleAttribute('animated', !reducedMotion.matches);
 };
 reducedMotion.addEventListener('change', applyMotion);
+// The reader page itself takes the theme's colours (reader.css, D-144): foliate's margins and
+// column gap show the page through, so it must match the section documents' background.
+const applyPageColors = (pageColors) => {
+    const root = document.documentElement.style;
+    root.setProperty('--gloss-background', pageColors.background);
+    root.setProperty('--gloss-foreground', pageColors.foreground);
+    root.colorScheme = appearance.colorSchemeFor(pageColors.background);
+};
 const applyAppearance = (payload) => {
     colors = payload.colors;
+    applyPageColors(payload.colors);
     for (const op of appearance.appearanceOps(payload)) {
         if (op.op === 'attr')
             view.renderer?.setAttribute(op.name, op.value);
@@ -438,6 +447,8 @@ const commands = {
     async open({ openID, url, position, appearance: appearancePayload }) {
         // switching books happens in place: the previous one closes first
         closeBook();
+        // the page turns the theme's colour now, not after the book has loaded
+        applyPageColors(appearancePayload.colors);
         const res = await fetch(url);
         if (!res.ok)
             throw new Error(`fetch ${url} failed: ${res.status} ${res.statusText}`);

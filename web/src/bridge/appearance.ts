@@ -33,3 +33,17 @@ export const appearanceOps = (appearance: Appearance): RendererOp[] => {
         { op: 'styles', css: appearance.css },
     ]
 }
+
+// The `color-scheme` the reader page should use under a theme background (`#rgb`, `#rrggbb`,
+// with or without alpha), so scrollbars and form controls match the page: dark when the
+// background is dark (relative luminance below 0.4), light otherwise and for anything else.
+export const colorSchemeFor = (background: string): 'light' | 'dark' => {
+    const hex = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec(background.trim())?.[1]
+    if (!hex) return 'light'
+    const digits = hex.length <= 4 ? [...hex].map(d => d + d).join('') : hex
+    const [r, g, b] = [0, 2, 4].map(i => {
+        const c = parseInt(digits.slice(i, i + 2), 16) / 255
+        return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+    }) as [number, number, number]
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.4 ? 'dark' : 'light'
+}

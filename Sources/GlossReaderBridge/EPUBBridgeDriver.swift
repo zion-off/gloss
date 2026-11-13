@@ -8,6 +8,8 @@ import GlossEPUB
 public final class EPUBBridgeDriver: ReaderDriving, ReflowableAppearanceApplying {
     private let send: @MainActor (ReaderCommand) async throws -> Void
     public private(set) var appearance: ReaderAppearance
+    /// Called after each live appearance change, so the host can match native backgrounds.
+    public var appearanceDidChange: (@MainActor (ReaderAppearance) -> Void)?
 
     public init(appearance: ReaderAppearance, send: @escaping @MainActor (ReaderCommand) async throws -> Void) {
         self.appearance = appearance
@@ -65,6 +67,7 @@ public final class EPUBBridgeDriver: ReaderDriving, ReflowableAppearanceApplying
 
     public func apply(_ appearance: ReaderAppearance) async throws {
         self.appearance = appearance
+        appearanceDidChange?(appearance)
         try await send(.setAppearance(ReaderSetAppearancePayload(appearance: appearance)))
     }
 

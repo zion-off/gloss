@@ -1,13 +1,20 @@
-/* gloss reader page. The web view itself is transparent; the book's own
-   background is applied by foliate from the book CSS / appearance styles.
+/* gloss reader page. The whole page is the theme's background (D-144): the glue sets
+   --gloss-background/--gloss-foreground from the appearance, so foliate's margins, the column
+   gap, the blank pages around a section and anything the iframe leaves uncovered are the same
+   colour as the book's own page. Until the first appearance it follows the system (Canvas).
    No external resources; everything is served from the gloss-reader scheme. */
+
+html {
+    color-scheme: light dark;
+}
 
 html, body {
     margin: 0;
     padding: 0;
     width: 100%;
     height: 100%;
-    background: transparent;
+    color: var(--gloss-foreground, CanvasText);
+    background: var(--gloss-background, Canvas);
 }
 
 foliate-view {

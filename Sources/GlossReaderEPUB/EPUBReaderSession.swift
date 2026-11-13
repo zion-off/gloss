@@ -48,8 +48,11 @@ final class EPUBReaderSession: NSObject, ReaderSession, WKNavigationDelegate {
         webView.navigationDelegate = self
         webView.allowsBackForwardNavigationGestures = false
         webView.forwardsScrolling = { [weak self] in self?.bridge.appearance.flow == .paginated }
-        if let background = Self.color(appearance.colors.background) {
-            webView.underPageBackgroundColor = background
+        // Rubber-banding shows the theme's page colour too, and follows live theme changes.
+        Self.matchBackground(of: webView, to: appearance)
+        bridge.appearanceDidChange = { [weak webView] appearance in
+            guard let webView else { return }
+            Self.matchBackground(of: webView, to: appearance)
         }
         #if DEBUG
         webView.isInspectable = true
@@ -96,6 +99,12 @@ final class EPUBReaderSession: NSObject, ReaderSession, WKNavigationDelegate {
     /// `ready` again and the controller reopens the book where it was.
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         _ = webView.reload()
+    }
+
+    private static func matchBackground(of webView: WKWebView, to appearance: ReaderAppearance) {
+        if let background = color(appearance.colors.background) {
+            webView.underPageBackgroundColor = background
+        }
     }
 
     static func color(_ css: String) -> NSColor? {

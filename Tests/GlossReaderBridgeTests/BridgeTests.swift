@@ -124,6 +124,9 @@ struct AppearanceTests {
         #expect(appearance.css.contains("line-height: 1.7"))
         #expect(appearance.css.contains("color-scheme: light"))
         #expect(!appearance.css.contains("color-scheme: dark"))
+        // One page colour: the theme's on html wins over the book's, body backgrounds go (D-144).
+        #expect(appearance.css.contains("background: #f8f1e3 !important"))
+        #expect(appearance.css.contains("background: transparent !important"))
 
         var night = settings
         night.theme = .night
@@ -133,6 +136,8 @@ struct AppearanceTests {
         #expect(dark.flow == .scrolled)
         #expect(dark.layout.margin == 32)
         #expect(dark.css.contains("color-scheme: dark"))
+        #expect(dark.css.contains("body * { color: inherit !important"))
+        #expect(!appearance.css.contains("body *"))
         #expect(dark.colors.background == "#1c1c1e")
         #expect(dark.colors.marker.contains("0.5"))
     }

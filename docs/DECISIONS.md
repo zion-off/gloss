@@ -474,3 +474,14 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   pending save (any second settings change) aborted in `swift_task_dealloc` ("freed pointer was not
   the last allocation", crash reports of 2026-11-13). `taskSleep(_:)` (GlossAppModel) replaces it;
   a test drives quick changes with the real sleep (it reproduced the abort on macOS).
+- **D-144 The EPUB reader is one solid theme colour, edge to edge.** The reader page was
+  transparent, so wherever foliate's section iframe didn't paint (margins, column gap, the blank
+  pages around a section, and the whole frame whenever its `#background` copy came out empty) the
+  WKWebView's own white showed; book CSS could also out-rank the theme's `html` background or paint
+  `body` per column. Now the glue sets `--gloss-background`/`--gloss-foreground` and `color-scheme`
+  on the reader page (`reader.css`, system `Canvas` before the first appearance), the theme's
+  `html` colours are `!important`, `body` is transparent, `underPageBackgroundColor` follows live
+  theme changes, and the night theme also overrides the book's text/box colours (dark text on a
+  dark page is unreadable). The themes stay light, sepia (default) and night; none follows the
+  system appearance, so a dark-mode Mac still reads sepia until night is chosen (an "auto" theme
+  would be additive).
