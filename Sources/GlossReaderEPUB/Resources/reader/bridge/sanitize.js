@@ -51,8 +51,15 @@ export const sanitizeMarkup = (markup, type, parser, serializer) => {
     // Template content is a separate tree the walker never reaches (review 4); walk it too.
     const allElements = (root) => {
         const found = Array.from(root.querySelectorAll('*'));
-        for (const template of root.querySelectorAll('template'))
-            found.push(...allElements(template.content));
+        for (const template of root.querySelectorAll('template')) {
+            // Under the HTML/XHTML parsers template content is a DocumentFragment; under the
+            // generic XML parser a <template> is an ordinary element with no .content
+            // (review 5) — its children are already in the walk. Duck-typed: this module is
+            // pure and never touches globals.
+            const content = template.content;
+            if (content && typeof content.querySelectorAll === 'function')
+                found.push(...allElements(content));
+        }
         return found;
     };
     let removed = 0;
