@@ -529,6 +529,64 @@ static var pdf: UTType { get }
 
 ---
 
+# Milestone 9 additions (verified 2026-11-13, same method)
+
+### WebKit
+```swift
+optional func webViewWebContentProcessDidTerminate(_ webView: WKWebView)          // WKNavigationDelegate, macOS 10.11+
+var request: URLRequest { get }                                                   // WKNavigationAction, 10.10+
+@NSCopying var targetFrame: WKFrameInfo? { get }                                  // nil = new window
+var isMainFrame: Bool { get }                                                     // WKFrameInfo, 10.10+
+var request: URLRequest { get }                                                   // WKFrameInfo, 10.10+
+enum WKNavigationActionPolicy { case allow, cancel, download }                    // 10.10+
+init(frame: CGRect, configuration: WKWebViewConfiguration)                        // WKWebView, @MainActor via the class
+weak var navigationDelegate: (any WKNavigationDelegate)? { get set }              // weak
+weak var uiDelegate: (any WKUIDelegate)? { get set }                              // weak
+func reload() -> WKNavigation?                                                    // NOT @discardableResult
+func load(_ request: URLRequest) -> WKNavigation?                                 // NOT @discardableResult
+func add(_ scriptMessageHandler: any WKScriptMessageHandler, contentWorld world: WKContentWorld, name: String)   // 11.0+
+func removeScriptMessageHandler(forName name: String)                             // page world only, 10.10+
+func removeAllScriptMessageHandlers()                                             // all worlds, 11.0+
+@NSCopying var frameInfo: WKFrameInfo { get }                                     // WKScriptMessage, 10.10+
+var world: WKContentWorld { get }                                                 // WKScriptMessage, 11.0+
+```
+- **UNVERIFIED:** `WKWebViewConfiguration()` has no docs page (only `init(coder:)`); Apple's sample code calls it.
+- The user content controller retains its handlers: use a weak proxy.
+
+### AppKit, PDFKit, Foundation
+```swift
+init(srgbRed red: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat)          // NSColor, 10.7+ (also a synthesized init(SRGBRed:…) page)
+func open(_ url: URL) -> Bool                                                     // NSWorkspace; safe from any thread
+func representation(using storageType: NSBitmapImageRep.FileType, properties: [NSBitmapImageRep.PropertyKey : Any]) -> Data?
+init?(data: Data)                                                                 // NSBitmapImageRep
+var tiffRepresentation: Data? { get }                                             // NSImage
+enum NSBitmapImageRep.FileType { case tiff, bmp, gif, jpeg, png, jpeg2000 }
+func page(at index: Int) -> PDFPage?                                              // PDFDocument, 10.4+
+var pageCount: Int { get }
+enum PDFDisplayBox { case mediaBox, cropBox, bleedBox, trimBox, artBox }
+func thumbnail(of size: NSSize, for box: PDFDisplayBox) -> NSImage                // PDFPage, 10.13+
+init?(url: URL, statusCode: Int, httpVersion HTTPVersion: String?, headerFields: [String : String]?)   // HTTPURLResponse
+init(url: URL, cachePolicy: URLRequest.CachePolicy = .useProtocolCachePolicy, timeoutInterval: TimeInterval = 60.0)
+func activate()                                                                   // NSApplication, 14.0+; activate(ignoringOtherApps:) deprecated 27.0
+```
+
+### SwiftUI
+```swift
+@MainActor @preconcurrency static func main()                                     // App; docs only describe @main
+nonisolated struct ContentUnavailableView<Label, Description, Actions>             // 14.0+
+nonisolated init(_ title: LocalizedStringResource, systemImage name: String, description: Text? = nil)
+nonisolated func task<T>(id: T, name: String? = nil, priority: TaskPriority = .userInitiated, file: String = #fileID, line: Int = #line,
+                         _ action: sending @escaping @isolated(any) () async -> Void) -> some View where T : Equatable   // 12.0+
+nonisolated init(@ContentBuilder sidebar: () -> Sidebar, @ContentBuilder detail: () -> Detail) where Content == EmptyView   // NavigationSplitView, 13.0+
+nonisolated init(selection: Binding<SelectionValue?>?, @ContentBuilder content: () -> Content)   // List, single optional selection, 13.0+
+nonisolated func tag<V>(_ tag: V, includeOptional: Bool = true) -> some View where V : Hashable  // also tags Optional<V>
+nonisolated func navigationTitle(_ titleResource: LocalizedStringResource) -> some View          // 13.0+; String overload not checkable
+nonisolated func navigationSubtitle(_ subtitleKey: LocalizedStringResource) -> some View         // 13.0+
+@MainActor @preconcurrency let coordinator: View.Coordinator                       // NSViewRepresentableContext
+```
+
+---
+
 ## Verified vs UNVERIFIED
 
 - **61 documented entries total; 57 fully verified** from the Apple docs JSON (exact Swift
