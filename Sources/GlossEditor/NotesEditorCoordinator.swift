@@ -18,6 +18,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
     private var lastRuns: [StyledRun] = []
     private var displayedPageID: PageID?
     private var displayedSubpageRows: [SubpageRow] = []
+    private var displayedSpans: [StyleSpan] = []
     private var lastRevealToken: UUID?
     let actions: NotesEditorActions
 
@@ -149,6 +150,12 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
             displayedSubpageRows = model.subpageRows
             invalidateRows()
         }
+        // Styling can change without the text moving (a link's status flipped in the store,
+        // the syntax reveal): restyle then, not only on the next keystroke (review 5).
+        if displayedSpans != model.spans {
+            displayedSpans = model.spans
+            restyle()
+        }
     }
 
     private func install(_ text: String) {
@@ -269,6 +276,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
     /// move in a long page doesn't touch the whole layout.
     private func restyle() {
         guard let textView else { return }
+        displayedSpans = model.spans
         let length = model.text.utf16.count
         let runs = notesTheme.runs(for: model.spans, length: length)
         let changed = StyledRunDiff.changedRanges(from: lastRuns, to: runs)

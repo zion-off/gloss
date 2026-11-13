@@ -58,6 +58,9 @@ public struct ReaderPane: View {
     func prepare(for kind: DocumentKind?, engines: ReadingEngineRegistry, reader: ReaderController) async {
         guard let kind, kind != self.kind else { return }
         await session?.invalidate()
+        // The old task is cancelled while it drains; if it resumes here, a newer prepare has
+        // already run and this one must not clobber its session (review 5).
+        guard !Task.isCancelled else { return }
         session = nil
         self.kind = kind
         guard let engine = engines.engine(for: kind) else { return }
