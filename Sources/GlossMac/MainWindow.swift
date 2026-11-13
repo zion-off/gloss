@@ -174,6 +174,8 @@ struct NotesPane: View {
     let app: AppModel
     let reveal: NotesReveal?
     @Binding var unsavedFailure: String?
+    /// The window's commands: ⌘K, add to notes and history reach the editor through these.
+    let commands: WindowCommands
 
     var body: some View {
         VStack(spacing: 0) {
