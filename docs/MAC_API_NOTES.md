@@ -987,10 +987,11 @@ nonisolated func animation<V: Equatable>(_ animation: Animation?, value: V) -> s
 
 ## Verified vs UNVERIFIED
 
-- **89 documented entries total; 85 fully verified** from the Apple docs JSON (exact Swift
-  declaration tokens, macOS availability, actor isolation, and discussion notes) — the count
-  includes the save/print-panel and accessibility entries review 7's round added.
-- **5 entries carry UNVERIFIED aspects:**
+- **78 documented sections** (one per `###` heading below; several hold more than one
+  declaration) — every declaration in them was checked against the Apple docs JSON: exact Swift
+  declaration tokens, macOS availability, actor isolation, and discussion notes.
+- **10 distinct entries carry UNVERIFIED markers** (11 marker lines; the PDF notification
+  spelling is noted both at its PDFKit entry and at its use), each with its reason inline:
   1. `NSTextView.init(usingTextLayoutManager:)` minimum macOS version — docs metadata omits
      `introducedAt` (likely docs data gap; TextKit 2 siblings are 12.0+).
   2. Swift spelling of `PDFViewSelectionChangedNotification` / `PDFViewPageChangedNotification` —
@@ -999,7 +1000,17 @@ nonisolated func animation<V: Equatable>(_ animation: Animation?, value: V) -> s
      docs (verified absent); whether it works is unverifiable from documentation (private API).
   4. WKWebView drag/drop APIs — no public drag/drop API present in the WebKit docs index (absence
      verified, but absence of evidence in the index is the only proof available).
-  5. `NSSavePanel()` — no initializer page exists in the docs JSON (the class page lists none);
-     the inherited no-argument init is assumed, as Apple's sample code calls it.
+  5. `WKWebViewConfiguration()` — no initializer page exists in the docs JSON (the class page
+     lists none); the inherited no-argument init is assumed, as Apple's sample code calls it.
+  6. `NSTextView.scrollableTextView()` — whether it creates a TextKit 2 view; its doc page has
+     no discussion (the code builds the view with `usingTextLayoutManager: true` instead).
+  7. SwiftUI's `task` modifiers inheriting the caller's actor context — the SDK interface spells
+     it `@_inheritActorContext`, which the docs drop.
+  8. `NSOpenPanel()` / `NSSavePanel()` — no initializer docs page (NSObject's `init` reaches
+     them); Apple's sample code calls them, as with `WKWebViewConfiguration()`.
+  9. `NSPrintOperation.run()` — declaration only, no discussion; whether it presents a panel
+     without a window. The code prefers `runModal(for:)` and falls back only without a key window.
+  10. Printing right after `didFinish` having the web view laid out — needs a run; if the first
+      page comes out blank, wait a beat after the navigation completes.
 
 Sources: `https://developer.apple.com/tutorials/data/documentation/{webkit,appkit,pdfkit,swiftui,observation,uniformtypeidentifiers}/...json`, fetched 2026-11-13.
