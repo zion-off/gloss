@@ -15,8 +15,8 @@ public struct NotesEditor: View {
     let onOpenPage: @MainActor (PageID) -> Void
 
     @State private var actions = NotesEditorActions()
-    @State private var selectionRect: NSRect?
-    @State private var caretRect: NSRect?
+    @State private var selectionRect: OverlayRect?
+    @State private var caretRect: OverlayRect?
 
     public init(model: NotesEditorModel, reveal: NotesReveal?,
                 onOpenGlossLink: @escaping @MainActor (GlossLink) async -> Void,
@@ -45,30 +45,26 @@ public struct NotesEditor: View {
     @ViewBuilder private func overlays(in size: CGSize) -> some View {
         if FormatBar.shouldShow(selection: model.selection, subpageRows: model.subpageRows),
            let rect = selectionRect {
+            // Position by top edge: the bar sits over the selection when there's room, under
+            // it when there isn't.
             FormatBarView(model: model, actions: actions)
-                .position(x: Self.clamp(rect.midX, width: FormatBarView.width, in: size.width),
-                          y: max(rect.minY - 26, 16))
+                .position(x: OverlayGeometry.clampCenter(rect.midX, width: FormatBarView.width, in: size.width),
+                          y: OverlayGeometry.above(anchor: rect, height: FormatBarView.height) + FormatBarView.height / 2)
         }
         if let menu = model.slashMenu, let rect = caretRect {
             SlashMenuView(model: model, confirm: { id in Task { await actions.confirmSlash(id) } })
-                .position(x: Self.clamp(rect.minX + SlashMenuView.width / 2, width: SlashMenuView.width, in: size.width),
-                          y: rect.maxY + SlashMenuView.height / 2 + 6)
+                .position(x: OverlayGeometry.clampCenter(rect.minX + SlashMenuView.width / 2, width: SlashMenuView.width, in: size.width),
+                          y: OverlayGeometry.belowCenter(anchor: rect, height: SlashMenuView.height))
                 .id(menu.trigger.range.lowerBound)
                 .accessibilityLabel(Text("insert menu"))
         }
-    }
-
-    /// Keeps an overlay of `width` centred at `x` inside `0…available`.
-    static func clamp(_ x: CGFloat, width: CGFloat, in available: CGFloat) -> CGFloat {
-        let half = width / 2 + 8
-        guard available > 2 * half else { return available / 2 }
-        return min(max(x, half), available - half)
     }
 }
 
 /// The format bar: the standard buttons, in a system material, floating over the selection.
 struct FormatBarView: View {
     static let width: CGFloat = CGFloat(FormatBar.items.count) * 28 + 12
+    static let height: CGFloat = 32
 
     let model: NotesEditorModel
     let actions: NotesEditorActions
@@ -90,6 +86,7 @@ struct FormatBarView: View {
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
+        .frame(height: Self.height)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
         .shadow(radius: 2, y: 1)
     }
