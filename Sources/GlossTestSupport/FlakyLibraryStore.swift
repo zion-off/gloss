@@ -12,7 +12,11 @@ public final class FlakyLibraryStore: LibraryStore, @unchecked Sendable {
     private var _failsWrites = false
     private var _reads = 0
     private var _parkNextRead = false
-    private var parked: CheckedContinuation<Void, Never>?
+    /// Parked reads, oldest first (review 8: a single slot made a second parked read overwrite
+    /// the first continuation, and a release landing before the park was silently dropped).
+    private var parkedQueue: [CheckedContinuation<Void, Never>] = []
+    /// Releases that arrived while nothing was parked; the next park consumes one instead.
+    private var _pendingReleases = 0
     private var _parkedReads = 0
 
     public init(_ base: any LibraryStore) {
@@ -34,7 +38,7 @@ public final class FlakyLibraryStore: LibraryStore, @unchecked Sendable {
     public var reads: Int { lock.withLock { _reads } }
 
     /// Parks the next read until `releaseParkedRead()` (race tests: a stale query landing after
-    /// a newer one). The parked read's continuation is stored under the same lock.
+    /// a newer one). Further parked reads queue up; releases are spent oldest-first.
     public var parkNextRead: Bool {
         get { lock.withLock { _parkNextRead } }
         set { lock.withLock { _parkNextRead = newValue } }
@@ -43,11 +47,15 @@ public final class FlakyLibraryStore: LibraryStore, @unchecked Sendable {
     /// Reads parked so far (a test waits for this before releasing).
     public var parkedReads: Int { lock.withLock { _parkedReads } }
 
-    /// Lets a parked read continue.
+    /// Lets a parked read continue. With none parked, the next park runs straight through, so a
+    /// release can never be lost to a race with the park itself (review 8).
     public func releaseParkedRead() {
-        let continuation = lock.withLock {
-            defer { parked = nil }
-            return parked
+        let continuation: CheckedContinuation<Void, Never>? = lock.withLock {
+            if parkedQueue.isEmpty {
+                _pendingReleases += 1
+                return nil
+            }
+            return parkedQueue.removeFirst()
         }
         continuation?.resume()
     }
@@ -56,12 +64,27 @@ public final class FlakyLibraryStore: LibraryStore, @unchecked Sendable {
         lock.withLock { _reads += 1 }
         if failsReads { throw ReadFailure() }
         if lock.withLock({ _parkNextRead }) {
-            lock.withLock {
+            let shouldPark: Bool = lock.withLock {
                 _parkNextRead = false
+                if _pendingReleases > 0 {
+                    _pendingReleases -= 1
+                    return false  // a release was already waiting: run straight through
+                }
                 _parkedReads += 1
+                return true
             }
-            await withCheckedContinuation { continuation in
-                lock.withLock { parked = continuation }
+            if shouldPark {
+                await withCheckedContinuation { continuation in
+                    let resumeNow = lock.withLock {
+                        if _pendingReleases > 0 {  // a release raced the queueing: use it
+                            _pendingReleases -= 1
+                            return true
+                        }
+                        parkedQueue.append(continuation)
+                        return false
+                    }
+                    if resumeNow { continuation.resume() }
+                }
             }
         }
         return try await base.read(work)
