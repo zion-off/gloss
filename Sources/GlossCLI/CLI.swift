@@ -88,4 +88,9 @@ public struct GlossCommand: AsyncParsableCommand {
         ])
 
     public init() {}
+
+    /// A bare `gloss` says hello instead of dumping usage (`--help` still does that).
+    public func run() async throws {
+        await Home.show(try? Context(GlobalOptions.parse([])))
+    }
 }
