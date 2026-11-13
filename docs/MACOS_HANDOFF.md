@@ -90,6 +90,29 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
   out sideways (rotation isn't applied); check, and use `PDFPage.rotation` if so.
 - `scripts/run-mac.sh` — builds `build/gloss.app` (ad hoc signed) and opens it; `--no-open`, `--release`.
 
+### `Sources/GlossEditor/` (milestone 10)
+
+- `NotesEditorTheme.swift` — system fonts and colours only; check light/dark, Increase Contrast
+  and Reduce Transparency all look right, and that headings/code/quotes read like Notes'.
+- `NotesTextView.swift` — a click toggles a task box and opens a subpage row; verify the click
+  target feels right (the box glyph, not the whole line).
+- `NotesEditorCoordinator.swift`
+  - Typing is native (input methods, undo, find bar); the buffer must stay the raw markdown.
+  - Smart quotes/dashes/text replacement are off — type `"` and `--` and they must stay ASCII.
+  - The format bar and slash menu anchor to the selection/caret and follow scrolling
+    (bounds-change notifications recompute the anchor); check they stay inside the window.
+  - Model edits (format bar, slash menu, Return/Tab in lists) apply as ONE undo step each; ⌘Z
+    undoes them one at a time and the styling follows.
+  - A failed save shows "couldn't save — your words are still here" at the bottom; switching
+    pages then offers keep/discard (never silent loss).
+  - `.link` attributes make gloss and web links clickable with the pointing hand cursor; gloss
+    links route inside the app, web links open the browser.
+- `NotesEditorView.swift` — the overlays are SwiftUI over the scroll view; check the slash menu's
+  width stays inside the window near the right edge (the Mac check listed in the code).
+- `Sources/GlossMac/MainWindow.swift` — the editor pane: page loads, the unsaved-changes alert,
+  breadcrumbs, and the reveal (a marker click selects the link line and scrolls to it). The split
+  layout switches with the workspace setting; the real split view is milestone 11.
+
 ## APIs I was unsure about
 
 - `ContentUnavailableView(_:systemImage:description:)` is verified with a `LocalizedStringResource`
@@ -101,4 +124,14 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
 - `WKWebView.load(_:)` and `reload()` return `WKNavigation?` without `@discardableResult`, hence `_ =`.
 - `.navigationTitle(_:)` with a `String` (only the `LocalizedStringResource` overload page could be
   checked).
+- `NSTextView(usingTextLayoutManager: true)` minimum macOS version (docs omit it; TextKit 2 siblings
+  are 12.0+ — the target is macOS 14, so only the gap matters for the record).
+- `NSView.boundsDidChangeNotification` on the scroll view's clip view (standard AppKit, not in the
+  verified notes) and `postsBoundsChangedNotifications` defaulting to true.
+- `NSColor.separatorColor` in the slash menu border (standard, not in the verified notes).
+- `firstRect(forCharacterRange:actualRange:)` returning screen coordinates and the screen → window →
+  scroll-view conversion chain (`convertFromScreen` then `convert(_:from: nil)`), verified as declared;
+  the composed result needs a run.
+- `shouldChangeText(in:replacementString:)` + `replaceCharacters(in:with:)` + `didChangeText()` as the
+  one-undo-step recipe for programmatic edits (each part verified; the composition needs a run).
 - `PDFDocument` and `PDFPage.thumbnail(of:for:)` off the main thread (imports run there).

@@ -3,6 +3,8 @@ import AppKit
 import SwiftUI
 import GlossAppModel
 import GlossCore
+import GlossEditor
+import GlossNotes
 import GlossReaderKit
 
 /// One window: the library in the sidebar, the reader in the detail column. Each window has its
@@ -12,6 +14,8 @@ struct MainWindow: View {
     @State private var app: AppModel
     @State private var started = false
     @State private var selection: DocumentID?
+    @State private var reveal: (token: UUID, range: Range<Int>)?
+    @State private var unsavedFailure: String?
 
     init(root: AppRoot) {
         self.root = root
@@ -23,7 +27,16 @@ struct MainWindow: View {
             LibrarySidebar(library: app.library, selection: $selection)
         } detail: {
             if started {
-                ReaderPane(reader: app.reader, engines: root.engines)
+                // The real split view is milestone 11; this lays the two panes out by the
+                // workspace's layout setting so the editor is reachable now.
+                HSplitView {
+                    if app.workspace.layout.showsReader {
+                        ReaderPane(reader: app.reader, engines: root.engines)
+                    }
+                    if app.workspace.layout.showsNotes {
+                        NotesPane(app: app, reveal: $reveal, unsavedFailure: $unsavedFailure)
+                    }
+                }
             } else {
                 ProgressView()
             }
@@ -33,6 +46,40 @@ struct MainWindow: View {
         .task(id: selection) { await open(selection) }
         .task(id: app.workspace.readerFocus) { await app.showReaderFocus() }
         .task(id: app.workspace.document?.id) { selection = app.workspace.document?.id }
+        .task(id: app.workspace.pendingNoteReveal) {
+            if let range = app.workspace.pendingNoteReveal {
+                reveal = (UUID(), range)
+                app.workspace.consumeNoteReveal()
+            }
+        }
+        .alert("couldn't save this page", isPresented: Binding(get: { unsavedFailure != nil },
+                                                                set: { if !$0 { unsavedFailure = nil } })) {
+            Button("keep editing") { Task { await keepEditing() } }
+            Button("discard and switch", role: .destructive) { Task { await switchDiscarding() } }
+        } message: {
+            Text(verbatim: unsavedFailure ?? "")
+        }
+    }
+
+    /// Opens the page the editor is showing, honouring unsaved text (review 3/4: never dropped).
+    private func loadEditorPage() async {
+        guard let page = app.workspace.page else { return }
+        do {
+            try await app.notes.load(page)
+        } catch let NotesEditorModel.EditorError.unsavedChanges(reason) {
+            unsavedFailure = reason
+        } catch {}
+    }
+
+    private func keepEditing() async {
+        // Stay on the page the editor still shows; put the workspace back there.
+        if let page = app.notes.page { try? await app.workspace.openPage(page.id) }
+        await loadEditorPage()
+    }
+
+    private func switchDiscarding() async {
+        guard let page = app.workspace.page else { return }
+        try? await app.notes.load(page, discardingUnsaved: true)
     }
 
     /// Starts the window, then polls for changes from the cli and other windows once a second
@@ -83,6 +130,72 @@ struct LibrarySidebar: View {
                                        description: Text("add some with gloss import in terminal"))
             }
         }
+    }
+}
+
+/// The notes half of the window: breadcrumbs, the editor, and a note when a save failed.
+struct NotesPane: View {
+    let app: AppModel
+    @Binding var reveal: (token: UUID, range: Range<Int>)?
+    @Binding var unsavedFailure: String?
+
+    var body: some View {
+        VStack(spacing: 0) {
+            breadcrumbs
+            NotesEditor(model: app.notes,
+                        onOpenGlossLink: { link in await app.follow(link) },
+                        onOpenWebLink: { url in _ = NSWorkspace.shared.open(url) },
+                        onOpenPage: { id in try? await app.workspace.openPage(id) })
+                .overlay(alignment: .bottom) {
+                    if let message = failedMessage {
+                        Text(verbatim: message)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .padding(8)
+                            .frame(maxWidth: .infinity)
+                            .background(.regularMaterial)
+                    }
+                }
+        }
+        .task(id: app.workspace.page?.id) { await loadPage() }
+        .task(id: reveal?.token) { passRevealToEditor() }
+    }
+
+    private var failedMessage: String? {
+        if case .failed = app.notes.saveState { return "couldn't save — your words are still here" }
+        return nil
+    }
+
+    private var breadcrumbs: some View {
+        HStack(spacing: 4) {
+            ForEach(Array(app.notes.breadcrumbs.dropLast().enumerated()), id: \.offset) { _, page in
+                Button(page.title) { try? Task { try await app.workspace.openPage(page.id) } }
+                    .buttonStyle(.link)
+                    .foregroundStyle(.secondary)
+                Text(verbatim: "›").foregroundStyle(.tertiary)
+            }
+            if let page = app.notes.breadcrumbs.last {
+                Text(verbatim: page.title).foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(.bar)
+    }
+
+    private func loadPage() async {
+        guard let page = app.workspace.page else { return }
+        do {
+            try await app.notes.load(page)
+        } catch let NotesEditorModel.EditorError.unsavedChanges(reason) {
+            unsavedFailure = reason
+        } catch {}
+    }
+
+    private func passRevealToEditor() {
+        // The reveal is applied by the representable's update; nothing to do here beyond
+        // passing the token down (the editor applies it once).
     }
 }
 #endif

@@ -177,6 +177,18 @@ import GlossNotes
         command.edit(document, selection: selection)
     }
 
+    /// Applies an edit the view asked for (a format bar button). The view applies the edit
+    /// itself through its change APIs; this only restyles and schedules the save.
+    public func applyExternally(_ result: EditResult) {
+        textDidChange(result.apply(to: text), selection: result.selection)
+    }
+
+    /// Runs the selected slash command for the view (a menu click): the view applies the
+    /// returned edit and opens the page if `/page` made one.
+    public func confirmSlashExternally(itemID: String? = nil) async -> SlashCommandResult? {
+        try? await confirmSlashMenu(itemID: itemID)
+    }
+
     /// Decides a key command: the open slash menu takes Return, Tab, Escape and the arrows;
     /// otherwise Return continues lists and quotes and Tab indents list items.
     public func keyCommand(_ command: KeyCommand) -> KeyOutcome {
