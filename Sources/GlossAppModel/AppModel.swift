@@ -66,6 +66,13 @@ import GlossCore
         }
     }
 
+    /// Opens the reader where the workspace points (the window calls this whenever
+    /// `workspace.readerFocus` changes): the book at its passage, or at the saved position.
+    public func showReaderFocus() async {
+        guard let focus = workspace.readerFocus, let document = workspace.document, document.id == focus.documentID else { return }
+        await reader.open(document, at: focus.locator)
+    }
+
     /// Applies a `gloss://` link; returns false when the destination is gone.
     @discardableResult
     public func follow(_ link: GlossLink) async -> RouteOutcome {

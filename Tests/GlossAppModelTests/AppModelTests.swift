@@ -433,6 +433,29 @@ struct ReviewOneAppModelTests {
         #expect(!workspace.readerHistory.backStack.contains { $0.documentID == a.id })
     }
 
+    @Test("the reader follows the workspace focus: the book at its passage, else the saved position")
+    func readerFollowsFocus() async throws {
+        let lib = TestLibrary()
+        let (book, _) = try await lib.book()
+        let app = AppModel(services: lib.services)
+        let driver = FakeDriver()
+        app.reader.attach(driver)
+        await app.reader.handle(.ready)
+        await app.showReaderFocus()
+        #expect(driver.calls.isEmpty)  // nothing focused yet
+
+        try await lib.services.library.savePosition(Locator(scheme: FakeFormat.scheme, value: "saved"), progression: 0.5, label: nil, of: book.id)
+        try await app.workspace.openDocument(book.id)
+        await app.showReaderFocus()
+        #expect(driver.calls == [.open(book.id, Locator(scheme: FakeFormat.scheme, value: "saved"))])
+        await app.reader.handle(.opened(toc: [], openID: driver.lastOpenID))
+
+        let passage = Locator(scheme: FakeFormat.scheme, value: "passage")
+        try await app.workspace.openDocument(book.id, locator: passage)
+        await app.showReaderFocus()
+        #expect(driver.calls.last == .go(passage, flash: true))
+    }
+
     @Test("the reader closes a book trashed from outside, and reopens after an engine reload")
     func readerLifecycle() async throws {
         let lib = TestLibrary()
