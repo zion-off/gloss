@@ -14,11 +14,38 @@ import GlossReaderBridge
 /// (positions, selections, clicks) belong to the previous book and are dropped; so are
 /// `.opened` replies to opens that a newer one replaced.
 @MainActor @Observable public final class ReaderController {
+    /// A note that links to a marker, with the line that holds the link.
+    public struct MarkerReference: Equatable, Sendable, Identifiable {
+        public var page: Page
+        /// The line containing the link, trimmed.
+        public var snippet: String
+
+        public var id: PageID { page.id }
+    }
+
     /// Pages that link to a clicked marker, shown as a small list to choose from.
     public struct MarkerChoice: Equatable, Sendable {
         public var target: LinkTargetID
-        public var pages: [Page]
+        public var references: [MarkerReference]
         public var anchor: ReaderRect
+
+        public var pages: [Page] { references.map(\.page) }
+    }
+
+    /// The reader's one popover at a time, in precedence order: a marker's notes, then a
+    /// clicked highlight, then the selection's commands.
+    public enum Popover: Equatable, Sendable {
+        case markerChoice(MarkerChoice)
+        case highlight(HighlightFocus)
+        case selection(BookSelection, anchor: ReaderRect)
+
+        public var anchor: ReaderRect {
+            switch self {
+            case .markerChoice(let choice): choice.anchor
+            case .highlight(let focus): focus.anchor
+            case .selection(_, let anchor): anchor
+            }
+        }
     }
 
     /// A clicked highlight, for its popover (recolour, delete, add to notes).
@@ -30,17 +57,9 @@ import GlossReaderBridge
     /// What hovering a note marker shows: the passage it marks, and every note that links to
     /// it with the line that holds the link.
     public struct MarkerHover: Equatable, Sendable {
-        public struct ReferringPage: Equatable, Sendable, Identifiable {
-            public var page: Page
-            /// The line containing the link, trimmed.
-            public var snippet: String
-
-            public var id: PageID { page.id }
-        }
-
         /// The marked passage, as stored on the target.
         public var quote: String
-        public var pages: [ReferringPage]
+        public var pages: [MarkerReference]
     }
 
     public private(set) var document: Document?
@@ -275,16 +294,38 @@ import GlossReaderBridge
     public func hover(over marker: LinkTargetID) async -> MarkerHover? {
         guard let target = try? await services.links.linkTarget(marker) else { return nil }
         let referring = (try? await services.links.referringPages(to: marker)) ?? []
-        let pages = referring.map { page -> MarkerHover.ReferringPage in
-            let body = page.body
-            let text = MarkdownText(body)
-            let link = LinkRanges.ranges(of: .passage(marker), in: body).first
-            let line = text.lines.first { line in link.map { line.overlaps($0) } ?? false }
-                ?? link ?? 0..<0
-            return MarkerHover.ReferringPage(page: page, snippet: String(text[line]).trimmingCharacters(in: .whitespaces))
-        }
+        let pages = referring.map { Self.reference(to: marker, in: $0) }
         guard !pages.isEmpty else { return nil }
         return MarkerHover(quote: target.passage.quote, pages: pages)
+    }
+
+    /// The popover to show now, if any.
+    public var popover: Popover? {
+        if let markerChoice { return .markerChoice(markerChoice) }
+        if let highlightFocus { return .highlight(highlightFocus) }
+        if let selection, let selectionAnchor { return .selection(selection, anchor: selectionAnchor) }
+        return nil
+    }
+
+    /// Dismisses whichever popover shows; the selection's popover goes with the selection.
+    public func dismissPopover() async {
+        if markerChoice != nil || highlightFocus != nil {
+            dismissPopovers()
+            return
+        }
+        guard selection != nil else { return }
+        selection = nil
+        selectionAnchor = nil
+        if isShowingBook { try? await driver?.clearSelection() }
+    }
+
+    /// The line of `page` that links to `marker`.
+    static func reference(to marker: LinkTargetID, in page: Page) -> MarkerReference {
+        let body = page.body
+        let text = MarkdownText(body)
+        let link = LinkRanges.ranges(of: .passage(marker), in: body).first
+        let line = text.lines.first { line in link.map { line.overlaps($0) } ?? false } ?? link ?? 0..<0
+        return MarkerReference(page: page, snippet: String(text[line]).trimmingCharacters(in: .whitespaces))
     }
 
     /// Picks a page from the marker list.
@@ -366,7 +407,11 @@ import GlossReaderBridge
                 return
             }
             if pages.count > 1 {
-                markerChoice = MarkerChoice(target: firstTarget, pages: pages, anchor: anchor)
+                let references = pages.map { page in
+                    let marker = markers.first { !LinkRanges.ranges(of: .passage($0), in: page.body).isEmpty } ?? firstTarget
+                    return Self.reference(to: marker, in: page)
+                }
+                markerChoice = MarkerChoice(target: firstTarget, references: references, anchor: anchor)
                 return
             }
         }

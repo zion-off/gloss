@@ -574,6 +574,9 @@ struct PassageLinkRoundTripTests {
         let choice = try #require(app.reader.markerChoice)
         #expect(Set(choice.pages.map(\.id)) == [root.id, sub.id])
         #expect(choice.anchor == ReaderRect(x: 1, y: 2, width: 3, height: 4))
+        // Each choice shows the line that links, so the notes can be told apart.
+        #expect(Set(choice.references.map(\.snippet)) == ["root " + link, "sub " + link])
+        #expect(app.reader.popover == .markerChoice(choice))
         await app.reader.choose(choice.pages.first { $0.id == sub.id }!)
         #expect(app.reader.markerChoice == nil)
         #expect(app.workspace.page?.id == sub.id)
@@ -599,6 +602,60 @@ struct PassageLinkRoundTripTests {
         // A target nothing links to has nothing to show.
         let orphan = try await lib.services.links.target(for: lib.passage("gone", at: "cfi-x"), in: book.id)
         #expect(await app.reader.hover(over: orphan.id) == nil)
+    }
+
+    @Test("one popover at a time: marker choice, then highlight, then selection; dismissing clears it")
+    func popoverPrecedence() async throws {
+        let lib = TestLibrary()
+        let (book, _) = try await lib.book()
+        let app = AppModel(services: lib.services)
+        let driver = FakeDriver()
+        app.reader.attach(driver)
+        await app.reader.openShowing(book, on: driver)
+        #expect(app.reader.popover == nil)
+
+        let anchor = ReaderRect(x: 5, y: 6, width: 7, height: 8)
+        let passage = lib.passage("the absurd", at: "c1")
+        await app.reader.handle(.selectionChanged(passage, anchor: anchor))
+        #expect(app.reader.popover == .selection(BookSelection(documentID: book.id, passage: passage), anchor: anchor))
+
+        let highlight = try await lib.services.highlights.add(lib.passage("h", at: "c2"), in: book.id)
+        await app.reader.handle(.annotationActivated(highlights: [highlight.id], markers: [], anchor: anchor))
+        guard case .highlight(let focus)? = app.reader.popover else { Issue.record("expected the highlight popover"); return }
+        #expect(focus.highlight.id == highlight.id)
+
+        // Dismissing the highlight popover falls back to the selection's.
+        await app.reader.dismissPopover()
+        guard case .selection? = app.reader.popover else { Issue.record("expected the selection popover"); return }
+        // Dismissing that one clears the selection in the engine too.
+        await app.reader.dismissPopover()
+        #expect(app.reader.popover == nil && app.reader.selection == nil)
+        #expect(driver.calls.last == .clearSelection)
+    }
+
+    @Test("add to notes from the reader: into the editor when it shows the book's page, else straight to the page")
+    func addReaderSelectionToNotes() async throws {
+        let lib = TestLibrary()
+        let (book, root) = try await lib.book()
+        let app = AppModel(services: lib.services)
+        let driver = FakeDriver()
+        app.reader.attach(driver)
+        await app.reader.openShowing(book, on: driver)
+        try await app.workspace.openDocument(book.id)
+        await app.reader.handle(.selectionChanged(lib.passage("the absurd", at: "c9"), anchor: ReaderRect(x: 0, y: 0, width: 1, height: 1)))
+
+        // The editor shows the book's page: an edit at the caret for the editor to apply.
+        try await app.notes.load(root)
+        let edit = try #require(try await app.addReaderSelectionToNotes())
+        #expect(edit.apply(to: app.notes.text).contains("> the absurd [↗](gloss://passage/"))
+        #expect(try await lib.services.pages.page(root.id)?.body.contains("the absurd") == false)  // not written yet
+
+        // Notes hidden: written straight into the page, and the editor picks it up.
+        app.workspace.layout = .readerOnly
+        #expect(try await app.addReaderSelectionToNotes() == nil)
+        #expect(try await lib.services.pages.page(root.id)?.body.contains("> the absurd [↗](gloss://passage/") == true)
+        #expect(app.notes.text.contains("the absurd"))
+        await app.workspace.flushLayoutPersistence()
     }
 
     @Test("add to notes without an editor writes the quote line and draws the marker")

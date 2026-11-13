@@ -111,6 +111,27 @@ import GlossNotes
         return EditResult(edits: [edit], selection: insertion.caret..<insertion.caret)
     }
 
+    /// "add to notes" from the reader's selection popover. With a page in the editor and the
+    /// notes pane showing, returns the edit for the editor to apply (undoable, at the caret);
+    /// otherwise writes the quote line at the end of the book's open notes page and returns nil.
+    public func addReaderSelectionToNotes() async throws -> EditResult? {
+        guard let book = reader.selection else { throw GlossError.notAllowed("select a passage in the book first") }
+        if workspace.layout.showsNotes, let page = notes.page, page.documentID == book.documentID {
+            return try await quoteSelectionIntoNotes()
+        }
+        let page: PageID
+        if let shown = workspace.page, shown.documentID == book.documentID {
+            page = shown.id
+        } else if let root = try await services.pages.rootPage(of: book.documentID) {
+            page = root.id
+        } else {
+            throw GlossError.notFound("this book's notes")
+        }
+        try await linking.addSelectionToNotes(page: page)
+        await notes.pageChangedExternally()
+        return nil
+    }
+
     /// Applies a `gloss://` link; returns false when the destination is gone.
     @discardableResult
     public func follow(_ link: GlossLink) async -> RouteOutcome {
