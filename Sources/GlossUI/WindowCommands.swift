@@ -56,11 +56,15 @@ public final class WindowCommands {
 
     // MARK: History
 
-    public var canGoBack: Bool { notesFocused ? (app?.workspace.canGoBackInNotes ?? false) : (app?.workspace.canGoBackInReader ?? false) }
-    public var canGoForward: Bool { notesFocused ? (app?.workspace.canGoForwardInNotes ?? false) : (app?.workspace.canGoForwardInReader ?? false) }
+    private var paneCanGoBack: Bool { notesFocused ? (app?.workspace.canGoBackInNotes ?? false) : (app?.workspace.canGoBackInReader ?? false) }
+    private var paneCanGoForward: Bool { notesFocused ? (app?.workspace.canGoForwardInNotes ?? false) : (app?.workspace.canGoForwardInReader ?? false) }
+    /// At the start of a book's trail, back leaves for the library, and forward comes back.
+    public var canGoBack: Bool { paneCanGoBack || app?.workspace.canGoHome == true }
+    public var canGoForward: Bool { paneCanGoForward || app?.workspace.canReturnToBook == true }
 
     public func goBack() {
         guard let app else { return }
+        if !paneCanGoBack { app.workspace.goHome(); return }
         Task {
             if notesFocused { try? await app.workspace.goBackInNotes() } else { try? await app.workspace.goBackInReader() }
         }
@@ -68,6 +72,7 @@ public final class WindowCommands {
 
     public func goForward() {
         guard let app else { return }
+        if app.workspace.canReturnToBook { app.workspace.returnToBook(); return }
         Task {
             if notesFocused { try? await app.workspace.goForwardInNotes() } else { try? await app.workspace.goForwardInReader() }
         }

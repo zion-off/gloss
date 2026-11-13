@@ -49,7 +49,26 @@ public struct ReaderFocus: Hashable, Sendable {
 
     /// The source list's selection (D-101). Opening a book or a page selects it; `AppModel.select`
     /// handles clicks.
-    public internal(set) var sidebar: SidebarSelection = .library(nil)
+    public internal(set) var sidebar: SidebarSelection = .library(nil) {
+        didSet { if sidebar.showsBook { cameFromBook = false } }
+    }
+
+    /// True after back stepped out of the open book to the library, so forward can step in again.
+    private var cameFromBook = false
+    /// Back at the start of a book's trail leaves for the library (the trail's root).
+    public var canGoHome: Bool { document != nil && sidebar.showsBook }
+    public var canReturnToBook: Bool { cameFromBook && document != nil && !sidebar.showsBook }
+
+    public func goHome() {
+        guard canGoHome else { return }
+        sidebar = .library(nil)
+        cameFromBook = true
+    }
+
+    public func returnToBook() {
+        guard canReturnToBook else { return }
+        sidebar = page.map { .page($0.id) } ?? .book
+    }
 
     /// What the detail column shows: the grid, the trash, or the open book.
     public var detail: SidebarDetail {
@@ -79,6 +98,13 @@ public struct ReaderFocus: Hashable, Sendable {
     /// was left, and the notes show its main page unless they already show one of its pages.
     public func openDocument(_ id: DocumentID, locator: Locator? = nil) async throws {
         let switched = self.document?.id != id
+        // Opening a book from outside the panes starts a fresh trail, rooted at the library:
+        // back never wanders into another book's pages.
+        if switched || !sidebar.showsBook {
+            readerHistory = NavigationHistory()
+            notesHistory = NavigationHistory()
+            page = nil
+        }
         try await showInReader(id, locator: locator)
         if page?.documentID != id { try await showMainPage(of: id) }
         // Opening a book shows it; a selection in the previous book's section means nothing here.
