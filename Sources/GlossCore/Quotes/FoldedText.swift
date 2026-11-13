@@ -94,6 +94,20 @@ public struct FoldedText: Sendable {
         return starts
     }
 
+    /// Whether a folded range starts and ends at word edges: a match that begins or ends with a
+    /// letter or digit may not continue a word ("the" is not in "mother").
+    public func isWholeWords(_ range: Range<Int>) -> Bool {
+        func isWord(_ index: Int) -> Bool {
+            guard index >= 0, index < units.count, let scalar = Unicode.Scalar(units[index]) else { return false }
+            return scalar.properties.isAlphabetic || scalar.properties.numericType != nil
+                || scalar.properties.generalCategory == .nonspacingMark
+        }
+        guard !range.isEmpty else { return false }
+        if isWord(range.lowerBound), isWord(range.lowerBound - 1) { return false }
+        if isWord(range.upperBound - 1), isWord(range.upperBound) { return false }
+        return true
+    }
+
     /// The source UTF-16 range a non-empty folded range covers.
     public func sourceRange(_ folded: Range<Int>) -> Range<Int> {
         sourceRanges[folded.lowerBound].lowerBound..<sourceRanges[folded.upperBound - 1].upperBound
@@ -112,11 +126,13 @@ public struct FoldedText: Sendable {
 
     /// Source UTF-16 ranges of every occurrence of `needle` in `haystack`, in order.
     public static func ranges(of needle: String, in haystack: String, whitespace: Whitespace = .collapsed,
-                              ignoringCase: Bool = false) -> [Range<Int>] {
+                              ignoringCase: Bool = false, wholeWords: Bool = false) -> [Range<Int>] {
         let folded = FoldedText(needle, whitespace: whitespace, ignoringCase: ignoringCase)
         guard !folded.isEmpty else { return [] }
         let text = FoldedText(haystack, whitespace: whitespace, ignoringCase: ignoringCase)
-        return text.occurrences(of: folded.units).map { text.sourceRange($0..<($0 + folded.count)) }
+        return text.occurrences(of: folded.units).map { $0..<($0 + folded.count) }
+            .filter { !wholeWords || text.isWholeWords($0) }
+            .map { text.sourceRange($0) }
     }
 
     // MARK: Scalar folding

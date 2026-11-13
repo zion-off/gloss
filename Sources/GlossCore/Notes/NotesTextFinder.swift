@@ -18,12 +18,12 @@ public struct NotesTextMatch: Hashable, Sendable {
 
 /// Finds the words `gloss link --text` names in a page, the way the editor's link gesture
 /// would accept a selection: on one line, outside code, and not across a link's syntax or in
-/// its destination. Matching is whitespace-normalised, optionally case-insensitive.
+/// its destination. Matching is by whole words, whitespace-normalised, optionally case-insensitive.
 public enum NotesTextFinder {
     public static func matches(of text: String, in body: String, ignoringCase: Bool = false,
                                parser: MarkdownParser = .standard) -> [NotesTextMatch] {
         let document = parser.parse(body)
-        return FoldedText.ranges(of: text, in: body, whitespace: .collapsed, ignoringCase: ignoringCase)
+        return FoldedText.ranges(of: text, in: body, whitespace: .collapsed, ignoringCase: ignoringCase, wholeWords: true)
             .compactMap { match(at: $0, in: document) }
     }
 

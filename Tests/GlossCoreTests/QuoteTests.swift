@@ -57,6 +57,8 @@ struct QuoteAnchorTests {
         #expect(FoldedText.ranges(of: "ISHMAEL", in: "Ishmael").isEmpty)
         #expect(FoldedText.ranges(of: "ISHMAEL", in: "Ishmael", ignoringCase: true) == [0..<7])
         #expect(FoldedText.ranges(of: "aa", in: "aaa") == [0..<2, 1..<3])
+        #expect(FoldedText.ranges(of: "the", in: "Mother, the thermos", wholeWords: true) == [8..<11])
+        #expect(FoldedText.ranges(of: "Ahab!", in: "Ahab!x", wholeWords: true) == [0..<5])
     }
 }
 
@@ -92,11 +94,12 @@ struct PassageFinderTests {
     @Test("every match is a candidate in reading order, with labels, refs and context")
     func duplicates() async throws {
         let (_, text) = try await book()
+        #expect(try text.candidates(for: BookTextQuery(.quote("hale"))).isEmpty)
         let found = try text.candidates(for: BookTextQuery(.quote("the whale")))
         #expect(found.map(\.ref.description) == ["fake:section-0@54-63", "fake:section-1@26-35"])
         #expect(found.map(\.label) == ["chapter 1", "chapter 2"])
         #expect(found.map(\.part) == [1, 2])
-        #expect(found[1].before == "The whale! said Ahab. Not")
+        #expect(found[1].before == "The whale! said Ahab. Not ")
         #expect(found[1].after == ", said Starbuck. A white whale.")
         let insensitive = try text.candidates(for: BookTextQuery(.quote("the whale"), ignoringCase: true))
         #expect(insensitive.count == 3)
@@ -108,7 +111,7 @@ struct PassageFinderTests {
     func selectors() async throws {
         let (_, text) = try await book()
         let all = BookTextQuery(.quote("whale"), ignoringCase: true)
-        #expect(try text.candidates(for: all).count == 5)
+        #expect(try text.candidates(for: all).count == 4)  // not "whales"
         var query = all
         query.part = 2
         #expect(try text.candidates(for: query).count == 3)
@@ -120,6 +123,9 @@ struct PassageFinderTests {
         query = all
         query.chapter = "1"
         #expect(try text.candidates(for: query).count == 1)
+        query = all
+        query.chunk = Locator(scheme: FakeFormat.scheme, value: "section-1")
+        #expect(try text.candidates(for: query).count == 3)
         #expect(BookText.label("Chapter 3. Loomings", hasWords: "3"))
         #expect(!BookText.label("chapter 30", hasWords: "3"))
         #expect(BookText.label("Chapter 3. Loomings", hasWords: "LOOMINGS"))

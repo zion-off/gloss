@@ -1,6 +1,7 @@
 import Foundation
 
-/// What to find in a book's text (`gloss link --quote/--from/--match/--offset`).
+/// What to find in a book's text (`gloss link --quote/--from/--match/--offset`). Words match
+/// whole words, ignoring spacing and line breaks, and optionally case.
 public struct BookTextQuery: Hashable, Sendable {
     public enum Target: Hashable, Sendable {
         /// Every occurrence of these words.
@@ -17,6 +18,8 @@ public struct BookTextQuery: Hashable, Sendable {
     public var target: Target
     /// Only this part (1-based).
     public var part: Int?
+    /// Only the text chunk with this locator (a search hit's location).
+    public var chunk: Locator?
     /// Only parts whose label has these words ("3", "loomings").
     public var chapter: String?
     /// Text that must come right before the match (whitespace aside).
@@ -25,10 +28,11 @@ public struct BookTextQuery: Hashable, Sendable {
     public var after: String?
     public var ignoringCase: Bool
 
-    public init(_ target: Target, part: Int? = nil, chapter: String? = nil, before: String? = nil, after: String? = nil,
-                ignoringCase: Bool = false) {
+    public init(_ target: Target, part: Int? = nil, chunk: Locator? = nil, chapter: String? = nil, before: String? = nil,
+                after: String? = nil, ignoringCase: Bool = false) {
         self.target = target
         self.part = part
+        self.chunk = chunk
         self.chapter = chapter
         self.before = before
         self.after = after
@@ -98,12 +102,12 @@ public struct BookText: Sendable {
             }
             return [try candidate(chunk: index, range: range)]
         case .quote(let quote):
-            return try search(query) { text, folded in
+            return try search(query) { folded in
                 let needle = FoldedText(quote, whitespace: .collapsed, ignoringCase: query.ignoringCase).units
                 return folded.occurrences(of: needle).map { $0..<($0 + needle.count) }
             }
         case .span(let from, let through):
-            return try search(query) { text, folded in
+            return try search(query) { folded in
                 let start = FoldedText(from, whitespace: .collapsed, ignoringCase: query.ignoringCase).units
                 let end = FoldedText(through, whitespace: .collapsed, ignoringCase: query.ignoringCase).units
                 guard !start.isEmpty, !end.isEmpty else { return [] }
@@ -133,12 +137,18 @@ public struct BookText: Sendable {
             throw GlossError.notAllowed("gloss can't point at \(label(of: chunk)) of this book")
         }
         let progression = total > 0 ? Double(offsets[index] + range.lowerBound) / Double(total) : 0
-        let text = chunk.text
+        let units = Array(utf16)
         func context(_ r: Range<Int>) -> String {
-            Passage.normalize(String(decoding: Array(text.utf16)[r], as: UTF16.self))
+            Passage.normalize(String(decoding: units[r], as: UTF16.self))
+        }
+        // Normalising trims, so keep the one space that separates the context from the match.
+        func isSpace(_ offset: Int) -> Bool {
+            offset >= 0 && offset < units.count && (Unicode.Scalar(units[offset])?.properties.isWhitespace ?? false)
         }
         let before = context(max(0, range.lowerBound - 4 * PassageCandidate.contextLength)..<range.lowerBound)
-        let after = context(range.upperBound..<min(utf16.count, range.upperBound + 4 * PassageCandidate.contextLength))
+            + (isSpace(range.lowerBound - 1) ? " " : "")
+        let after = (isSpace(range.upperBound) ? " " : "")
+            + context(range.upperBound..<min(utf16.count, range.upperBound + 4 * PassageCandidate.contextLength))
         return PassageCandidate(ref: BookTextRef(chunk: chunk.locator, range: range), label: chunk.label,
                                 part: locating.partNumber(of: chunk),
                                 before: String(before.suffix(PassageCandidate.contextLength)),
@@ -149,13 +159,13 @@ public struct BookText: Sendable {
 
     // MARK: Searching
 
-    private func search(_ query: BookTextQuery, matches: (String, FoldedText) -> [Range<Int>]) throws -> [PassageCandidate] {
+    private func search(_ query: BookTextQuery, matches: (FoldedText) -> [Range<Int>]) throws -> [PassageCandidate] {
         let before = query.before.map { FoldedText($0, whitespace: .collapsed, ignoringCase: query.ignoringCase).units } ?? []
         let after = query.after.map { FoldedText($0, whitespace: .collapsed, ignoringCase: query.ignoringCase).units } ?? []
         var result: [PassageCandidate] = []
         for (index, chunk) in chunks.enumerated() where inScope(chunk, query) {
             let folded = FoldedText(chunk.text, whitespace: .collapsed, ignoringCase: query.ignoringCase)
-            for range in matches(chunk.text, folded) where !range.isEmpty {
+            for range in matches(folded) where folded.isWholeWords(range) {
                 guard Self.ends(folded.units, before: range.lowerBound, with: before),
                       Self.starts(folded.units, after: range.upperBound, with: after) else { continue }
                 result.append(try candidate(chunk: index, range: folded.sourceRange(range)))
@@ -166,6 +176,7 @@ public struct BookText: Sendable {
 
     private func inScope(_ chunk: TextChunk, _ query: BookTextQuery) -> Bool {
         if let part = query.part, locating.partNumber(of: chunk) != part { return false }
+        if let scope = query.chunk, chunk.locator != scope { return false }
         if let chapter = query.chapter, !Self.label(chunk.label ?? "", hasWords: chapter) { return false }
         return true
     }

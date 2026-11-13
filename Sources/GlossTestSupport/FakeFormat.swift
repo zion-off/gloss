@@ -45,7 +45,7 @@ public struct FakeFormat: DocumentFormat, TextExtracting, CoverExtracting, Quote
         }
     }
 
-    public var partName: String { "chapter" }
+    public var partName: String { "section" }
 
     public func partNumber(of chunk: TextChunk) -> Int? {
         chunk.locator.value.split(separator: "-").last.flatMap { Int($0) }.map { $0 + 1 }
