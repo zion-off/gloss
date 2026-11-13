@@ -160,10 +160,7 @@ struct BackupCommand: AsyncParsableCommand {
         var url = context.environment.url(forPath: destination)
         var isDirectory: ObjCBool = false
         if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue {
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.dateFormat = "yyyy-MM-dd HHmm"
-            url.appendPathComponent("gloss backup \(formatter.string(from: context.now)).sqlite")
+            url.appendPathComponent(LibraryBackupNaming.fileName(for: context.now))
         }
         guard !FileManager.default.fileExists(atPath: url.path) else {
             throw CLIFailure("\(url.lastPathComponent) already exists", hint: "pick another name — gloss never overwrites a backup")
