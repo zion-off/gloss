@@ -9,13 +9,14 @@ import GlossNotes
 /// types; the model restyles and saves. Model-issued edits (format bar, slash menu, key
 /// commands) go back through the view's change APIs so undo records them as one step.
 @MainActor
-final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutManagerDelegate {
+final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
     private let model: NotesEditorModel
     private let theme = NotesEditorTheme()
     private weak var textView: NotesTextView?
     private weak var scrollView: NSScrollView?
     private var lastRuns: [StyledRun] = []
     private var displayedPageID: PageID?
+    private var displayedSubpageRows: [SubpageRow] = []
     private var lastRevealToken: UUID?
 
     /// A `gloss://` link was clicked (the window routes it).
@@ -66,7 +67,39 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     func dismantle() {
         NotificationCenter.default.removeObserver(self)
         textView?.delegate = nil
-        textView?.textLayoutManager?.delegate = nil
+    }
+
+    // MARK: Subpage rows
+
+    /// The layout fragment for a paragraph: a subpage block line becomes a row; everything
+    /// else draws its text. The requirement isn't main-actor isolated, but TextKit lays out on
+    /// the main thread — `assumeIsolated` states that assumption (crashes loudly if broken).
+    nonisolated func textLayoutManager(_ textLayoutManager: NSTextLayoutManager,
+                                       textLayoutFragmentFor location: any NSTextLocation,
+                                       in textElement: any NSTextElement) -> NSTextLayoutFragment {
+        MainActor.assumeIsolated {
+            let fragment = SubpageRowFragment(textElement: textElement, range: nil)
+            fragment.row = row(for: fragment, in: textLayoutManager)
+            return fragment
+        }
+    }
+
+    /// The subpage row this fragment covers, if its paragraph is a block line.
+    @MainActor private func row(for fragment: NSTextLayoutFragment, in manager: NSTextLayoutManager) -> SubpageRow? {
+        guard let paragraph = fragment.textElement as? NSTextParagraph,
+              let content = manager.textContentManager as? NSTextContentStorage,
+              let elementRange = paragraph.elementRange else { return nil }
+        let document = content.documentRange
+        let lower = content.offset(from: document.location, to: elementRange.location)
+        let upper = content.offset(from: document.location, to: elementRange.endLocation)
+        return model.subpageRows.first { $0.lineRange.contains(lower) && $0.lineRange.contains(upper - 1) }
+    }
+
+    /// Rows changed without the text changing (a rename from another window): rebuild the
+    /// fragments, so their rows pick up new titles.
+    func invalidateRows() {
+        guard let content = textView?.textContentStorage, let manager = textView?.textLayoutManager else { return }
+        manager.invalidateLayout(for: content.documentRange)
     }
 
     // MARK: NSViewRepresentable sync
@@ -91,6 +124,10 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
             let range = NSRange(reveal.range)
             textView.setSelectedRange(range)
             textView.scrollRangeToVisible(range)
+        }
+        if displayedSubpageRows != model.subpageRows {
+            displayedSubpageRows = model.subpageRows
+            invalidateRows()
         }
     }
 

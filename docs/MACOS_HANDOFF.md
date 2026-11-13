@@ -109,6 +109,14 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
     links route inside the app, web links open the browser.
 - `NotesEditorView.swift` — the overlays are SwiftUI over the scroll view; check the slash menu's
   width stays inside the window near the right edge (the Mac check listed in the code).
+- `SubpageRowFragment.swift` — subpage block lines draw as rows (icon + live title + chevron,
+  trashed ones dimmed and struck through) instead of raw markdown. Check: the row's height and
+  icon match a Notes-like list, clicking anywhere on the line opens the page, arrow keys still
+  step through the hidden line, and a rename from another window refreshes the title
+  (`invalidateRows` on the next sync).
+- `NotesEditorCoordinator.swift` — the fragment delegate is `nonisolated` with
+  `MainActor.assumeIsolated` (TextKit lays out on the main thread); it must never be hit from a
+  background layout pass. If it ever crashes there, the rows snapshot needs a lock instead.
 - `Sources/GlossMac/MainWindow.swift` — the editor pane: page loads, the unsaved-changes alert,
   breadcrumbs, and the reveal (a marker click selects the link line and scrolls to it). The split
   layout switches with the workspace setting; the real split view is milestone 11.
@@ -134,4 +142,9 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
   the composed result needs a run.
 - `shouldChangeText(in:replacementString:)` + `replaceCharacters(in:with:)` + `didChangeText()` as the
   one-undo-step recipe for programmatic edits (each part verified; the composition needs a run).
+- `NSImage(systemSymbolName:accessibilityDescription:)` for the row icon and `NSAttributedString.draw(in:)`
+  inside an `NSTextLayoutFragment.draw(at:in:)` (both standard; neither in the verified notes).
+- `NSTextContentStorage.documentRange` reached through `textContentManager` (documented on
+  `NSTextElementProvider`, which it implements) and `NSTextParagraph.elementRange` mapping to
+  UTF-16 offsets via `offset(from:to:)` — each verified, the composition needs a run.
 - `PDFDocument` and `PDFPage.thumbnail(of:for:)` off the main thread (imports run there).
