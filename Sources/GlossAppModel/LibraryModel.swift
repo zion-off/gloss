@@ -71,11 +71,15 @@ public enum LibrarySettings {
     public func reload() async {
         reloadGeneration += 1
         let generation = reloadGeneration
-        let fetched = (try? await services.library.entries(sortedBy: sort, shelf: shelf)) ?? []
-        let recent = (try? await services.library.recentlyRead()) ?? []
-        guard generation == reloadGeneration else { return }  // a newer reload owns the result
-        entries = fetched
-        recentlyRead = recent
+        do {
+            let fetched = try await services.library.entries(sortedBy: sort, shelf: shelf)
+            let recent = try await services.library.recentlyRead()
+            guard generation == reloadGeneration else { return }  // a newer reload owns the result
+            entries = fetched
+            recentlyRead = recent
+        } catch {
+            // A failed read keeps what is shown (the trash and the workspace already do).
+        }
     }
 
     private func scheduleReload() {
@@ -103,11 +107,15 @@ public enum LibrarySettings {
     /// second (the change journal can't carry it: all windows share one process origin, so the
     /// journal skips their own writes), so every window agrees within a second.
     public func syncSort() async {
-        let stored = (try? await services.settings.value(LibrarySettings.sort)) ?? .recent
-        guard stored != sort else { return }
-        syncingSort = true
-        sort = stored  // schedules the reload, skips the persist
-        syncingSort = false
+        do {
+            let stored = try await services.settings.value(LibrarySettings.sort)
+            guard stored != sort else { return }
+            syncingSort = true
+            sort = stored  // schedules the reload, skips the persist
+            syncingSort = false
+        } catch {
+            // A failed read keeps this window's sort; the next poll tries again.
+        }
     }
 
     private func persistSort() {
