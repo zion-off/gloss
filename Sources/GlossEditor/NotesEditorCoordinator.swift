@@ -59,7 +59,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         textView.onTextClick = { [weak self] index in self?.textClicked(at: index) ?? false }
         textView.onFocusChange = { [weak self] focused in self?.actions.focusChanged(focused) }
         textView.onHover = { [weak self] point in self?.pointerMoved(to: point) }
-        textView.onHoverEnd = { [weak self] in self?.hover.close() }
+        textView.onHoverEnd = { [weak self] in self?.endHover() }
 
         let scrollView = NSScrollView()
         scrollView.documentView = textView
@@ -81,8 +81,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         NotificationCenter.default.removeObserver(self)
         textView?.delegate = nil
         actions.isEditing = false
-        hoverTask?.cancel()
-        hover.close()
+        endHover()
         actions.focusChanged(false)  // the editor is gone: ⌘[ goes back to the reader
     }
 
@@ -93,10 +92,10 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     private func pointerMoved(to point: NSPoint) {
         guard let textView else { return }
         let index = textView.characterIndexForInsertion(at: point)
-        guard index != NSNotFound else { hover.close(); return }
+        guard index != NSNotFound else { endHover(); return }
         // The whole link (label + destination) under the pointer, if it's a passage link.
         guard let scanned = LinkScanner.link(at: index, in: model.document),
-              case .passage(let target)? = GlossLink(string: scanned.destination) else { hover.close(); return }
+              case .passage(let target)? = GlossLink(string: scanned.destination) else { endHover(); return }
         // The anchor: the link's first line, in this view's coordinates.
         let range = NSRange(scanned.range)
         let screenRect = textView.firstRect(forCharacterRange: range, actualRange: nil)
@@ -109,6 +108,14 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
             guard !Task.isCancelled, let self, let preview = await self.model.preview(at: index) else { return }
             self.hover.show(preview, for: target, of: self.textView ?? NSView(), anchor: anchor)
         }
+    }
+
+    /// The pointer left the link (or the text): close the preview, and drop one still waiting
+    /// out its rest, so it can't open over plain text a moment later (review 6).
+    private func endHover() {
+        hoverTask?.cancel()
+        hoverTask = nil
+        hover.close()
     }
 
     // MARK: Subpage rows
