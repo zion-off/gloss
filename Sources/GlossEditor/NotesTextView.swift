@@ -21,6 +21,37 @@ final class NotesTextView: NSTextView {
 
     private var hoverArea: NSTrackingArea?
 
+    /// The block under the pointer, when it is on a subpage row (this view's coordinates): Notion's
+    /// soft rounded highlight, drawn here beneath the row's own icon and title.
+    var hoverRowRect: NSRect? {
+        didSet {
+            guard hoverRowRect != oldValue else { return }
+            if let oldValue { setNeedsDisplay(oldValue.insetBy(dx: -2, dy: -2)) }
+            if let hoverRowRect { setNeedsDisplay(hoverRowRect.insetBy(dx: -2, dy: -2)) }
+        }
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        if let hoverRowRect {
+            effectiveAppearance.performAsCurrentDrawingAppearance {
+                NSColor.quaternaryLabelColor.setFill()
+                NSBezierPath(roundedRect: hoverRowRect, xRadius: 6, yRadius: 6).fill()
+            }
+        }
+        super.draw(dirtyRect)
+    }
+
+    /// The full-width block of the line under a point (the row's hover highlight).
+    func lineBlock(at point: NSPoint) -> NSRect? {
+        guard let manager = textLayoutManager else { return nil }
+        let origin = textContainerOrigin
+        let inContainer = NSPoint(x: point.x - origin.x, y: point.y - origin.y)
+        guard let fragment = manager.textLayoutFragment(for: inContainer) else { return nil }
+        let frame = fragment.layoutFragmentFrame
+        let width = manager.textContainer?.size.width ?? frame.width
+        return NSRect(x: origin.x, y: origin.y + frame.minY, width: width, height: frame.height).insetBy(dx: 0, dy: -2)
+    }
+
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         if let hoverArea { removeTrackingArea(hoverArea) }

@@ -91,17 +91,16 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
 
     /// Resting the pointer on a passage link shows its passage. One lookup per link, not per
     /// pixel: the task is cancelled and replaced when the link under the pointer changes.
-    /// The subpage row under the pointer, shared with the row fragments that draw its highlight.
-    nonisolated let rowHover = SubpageHoverState()
+    /// The subpage row under the pointer; the text view draws its highlight.
+    private var hoveredRowID: PageID?
 
-    private func setRowHover(_ row: SubpageRow?) {
+    private func setRowHover(_ row: SubpageRow?, at point: NSPoint? = nil) {
         if row != nil { NSCursor.pointingHand.set() }
         // AppKit only resets the cursor on entering or leaving the view, so leaving a row by
         // moving within the text must put the I-beam back itself.
-        if row == nil, rowHover.pageID != nil { NSCursor.iBeam.set() }
-        guard row?.pageID != rowHover.pageID else { return }
-        rowHover.pageID = row?.pageID
-        invalidateRows()  // fragments redraw with (or without) the highlight
+        if row == nil, hoveredRowID != nil { NSCursor.iBeam.set() }
+        hoveredRowID = row?.pageID
+        textView?.hoverRowRect = row == nil ? nil : point.flatMap { textView?.lineBlock(at: $0) }
     }
 
     private func pointerMoved(to point: NSPoint) {
@@ -111,7 +110,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
             let rowIndex = textView.characterIndexForInsertion(at: point)
             if rowIndex != NSNotFound { overRow = model.subpageRow(at: rowIndex) }
         }
-        setRowHover(overRow)
+        setRowHover(overRow, at: point)
         let index = textView.characterIndexForInsertion(at: point)
         guard index != NSNotFound else { endHover(); return }
         // The whole link (label + destination) under the pointer, if it's a passage link.
@@ -159,7 +158,6 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
                 return SubpageRows.row(covering: paragraph, in: model.subpageRows)
             }
             fragment.appearance = appearance
-            fragment.hover = rowHover
         }
         return fragment
     }
@@ -261,6 +259,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         guard let textView else { return }
         model.textDidChange(textView.string, selection: Self.range(textView.selectedRange))
         restyle()
+        normalizeTypingAttributes()
         reportSelection()
     }
 
@@ -285,6 +284,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         // only moves the syntax reveal.
         model.selectionDidChange(Self.range(textView.selectedRange))
         restyle()
+        normalizeTypingAttributes()
         reportSelection()
     }
 
@@ -361,6 +361,18 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
 
     /// Restyles what moved: only the ranges whose runs changed get new attributes, so a cursor
     /// move in a long page doesn't touch the whole layout.
+    /// A caret right after hidden text would type in its collapsed font: an empty line after a subpage
+    /// row came out a hair high, and clicks below the row landed on it. Typing is always plain.
+    private func normalizeTypingAttributes() {
+        guard let textView, let storage = textView.textStorage, textView.selectedRange().length == 0 else { return }
+        let caret = textView.selectedRange().location
+        guard caret > 0, caret <= storage.length else { return }
+        let before = storage.attributes(at: caret - 1, effectiveRange: nil)
+        let collapsed = ((before[.font] as? NSFont)?.pointSize ?? 12) < 1
+        let invisible = (before[.foregroundColor] as? NSColor)?.alphaComponent == 0
+        if collapsed || invisible { textView.typingAttributes = theme.attributes(for: TextStyle(font: .body)) }
+    }
+
     private func restyle() {
         guard let textView, let storage = textView.textStorage,
               storage.length == model.text.utf16.count else { return }  // not in step: the next change restyles
