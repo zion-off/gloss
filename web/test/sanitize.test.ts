@@ -123,6 +123,16 @@ test('template content is cleaned, nested included', () => {
     assert.doesNotMatch(result.markup, /onerror|script|javascript/i)
 })
 
+test('a template in a generic XML document cleans its children, not crashes', () => {
+    // Under the XML parser <template> has no .content; its children are ordinary elements.
+    const result = clean(
+        '<root><template><img src="x" onerror="alert(1)"/><script>fetch(1)</script></template>'
+        + '<p>stays</p></root>', 'application/xml')
+    assert.equal(result.removed, 2)
+    assert.doesNotMatch(result.markup, /onerror|script/i)
+    assert.match(result.markup, /stays/)
+})
+
 test('SMIL that writes event handlers goes; ordinary animations stay', () => {
     const result = clean(xhtml(
         '<svg xmlns="http://www.w3.org/2000/svg">'
