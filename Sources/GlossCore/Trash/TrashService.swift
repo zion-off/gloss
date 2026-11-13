@@ -1,5 +1,23 @@
 import Foundation
 
+/// The trash window's contents (`TrashService.overview()`).
+public struct TrashOverview: Hashable, Sendable {
+    public struct Item: Hashable, Identifiable, Sendable {
+        public var entry: TrashEntry
+        /// When it will be purged, if retention is finite.
+        public var expiresAt: Date?
+        /// The book a trashed page belongs to (nil for books themselves).
+        public var documentTitle: String?
+
+        public var id: TrashEntryID { entry.id }
+        public var title: String { entry.title }
+    }
+
+    /// Days items stay in the trash; nil keeps them forever.
+    public var retentionDays: Int?
+    public var items: [Item]
+}
+
 /// The trash: soft deletion with predictable restore and timed purging
 /// (docs/ARCHITECTURE.md §3 "Trash").
 public struct TrashService: Sendable {
@@ -20,6 +38,25 @@ public struct TrashService: Sendable {
 
     public func entries() async throws -> [TrashEntry] {
         try await store.read { try $0.trash.trashEntries() }
+    }
+
+    /// What the trash window shows, in one read: every entry, newest first, with its expiry and,
+    /// for pages, the title of their book.
+    public func overview() async throws -> TrashOverview {
+        try await store.read { tx in
+            let days = try SettingsCodec().value(TrashSettings.retentionDays, in: tx.settings)
+            var titles: [DocumentID: String?] = [:]
+            let items = try tx.trash.trashEntries().map { entry -> TrashOverview.Item in
+                var documentTitle: String?
+                if entry.kind != .document, let id = entry.documentID {
+                    if titles[id] == nil { titles[id] = .some(try tx.documents.document(id)?.title) }
+                    documentTitle = titles[id] ?? nil
+                }
+                let expiry = days.map { entry.trashedAt.addingTimeInterval(TimeInterval($0) * 86_400) }
+                return TrashOverview.Item(entry: entry, expiresAt: expiry, documentTitle: documentTitle)
+            }
+            return TrashOverview(retentionDays: days, items: items.sorted { $0.entry.trashedAt > $1.entry.trashedAt })
+        }
     }
 
     /// When an entry will be purged, given the current retention setting.

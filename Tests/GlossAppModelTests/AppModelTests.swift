@@ -217,6 +217,34 @@ struct LibraryAndTrashModelTests {
         #expect(try await lib.services.pages.page(child.id)?.trash == nil)
         _ = book
     }
+
+    @Test("the trash reloads in one read, with each page's book")
+    func trashReloadsInOneRead() async throws {
+        let memory = TestLibrary()
+        let flaky = FlakyLibraryStore(memory.store)
+        let services = GlossServices(store: flaky, blobs: memory.blobs, formats: memory.services.formats,
+                                     ids: memory.services.ids, time: memory.clock)
+        var trashed: [TrashEntryID] = []
+        for title in ["Noces", "L'Été"] {
+            let (_, root) = try await memory.book(title)
+            for page in ["a", "b"] {
+                let child = try await services.pages.createSubpage(under: root.id, title: "\(title) \(page)")
+                memory.clock.advance(by: 1)
+                trashed.append(try await services.trash.trash(.page, id: child.id.stringValue).id)
+            }
+        }
+        let model = TrashModel(services: services)
+        let before = flaky.reads
+        await model.reload()
+        #expect(flaky.reads - before == 1)
+        #expect(model.items.map(\.id) == trashed.reversed())
+        #expect(model.items.map(\.documentTitle) == ["L'Été", "L'Été", "Noces", "Noces"])
+
+        // A failed read keeps the list rather than emptying it.
+        flaky.failsReads = true
+        await model.reload()
+        #expect(model.items.count == 4)
+    }
 }
 
 @MainActor
