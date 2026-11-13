@@ -171,6 +171,8 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
 
 ## Process notes
 
+- **P-005 Decision numbers D-103…D-109 and D-129 were allocated and never used** (worker slices
+  that came in under budget). They are gaps, not lost entries; the next new decision takes D-140.
 - **P-001 Five milestone-1 commits do not build on their own** (`3903e20`, `f350c16`, `f4cce6a`,
   `0078ce7`, `d1a1c5c`, verified with `scripts/verify-commits.sh`): they were split from one green
   check. History is not rewritten (commit policy). Since then each slice is checked before its own
@@ -301,6 +303,9 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   sources compile line for line with `#if os(macOS)` switched on. It proves names, labels, types,
   `try`/`await` and Swift 6 isolation against the stubs; not behaviour, and only as far as the stubs
   are faithful, so a member goes into a stub only after its docs page is checked.
+- **D-100 Non-isolated Apple protocols are satisfied with `nonisolated` methods plus
+  `MainActor.assumeIsolated`**, never isolated conformances (`@MainActor Protocol`): those need
+  Swift 6.2 and the package declares tools 6.1. PDFKit and TextKit 2 call them on the main thread.
 - **D-101 One source list, sectioned like Mail or Music.** "library" holds the shelves (all, books,
   pdfs: the brief's filters) and the trash; while a book is open, a section named for it holds its
   contents, highlights and notes pages (collapsible). The selection decides the detail column: the
@@ -308,9 +313,6 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   section always shows where you are; picking a shelf keeps the book open one click away. Rejected:
   Preview's sidebar that swaps its content by a menu (hides the library while reading) and a third
   column (too wide next to reader + notes).
-- **D-100 Non-isolated Apple protocols are satisfied with `nonisolated` methods plus
-  `MainActor.assumeIsolated`**, never isolated conformances (`@MainActor Protocol`): those need
-  Swift 6.2 and the package declares tools 6.1. PDFKit and TextKit 2 call them on the main thread.
 - **D-102 Each pane moves on its own; a link changes the pane it points into** (brief 15: "following
   a cross-book link swaps the book pane", each pane with its own back and forward). A passage or book
   link in the notes swaps the reader; a page link, subpage row, breadcrumb, the outline or a marker
