@@ -152,6 +152,12 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
 - `NSView.boundsDidChangeNotification` on the scroll view's clip view (standard AppKit, not in the
   verified notes) and `postsBoundsChangedNotifications` defaulting to true.
 - `NSColor.separatorColor` in the slash menu border (standard, not in the verified notes).
+- `SubpageRowFragment` is a `@MainActor` subclass overriding `draw(at:in:)` of an
+  isolation-unannotated `NSTextLayoutFragment` — legal under AppKit's preconcurrency import, but
+  exactly the class of thing this file tracks.
+- Whether a paragraph's `elementRange` includes its line terminator (the row matcher handles
+  either; verify rows actually draw on a real page).
+- `textView.undoManager` being non-nil with `allowsUndo = true` when `install()` clears it.
 - `NSResponder.becomeFirstResponder()`/`resignFirstResponder()` overrides returning `Bool`,
   `KeyEquivalent(Character)`, `@FocusedValue` in a `Commands` type, `@ObservationIgnored weak var`
   in an `@Observable` class, and `@Entry public var` on `FocusedValues` (each standard; none in the

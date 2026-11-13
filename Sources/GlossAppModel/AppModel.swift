@@ -55,7 +55,9 @@ import GlossNotes
         }
         await library.invalidate(ids: documentIDs.compactMap { DocumentID($0) })
         await workspace.refresh()
-        await notes.pageChangedExternally()
+        if let page = notes.page, pageIDs.contains(page.id.stringValue) {
+            await notes.pageChangedExternally()
+        }
         if !pageIDs.isEmpty || !documentIDs.isEmpty {
             search.contextChanged()
         }

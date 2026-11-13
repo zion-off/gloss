@@ -2,7 +2,9 @@
 
 After each finished chunk, an independent review agent at maximum effort reads the diff for
 correctness and code smell (CLAUDE.md, "Independent review"). It reports; the lead fixes. Every
-fix has a regression test that fails without it. Declined findings say why.
+fix has a regression test that fails without it where the platform allows; fixes in Mac-only code
+and in glue.ts (which needs WebKit) carry a `docs/MACOS_HANDOFF.md` check instead. Declined
+findings say why.
 
 ## Review 1 — `milestone-5..review-1-head` (PDF reader, Swift reader bridge, app model)
 

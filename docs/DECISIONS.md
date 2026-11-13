@@ -261,4 +261,23 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   (null otherwise), so the controller can un-wedge exactly that open and ignore failures of opens a
   newer one replaced (review 4). The alternative — treating any failure during an open window as that
   open's — cancels the wrong open when a stale failure lands late.
+- **D-089 The notes editor is a plain-text TextKit 2 view with storage-owned attributes.** The
+  buffer is the raw markdown; `isRichText = false` keeps pasted text plain; the coordinator sets
+  presentation attributes from `NotesTheme` runs. If plain-text mode turns out to refuse storage
+  attributes on a Mac, switch to `true` and restrict pasteboard types instead (handoff).
+- **D-090 A custom `NSTextLayoutFragment` is made for every paragraph.** Subpage rows need one,
+  and returning the default drawing for ordinary paragraphs costs nothing measurable. The
+  delegate is `nonisolated` with `MainActor.assumeIsolated` (TextKit lays out on the main thread);
+  if that ever crashes, the rows snapshot needs a lock instead.
+- **D-091 Model edits apply through `shouldChangeText` → `replaceCharacters` → `didChangeText`**,
+  coalesced into one `TextEdit` per command, so undo records each as a single step. Page installs
+  and external replaces clear the undo history: the old page's edits must never replay into the
+  new one.
+- **D-092 Reveals carry a token and the page they're for.** A marker click may open another page
+  first; the editor applies the reveal once, on that page, clamped to the current text.
+- **D-093 Refusing to switch pages offers keep/discard, with Escape meaning keep.** The editor
+  keeps its unsaved text either way; "keep editing" puts the workspace back on the editor's page.
+- **D-094 Overlay anchors cross the AppKit → SwiftUI coordinate boundary once**, in
+  `OverlayGeometry` (GlossAppModel, Linux-tested): flip, clamp, above/below. The Mac layer only
+  converts `NSRect` at the boundary.
 
