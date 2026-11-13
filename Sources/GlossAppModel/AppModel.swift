@@ -392,7 +392,7 @@ import GlossReaderBridge
         case .routed(.passage(let targetID, _)):
             try? await workspace.openPassage(targetID, bringingNotes: bring)
             if !workspace.layout.showsReader { workspace.layout = .split }
-        case .inTrash, .missing:
+        case .inTrash, .missing, .unreadable:
             break
         }
         return outcome
@@ -422,6 +422,7 @@ import GlossReaderBridge
             case .routed(let route): return .routed(route)
             case .inTrash(let title): return .inTrash(title)
             case .missing: return .missing
+            case .unreadable: return .unreadable
             }
         case .supportedFile(let file):
             let imported = await library.importFiles(at: [file])

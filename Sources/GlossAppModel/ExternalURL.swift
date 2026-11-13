@@ -25,6 +25,8 @@ public enum ExternalOpenOutcome: Equatable, Sendable {
     case opened(Document)
     /// Gloss understood it and declined, with the reason.
     case refused(String)
+    /// A gloss link whose destination couldn't be read (a busy or broken store).
+    case unreadable
 }
 
 /// The alert copy for an incoming link gloss couldn't open. Trashed and missing say what
@@ -38,6 +40,8 @@ public enum UnopenableLinkCopy {
             line(RouteOutcome.inTrash(title).problem)
         case .missing:
             line(RouteOutcome.missing.problem)
+        case .unreadable:
+            line(RouteOutcome.unreadable.problem)
         case .refused(let why):
             why
         }

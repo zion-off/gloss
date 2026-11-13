@@ -14,6 +14,8 @@ public enum RouteOutcome: Hashable, Sendable {
     /// The destination exists but sits in the trash (title included for the message).
     case inTrash(String)
     case missing
+    /// The destination's row couldn't be read (a busy or broken store) — not the same as gone.
+    case unreadable
 
     public var routed: GlossRoute? { if case .routed(let route) = self { route } else { nil } }
 
@@ -28,6 +30,9 @@ public enum RouteOutcome: Hashable, Sendable {
                                 detail: "restore it from the trash to follow this link.")
         case .missing:
             return RouteProblem(title: "this link leads nowhere", detail: "what it pointed to has been deleted for good.")
+        case .unreadable:
+            return RouteProblem(title: "couldn't read the library just now",
+                                detail: "the link isn't broken — try following it again in a moment.")
         }
     }
 }
@@ -47,12 +52,18 @@ public struct URLRouter: Sendable {
     }
 
     public func route(_ link: GlossLink) async -> RouteOutcome {
-        switch try? await links.resolve(link) {
-        case .document(let document): return .routed(.document(document.id))
-        case .passage(let target, let document): return .routed(.passage(target.id, document.id))
-        case .page(let page, let document): return .routed(.page(page.id, document.id))
-        case .inTrash(let title, _): return .inTrash(title)
-        default: return .missing
+        do {
+            switch try await links.resolve(link) {
+            case .document(let document): return .routed(.document(document.id))
+            case .passage(let target, let document): return .routed(.passage(target.id, document.id))
+            case .page(let page, let document): return .routed(.page(page.id, document.id))
+            case .inTrash(let title, _): return .inTrash(title)
+            case .missing: return .missing
+            }
+        } catch {
+            // A failed read is not a dead link (review 7): the store was busy or broken, and
+            // "deleted for good" would be a lie the user might act on.
+            return .unreadable
         }
     }
 
