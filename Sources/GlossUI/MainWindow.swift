@@ -73,6 +73,7 @@ public struct MainWindow: View {
         .navigationTitle(title)
         .toolbar { toolbar }
         .glossSearch(model: app.search)
+        .libraryFeatures(app: app)  // the drop zone, ⇧⌘A, the import alert, the details sheet, the sort menu
         .quickSwitcher(app: app, isPresented: Binding(get: { commands.showsSwitcher },
                                                        set: { commands.showsSwitcher = $0 }))
         .externalURLHandling(app: app)

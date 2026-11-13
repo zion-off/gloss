@@ -209,8 +209,10 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
   Check light/dark, and that the generated fallback (title/author on a tinted cover) never
   changes colour for the same book across relaunches.
 - A single click opens the book; the context menu offers open, edit details…, move to trash
-  (trash is a no-op until the trash slice is wired at merge — the item should appear but do
-  nothing yet).
+  (which shows the undo toast, and ⌘Z brings the book back, open or not).
+- **The whole window is a drop zone** (review 7 caught the wiring never being applied): drop
+  epub/pdf files or a folder anywhere over the window — including over the reader — and the grid
+  highlights and imports; ⇧⌘A must open the panel too (both funnel into the same import).
 - The "recently read" shelf shows above the grid on "all" only, and disappears on a filtered
   shelf or when nothing was opened yet.
 - The sort menu (trailing toolbar, arrow.up.arrow.down) switches recent/title/author/date added;
