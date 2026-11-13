@@ -281,18 +281,21 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
 - Empty states: no books at all → "nothing glossed yet" with an import… button; a filtered shelf
   with no books → "no pdfs yet" (the shelf's name).
 - File › import… (⇧⌘A) opens an NSOpenPanel as a sheet: multiple files AND folders, filtered to
-  epub/pdf. Importing shows the bottom status line ("reading…", "storing…", "added …") and never
+  epub/pdf. Importing shows a small circular progress indicator in the toolbar (D-148): spinning
+  while folders are listed, then filling file by file; its tooltip says what it's doing
+  ("reading…", "storing…"); it disappears when done, and VoiceOver announces "added …". Never
   beachballs. Importing a duplicate shows the "already in your library" alert; "open it" opens
   the existing copy.
-- Drag files or a folder anywhere onto the window: the library rings with "drop to add to your
-  library" and the import runs. **Verify a drop over the reader's web view still reaches the
+- Drag files or a folder anywhere onto the window: the library gets an accent-colour rounded
+  outline (no banner, D-148) and the import runs. **Verify a drop over the reader's web view still reaches the
   window-level drop zone** — WKWebView has no public drag API (MAC_API_NOTES), but if it
   swallows file drags the drop needs a grid-level `onDrop` too.
 - Dropping a non-book file (a .png, say) anywhere outside the details sheet is silently ignored
   (the extension filter drops it); check nothing looks broken.
-- Import progress while the library isn't the visible detail (a book is open): the status line
-  isn't visible then — acceptable, but check the import still completes and the grid updates
-  when you go back to it.
+- Import progress while a book is open (a Finder or `gloss://` import): the toolbar indicator shows
+  there too; check the import completes and the grid updates when you go back to it. Import 8
+  books at once: the ring fills in 8 steps, VoiceOver reads "importing, 3 of 8" on it and "added 8
+  items to your library" at the end; a duplicate or broken file still gets the alert.
 - Two windows: import from one; the other's grid follows at once (windows in one process hear
   each other's writes, review 7 — trashing, restores, details edits and opens included).
 ### `Sources/GlossUI/SearchPane.swift` + `MainWindow.swift` (milestone 12)

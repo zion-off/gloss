@@ -26,6 +26,10 @@ public enum LibrarySettings {
     public private(set) var importing = false
     /// What an in-flight import is doing ("reading moby.epub…").
     public private(set) var importStatus: String?
+    /// Files an in-flight import has finished, of `importTotal` (0 while folders are still being
+    /// looked through: the toolbar shows an indeterminate spinner then, D-148).
+    public private(set) var importCompleted = 0
+    public private(set) var importTotal = 0
     /// What the most recent import found, for the "already in your library" offer (D-114).
     public private(set) var lastImport: ImportSummary?
     /// Documents added by the most recent import (for the "just added" reveal).
@@ -162,42 +166,45 @@ public enum LibrarySettings {
         var summary = ImportSummary()
         importing = true
         importStatus = nil
-        defer { importing = false; importStatus = nil }
-        for url in urls {
-            // Folder expansion walks the disk; keep it off the main actor (like the import itself).
-            let extensions = services.formats.supportedExtensions
-            let files = await Task.detached(priority: .userInitiated) {
-                ImportCandidates.expand(url, supportedExtensions: extensions)
-            }.value
-            for file in files {
-                importStatus = "reading \(file.lastPathComponent)…"
-                importingFile = file
-                defer { importingFile = nil }
-                do {
-                    let outcome = try await services.imports.importFile(at: file) { [weak self] progress in
-                        Task { @MainActor in
-                            guard let self, self.importingFile == file else { return }
-                            switch progress {
-                            case .storing: self.importStatus = "storing \(file.lastPathComponent)…"
-                            case .indexing: self.importStatus = "indexing \(file.lastPathComponent)…"
-                            default: break
-                            }
+        importCompleted = 0
+        importTotal = 0
+        defer { importing = false; importStatus = nil; importCompleted = 0; importTotal = 0 }
+        // Folder expansion walks the disk; keep it off the main actor (like the import itself).
+        // Everything is listed first, so the progress knows its total.
+        let extensions = services.formats.supportedExtensions
+        let files = await Task.detached(priority: .userInitiated) {
+            urls.flatMap { ImportCandidates.expand($0, supportedExtensions: extensions) }
+        }.value
+        importTotal = files.count
+        for file in files {
+            defer { importCompleted += 1 }
+            importStatus = "reading \(file.lastPathComponent)…"
+            importingFile = file
+            defer { importingFile = nil }
+            do {
+                let outcome = try await services.imports.importFile(at: file) { [weak self] progress in
+                    Task { @MainActor in
+                        guard let self, self.importingFile == file else { return }
+                        switch progress {
+                        case .storing: self.importStatus = "storing \(file.lastPathComponent)…"
+                        case .indexing: self.importStatus = "indexing \(file.lastPathComponent)…"
+                        default: break
                         }
                     }
-                    importingFile = nil
-                    switch outcome {
-                    case .imported(let document):
-                        summary.imported.append(document)
-                        importStatus = "added \(document.title)"
-                    case .duplicate(let document):
-                        summary.duplicates.append(document)
-                        importStatus = "\(document.title) is already in your library"
-                    }
-                } catch {
-                    importingFile = nil
-                    summary.failures.append(ImportSummary.Failure(name: file.lastPathComponent, reason: Self.describe(error)))
-                    importStatus = "couldn't read \(file.lastPathComponent): \(Self.describe(error))"
                 }
+                importingFile = nil
+                switch outcome {
+                case .imported(let document):
+                    summary.imported.append(document)
+                    importStatus = "added \(document.title)"
+                case .duplicate(let document):
+                    summary.duplicates.append(document)
+                    importStatus = "\(document.title) is already in your library"
+                }
+            } catch {
+                importingFile = nil
+                summary.failures.append(ImportSummary.Failure(name: file.lastPathComponent, reason: Self.describe(error)))
+                importStatus = "couldn't read \(file.lastPathComponent): \(Self.describe(error))"
             }
         }
         lastImportedIDs = summary.imported.map(\.id)
@@ -248,6 +255,16 @@ public struct ImportSummary: Equatable, Sendable {
             parts.append("couldn't read \(failure.name): \(failure.reason).")
         }
         return parts.joined(separator: "\n")
+    }
+
+    /// What VoiceOver hears when the import ends (nil when nothing was added; duplicates and
+    /// failures get the alert).
+    public var announcement: String? {
+        switch imported.count {
+        case 0: nil
+        case 1: "added “\(imported[0].title)” to your library"
+        default: "added \(imported.count) items to your library"
+        }
     }
 
     /// The "open the existing copy" action's title.

@@ -800,6 +800,11 @@ extension PrimitiveButtonStyle where Self == DefaultButtonStyle { public static 
 /// macOS 14.0+
 extension PrimitiveButtonStyle where Self == AccessoryBarButtonStyle { public static var accessoryBar: AccessoryBarButtonStyle { .init() } }
 
+/// swiftui/progressviewstyle; progressviewstyle/circular — `CircularProgressViewStyle` (macOS 11.0)
+public protocol ProgressViewStyle {}
+public struct CircularProgressViewStyle: ProgressViewStyle { public init() {} }
+extension ProgressViewStyle where Self == CircularProgressViewStyle { public static var circular: CircularProgressViewStyle { .init() } }
+
 /// swiftui/formstyle; swiftui/groupedformstyle, formstyle/grouped (macOS 13.0)
 public protocol FormStyle {}
 public struct GroupedFormStyle: FormStyle { public init() {} }
@@ -883,6 +888,8 @@ extension View {
     nonisolated public func buttonStyle<S: PrimitiveButtonStyle>(_ style: S) -> some View { _Modified(self) }
     nonisolated public func buttonStyle<S: ButtonStyle>(_ style: S) -> some View { _Modified(self) }
     nonisolated public func pickerStyle<S: PickerStyle>(_ style: S) -> some View { _Modified(self) }
+    /// view/progressviewstyle(_:) (macOS 11.0)
+    nonisolated public func progressViewStyle<S: ProgressViewStyle>(_ style: S) -> some View { _Modified(self) }
     /// view/formstyle(_:) (macOS 13.0)
     nonisolated public func formStyle<S: FormStyle>(_ style: S) -> some View { _Modified(self) }
     /// view/labelshidden() (macOS 10.15)

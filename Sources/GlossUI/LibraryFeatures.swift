@@ -53,6 +53,14 @@ private struct LibraryFeatures<Content: View>: View {
                 Text(verbatim: importNews?.alertMessage ?? "")
             }
             .toolbar {
+                // An import's progress is the toolbar's, like Safari's downloads or Mail's activity:
+                // a small ring wherever the window is (a Finder or gloss:// import can run while a
+                // book is open), with what it's doing in the tooltip (D-148).
+                if app.library.importing {
+                    ToolbarItem {
+                        ImportActivity(library: app.library)
+                    }
+                }
                 // Only while the library is showing, Books-style at the trailing edge.
                 if case .library = app.workspace.detail {
                     ToolbarItem {
@@ -125,6 +133,11 @@ private struct LibraryFeatures<Content: View>: View {
 
         static func importChosen(_ urls: [URL], into app: AppModel) async {
             _ = await app.library.importFiles(at: urls)
+            // VoiceOver hears the result; the toolbar ring just disappears for everyone else.
+            if let announcement = app.library.lastImport?.announcement {
+                NSAccessibility.post(element: NSApplication.shared, notification: .announcementRequested,
+                                     userInfo: [.announcement: announcement])
+            }
             if let news = app.library.lastImport, news.hasNews {
                 app.presentation.importNews = news
             }
@@ -150,6 +163,35 @@ private struct LibraryFeatures<Content: View>: View {
 }
 
 /// How the sort menu names each order (data, never localization keys).
+/// The toolbar's import progress: a small circular indicator, determinate once the files are
+/// counted ("3 of 8" for VoiceOver), spinning while folders are still being looked through.
+private struct ImportActivity: View {
+    let library: LibraryModel
+
+    var body: some View {
+        Group {
+            if library.importTotal > 0 {
+                ProgressView(value: Double(min(library.importCompleted, library.importTotal)),
+                             total: Double(library.importTotal))
+            } else {
+                ProgressView()
+            }
+        }
+        .progressViewStyle(.circular)
+        .controlSize(.small)
+        .padding(.horizontal, 4)
+        .help(library.importStatus ?? "importing…")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityText)
+    }
+
+    private var accessibilityText: String {
+        library.importTotal > 1
+            ? "importing, \(library.importCompleted) of \(library.importTotal)"
+            : "importing"
+    }
+}
+
 private let librarySortTitles: [LibrarySort: String] = [
     .recent: "recent", .title: "title", .author: "author", .dateAdded: "date added",
 ]

@@ -36,7 +36,6 @@ struct LibraryGrid: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .overlay(alignment: .bottom) { importStatusLine }
         .overlay { dropHighlight }
     }
 
@@ -78,39 +77,17 @@ struct LibraryGrid: View {
         }
     }
 
-    // MARK: Import feedback
+    // MARK: Drop
 
-    /// One quiet line while an import runs, Books-style, never blocking the UI (the work
-    /// happens off the main actor).
-    @ViewBuilder private var importStatusLine: some View {
-        if library.importing {
-            HStack(spacing: 8) {
-                ProgressView().controlSize(.small)
-                Text(verbatim: library.importStatus ?? "importing…")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(.regularMaterial, in: Capsule())
-            .padding(16)
-        }
-    }
-
-    /// The window is the drop zone; this rings the library while a drag is over it.
+    /// The window is the drop zone; while a drag is over it the library gets the system's
+    /// drop-target ring, an accent outline like Finder and Mail draw, and nothing else (D-148).
+    /// Import progress lives in the toolbar (`LibraryFeatures`).
     @ViewBuilder private var dropHighlight: some View {
         if presentation.dropTargeted {
-            ZStack {
-                RoundedRectangle(cornerRadius: 12).fill(Color.accentColor.opacity(0.06))
-                RoundedRectangle(cornerRadius: 12).stroke(Color.accentColor, lineWidth: 2)
-                Text("drop to add to your library")
-                    .font(.headline)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(.regularMaterial, in: Capsule())
-            }
-            .padding(10)
-            .allowsHitTesting(false)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(Color.accentColor, lineWidth: 3)
+                .padding(4)
+                .allowsHitTesting(false)
         }
     }
 }

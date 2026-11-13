@@ -516,3 +516,13 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   sit on the library, and jumped back on "all". `OutlineRow.rows` flattens a tree with depths
   (GlossAppModel, tested) and the list indents nested rows 14 pt per level; the trees no longer
   collapse per node (Books' contents don't either), only per section.
+- **D-148 Import progress is a small ring in the toolbar; the drop target is an accent outline.**
+  The floating capsule at the bottom of the grid ("reading…", "storing…") and the "drop to add"
+  banner were custom chrome. Safari's downloads and Mail's activity put progress in the toolbar, so
+  a small circular `ProgressView` appears there while an import runs (in any detail, since Finder
+  and `gloss://` imports can run with a book open): determinate over the counted files
+  (`LibraryModel.importCompleted/importTotal`; folders are listed first), spinning before that,
+  the per-file status as its tooltip and VoiceOver label, and an announcement at the end
+  (`ImportSummary.announcement`). Duplicates and failures keep the existing alert. Per-cover
+  progress (Books' downloads) doesn't fit: a book has no cell until it has been stored. A drag
+  over the window draws only an accent rounded outline, like Finder and Mail.

@@ -916,6 +916,9 @@ nonisolated func handlesExternalEvents(matching conditions: Set<String>) -> some
 nonisolated func formStyle<S>(_ style: S) -> some View where S : FormStyle                                          // view/formstyle(_:), macOS 13.0
 nonisolated static var grouped: GroupedFormStyle { get }                                                            // formstyle/grouped; struct GroupedFormStyle, macOS 13.0
 nonisolated func labelsHidden() -> some View                                                                        // view/labelshidden(), macOS 10.15
+nonisolated func progressViewStyle<S>(_ style: S) -> some View where S : ProgressViewStyle                          // view/progressviewstyle(_:), macOS 11.0
+nonisolated static var circular: CircularProgressViewStyle { get }                                                  // progressviewstyle/circular, macOS 11.0
+nonisolated init<V>(value: V?, total: V = 1.0) where Label == EmptyView, CurrentValueLabel == EmptyView, V : BinaryFloatingPoint   // ProgressView init(value:total:), macOS 11.0
 nonisolated func lineSpacing(_ lineSpacing: CGFloat) -> some View                                                   // view/linespacing(_:), macOS 10.15
 init(@ContentBuilder content: () -> Content, @ContentBuilder header: () -> Parent, @ContentBuilder footer: () -> Footer)   // section/init(content:header:footer:), macOS 10.15
 ```

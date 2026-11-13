@@ -140,6 +140,7 @@ struct ImportSummaryTests {
         #expect(imported.map(\.title) == ["The Fall"])
         #expect(model.lastImport?.hasNews == false)
         #expect(model.lastImport?.duplicates.isEmpty == true)
+        #expect(model.lastImport?.announcement == "added “The Fall” to your library")
 
         // The same file again is a duplicate; the broken one is a failure.
         _ = await model.importFiles(at: [file, broken])
@@ -154,6 +155,8 @@ struct ImportSummaryTests {
         #expect(summary.openActionTitle == "open it")
         #expect(model.importing == false)
         #expect(model.importStatus == nil)
+        #expect(model.importTotal == 0 && model.importCompleted == 0)  // the toolbar ring is gone
+        #expect(summary.announcement == nil)  // nothing added: the alert says what happened
         #expect(model.lastImportedIDs.isEmpty)
     }
 
