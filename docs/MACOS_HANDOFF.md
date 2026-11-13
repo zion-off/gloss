@@ -1,8 +1,15 @@
 # macOS handoff
 
-Everything in this file was written on Linux and has **never been compiled or run**. It is the
-checklist for the first sessions on a Mac. Commits that touched these files carry
-`[mac-unverified]` in their subject (`git log --grep mac-unverified`).
+Everything in this file was written on Linux and has **never been run**. It is the checklist for
+the first sessions on a Mac. Commits that touched these files carry `[mac-unverified]` in their
+subject (`git log --grep mac-unverified`).
+
+Since D-099 the Mac modules **type-check** on Linux against stub frameworks
+(`scripts/mac-typecheck.py`). A compile error on the Mac therefore most likely means a stub
+disagrees with the real SDK: fix the code, the stub and `docs/MAC_API_NOTES.md` together. Known
+modelling choices in the stubs: imported methods returning values are `@discardableResult` (Swift
+never warns about unused results of Objective-C methods), and SwiftUI's `task` modifier inherits the
+actor context, as its SDK interface says (`@_inheritActorContext`, absent from the docs JSON).
 
 ## How to build on the Mac
 
@@ -97,17 +104,27 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
   - Select text: the selection popover (highlight colours, add to notes) anchors to the first line.
   - Highlights fill in their colours, markers underline; clicking either opens its popover; clicks
     outside them select text normally (the overlay's `hitTest` returns nil there).
-  - ⌘K over a book selection + a notes selection links them; the marker appears on the PDF page.
+  - ⌘K over a book selection + a notes selection links them; the marker appears on the PDF page
+    **at once, without scrolling** (review 6: `show(_:)` pushes new marks into the overlays on
+    screen; every page gets an overlay, marked or not).
   - The flash outline on a passage jump appears and fades after 1.5 s.
+  - A passage jump puts the passage's first line at the top of the view: the destination's point is
+    the top of that line, taking PDFDestination's point as the view's top-left corner (PDF's own
+    /XYZ model; Apple's docs only say "page space"). If the line lands just above the view, use the
+    line's bottom instead.
   - Links inside the PDF open in the browser, never in the reader.
   - `.PDFViewPageChanged` / `.PDFViewSelectionChanged` — the Swift spelling of the two notification
     names is the importer's; the docs JSON only has the ObjC extern. If they don't compile, the fix
     is the spelling on this line.
-  - The overlay view's coordinate mapping (page-space rects via `pdfView.convert(_:from:)` inside
-    `draw(_:)`, and `hitTest`/`mouseDown` converting view → page) is the standard pattern but
-    unverifiable here; verify markers land on the right text at different zoom levels.
-  - `PDFOutline` (`outlineRoot`, `child(at:)`, `destination.page`) for the TOC is not in the verified
-    notes; the PDF TOC may come out empty — fine for now, the sidebar TOC is milestone 12.
+  - The overlay converts page → PDF view → itself when drawing, and superview/window → PDF view →
+    page for clicks (review 6: PDFKit places each overlay over its page, not at the PDF view's
+    origin). Verify highlights and markers land on their text **on the second and later pages**,
+    at several zoom levels, and that clicks on them hit (and clicks beside them select text).
+  - The marker underline sits under the text's baseline side whether or not the overlay is flipped.
+  - A search hit with a page jumps to its own occurrence on that page and flashes it; only a hit
+    without a locator searches the whole document.
+  - The TOC comes from the PDF outline (nested, at most 4 levels and 2000 nodes); entries whose
+    destination PDFKit can't resolve hand their children up instead of pointing at page 1.
 - `PDFReadingEngine.swift` — registration only; PDFs now open with an engine (the "can't show this
   kind" placeholder should be gone).
 
@@ -144,12 +161,19 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
 - `NotesEditorTheme.swift` — system fonts and colours only; check light/dark, Increase Contrast
   and Reduce Transparency all look right, and that headings/code/quotes read like Notes'.
 - `NotesTextView.swift` — a click toggles a task box and opens a subpage row; verify the click
-  target feels right (the box glyph, not the whole line).
+  target feels right (the box glyph plus half a character either side, not the whole line). Clicks
+  map through `characterIndexForInsertion(at:)` in view coordinates (review 6: the old
+  `characterIndex(for:)` wanted screen coordinates).
 - `NotesEditorCoordinator.swift`
   - Typing is native (input methods, undo, find bar); the buffer must stay the raw markdown.
   - Smart quotes/dashes/text replacement are off — type `"` and `--` and they must stay ASCII.
   - The format bar and slash menu anchor to the selection/caret and follow scrolling
     (bounds-change notifications recompute the anchor); check they stay inside the window.
+  - **The format bar sits above the selection when there's room and below it otherwise**, at the
+    top and the bottom of a long page, scrolled and not. The anchor flips into SwiftUI's top-left
+    space only when the scroll view isn't flipped (review 6 doubted review 5's unconditional flip);
+    a bar mirrored to the other end of the pane means `isFlipped` isn't what the conversion
+    assumed.
   - Model edits (format bar clicks, Format menu items, slash menu clicks and keys, Return/Tab in
     lists) all go through `NotesEditorCoordinator.apply` and land as ONE undo step each; ⌘Z undoes
     them one at a time and the styling follows.
@@ -178,14 +202,18 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
   icon match a Notes-like list, clicking anywhere on the line opens the page, arrow keys still
   step through the hidden line, and a rename from another window refreshes the title
   (`invalidateRows` on the next sync).
-- `NotesEditorCoordinator.swift` — the fragment delegate is `nonisolated` with
-  `MainActor.assumeIsolated` (TextKit lays out on the main thread); it must never be hit from a
-  background layout pass. If it ever crashes there, the rows snapshot needs a lock instead.
+- `NotesEditorCoordinator.swift` — the fragment delegate is `nonisolated` and builds the fragment
+  there (TextKit's classes aren't main-actor isolated); only the read of the model's rows uses
+  `MainActor.assumeIsolated`. It must never be hit from a background layout pass; if it ever crashes
+  there, the rows snapshot needs a lock instead. `SubpageRowFragment` is not main-actor isolated
+  either (its superclass isn't).
 - `NotesHover.swift` + the text view's tracking area — resting the pointer on a passage link shows
   its quote, label and book in a transient popover (120 ms rest, one lookup per link, cancelled on
   move). Check: the popover anchors to the link's line, closes on click/scroll/leave, and nothing
-  shows over web or page links. `characterIndex(for:)` (used for clicks) and the
-  `NSTrackingArea(rect: .zero, … .inVisibleRect …)` pattern are standard but unverified in the notes.
+  shows over web or page links. Leaving a link within the 120 ms rest must not open the popover
+  over plain text afterwards (review 6: the pending lookup is cancelled on every close). The
+  `NSTrackingArea(rect: .zero, … .inVisibleRect …)` pattern is documented (the rect is ignored) but
+  needs a run.
 - `Sources/GlossMac/MainWindow.swift` — the editor pane: page loads, the unsaved-changes alert,
   breadcrumbs, and the reveal (a marker click selects the link line and scrolls to it). The split
   layout switches with the workspace setting; the real split view is milestone 11.
@@ -205,10 +233,8 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
   are 12.0+ — the target is macOS 14, so only the gap matters for the record).
 - `NSView.boundsDidChangeNotification` on the scroll view's clip view (standard AppKit, not in the
   verified notes) and `postsBoundsChangedNotifications` defaulting to true.
-- `NSColor.separatorColor` in the slash menu border (standard, not in the verified notes).
-- `SubpageRowFragment` is a `@MainActor` subclass overriding `draw(at:in:)` of an
-  isolation-unannotated `NSTextLayoutFragment` — legal under AppKit's preconcurrency import, but
-  exactly the class of thing this file tracks.
+- `NSColor.separatorColor` (verified, 10.14+) in the slash menu border, via `Color(nsColor:)`
+  (verified, 12.0+): SwiftUI's `Color` has no `separatorColor`.
 - Whether a paragraph's `elementRange` includes its line terminator (the row matcher handles
   either; verify rows actually draw on a real page).
 - `textView.undoManager` being non-nil with `allowsUndo = true` when `install()` clears it.
@@ -222,8 +248,9 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
   the composed result needs a run.
 - `shouldChangeText(in:replacementString:)` + `replaceCharacters(in:with:)` + `didChangeText()` as the
   one-undo-step recipe for programmatic edits (each part verified; the composition needs a run).
-- `NSImage(systemSymbolName:accessibilityDescription:)` for the row icon and `NSAttributedString.draw(in:)`
-  inside an `NSTextLayoutFragment.draw(at:in:)` (both standard; neither in the verified notes).
+- `NSImage(systemSymbolName:accessibilityDescription:)` (verified, 11.0+) and
+  `NSAttributedString.draw(in:)` / `size()` (verified; `size()` is a method) inside an
+  `NSTextLayoutFragment.draw(at:in:)` — drawing there needs a run.
 - `NSTextContentStorage.documentRange` reached through `textContentManager` (documented on
   `NSTextElementProvider`, which it implements) and `NSTextParagraph.elementRange` mapping to
   UTF-16 offsets via `offset(from:to:)` — each verified, the composition needs a run.

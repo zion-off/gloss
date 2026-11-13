@@ -19,8 +19,9 @@ Anything not confirmed in the docs is marked **UNVERIFIED** with the reason.
   are `@MainActor optional func ...` (e.g. `textViewDidChangeSelection(_:)`, `textView(_:clickedOnLink:at:)`).
   `NSTextLayoutManagerDelegate` and its requirement are **not** `@MainActor`.
 - PDFKit: `PDFView`, `PDFPageOverlayViewProvider` etc. carry **no** actor annotation in the docs.
-- SwiftUI: scenes/commands/`View` modifiers are `nonisolated`; `OpenWindowAction` and
-  `NSViewRepresentable` are `@MainActor @preconcurrency`.
+- SwiftUI: scene and `View` **modifiers** are `nonisolated`; the protocols `View`, `App`, `Scene`,
+  `Commands` and `NSViewRepresentable`, and `OpenWindowAction`, are `@MainActor @preconcurrency`, so a
+  conforming type's `body` runs on the main actor (review 6 corrected this line).
 
 ---
 
@@ -748,6 +749,49 @@ init(page: PDFPage, at point: NSPoint)                 // PDFDestination, 10.4+
   `PDFSelection.selectionsByLine()/bounds(for:)/numberOfTextRanges(on:)/range(at:on:)/pages`.
 - Still UNVERIFIED from the docs JSON: the Swift spelling of `PDFViewSelectionChanged` /
   `PDFViewPageChanged` notifications (only the ObjC extern exists in the JSON).
+
+---
+
+# Review 6 / D-099 additions (verified 2026-11-13, same method)
+
+These back `scripts/mac-stubs/`; each stub member names its docs path.
+
+```swift
+func removeObserver(_ observer: Any)                                   // NotificationCenter, 10.0+ — there is NO removeObservers(_:)
+func removeObserver(_ observer: Any, name aName: NSNotification.Name?, object anObject: Any?)
+func addObserver(forName name: NSNotification.Name?, object obj: Any?, queue: OperationQueue?, using block: @escaping @Sendable (Notification) -> Void) -> any NSObjectProtocol   // 10.6+
+func addObserver(_ observer: Any, selector aSelector: Selector, name aName: NSNotification.Name?, object anObject: Any?)
+@MainActor class UndoManager                                           // Foundation
+@MainActor @preconcurrency func registerUndo<TargetType>(withTarget target: TargetType, handler: @escaping @MainActor (TargetType) -> Void) where TargetType : AnyObject   // 10.11+
+func size() -> CGSize                                                  // NSAttributedString — a METHOD, not a property
+func draw(at point: CGPoint) / func draw(in rect: CGRect)              // NSAttributedString
+func range(of searchString: String, options mask: NSString.CompareOptions = []) -> NSRange   // NSString
+var superview: NSView? { get }                                         // NSView (unowned(unsafe))
+func hitTest(_ point: NSPoint) -> NSView?                              // point is in the SUPERVIEW's coordinates
+var isFlipped: Bool { get } / var needsDisplay: Bool { get set } / func addSubview(_:) / func removeFromSuperview()
+@NSCopying var backgroundColor: NSColor? { get set }                   // NSText (optional)
+func breakUndoCoalescing()                                             // NSTextView
+func characterIndex(for point: NSPoint) -> Int                         // NSTextInputClient — point in SCREEN coordinates
+optional func insertNewline(_ sender: Any?) / cancelOperation(_:) …    // NSStandardKeyBindingResponding
+var backgroundColor: NSColor { get set }                               // PDFView (non-optional)
+var currentPage: PDFPage? { get }                                      // PDFView
+var outlineRoot: PDFOutline? { get set }                               // PDFDocument, 10.6+
+var numberOfChildren: Int { get } / func child(at index: Int) -> PDFOutline? / var label: String? / var destination: PDFDestination?   // PDFOutline, 10.4+
+weak var page: PDFPage? { get }                                        // PDFDestination
+var string: String? { get } / var pages: [PDFPage] { get }             // PDFSelection
+nonisolated init(nsColor: NSColor)                                     // SwiftUI.Color, 12.0+ (Color has no separatorColor)
+nonisolated func help(_ text: Text) -> some View                       // also LocalizedStringKey, StringProtocol (11.0+), LocalizedStringResource (13.0+)
+nonisolated func frame(width:height:alignment:) / frame(minWidth:idealWidth:maxWidth:minHeight:idealHeight:maxHeight:alignment:)   // two overloads: no frame(width:maxHeight:)
+nonisolated func overlay<V>(alignment: Alignment = .center, @ContentBuilder content: () -> V) -> some View   // 12.0+; overlay(_:alignment:) deprecated 27.3
+nonisolated func accessibilityLabel(_ label: Text) / accessibilityAddTraits(_:)   // 11.0+
+```
+
+- AppKit's `NSView`, `NSResponder` and `NSWindow` are `@MainActor` classes; `NSColor`, `NSFont`,
+  `NSImage`, `NSEvent`, `NSBezierPath` and the TextKit 2 classes (`NSTextLayoutFragment`,
+  `NSTextElement`, …) are not. `PDFPage` isn't Sendable: moving one into `assumeIsolated` needs a
+  `nonisolated(unsafe)` local (D-100).
+- **UNVERIFIED from the docs JSON:** SwiftUI's `task` modifiers inherit the caller's actor context;
+  the SDK interface spells it `@_inheritActorContext`, which the docs drop.
 
 ---
 

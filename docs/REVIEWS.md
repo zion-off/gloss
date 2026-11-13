@@ -115,3 +115,33 @@ foliate loader.
 | nit | every external change refetched the editor's page | fixed in `cc32fc7` (scoped to the changed page ids) |
 | nit | the coordinator's closures were wired only at creation | fixed in `cc32fc7` (rewired every update) |
 | nit | handoff gaps: the fragment subclass's isolation, the paragraph-range semantics, undoManager presence | fixed in `cc32fc7` |
+
+## Review 6 — `review-5-head..review-6-head` (review 5 fixes, milestone 11 linking UI and PDF engine)
+
+The reviewer re-verified every portable fix by reverting it in a scratch copy (each new test failed
+without its code, except review 5's page-scoped refetch, which had no test) and checked the PDFKit
+calls against Apple's docs JSON. Its four compile errors were each reproduced with the Swift 6.4.2
+compiler. In answer, the Mac modules now type-check on Linux against stub frameworks copied from
+Apple's docs (`bad64a6`, D-099), which also found compile errors the review missed (listed below).
+
+| Severity | Finding | Outcome |
+|---|---|---|
+| critical | `NotesPane` was passed and used `commands` but never declared it | fixed in `6c2dcf1` |
+| critical | five `guard let pdf` in the PDF session named nothing (the property is `document`) | fixed in `283e08a` |
+| critical | `open` called the throwing async `go(to:flash:)` without `try await` | fixed in `283e08a` |
+| critical | `NotificationCenter.removeObservers(_:)` doesn't exist | fixed in `283e08a` (one `removeObserver(_:)` per token) |
+| critical | (type-check) the PDF session couldn't satisfy the non-isolated `PDFPageOverlayViewProvider`; `PDFLocators` wasn't imported | fixed in `283e08a` (nonisolated + `assumeIsolated`, D-100) |
+| critical | (type-check) the editor: missing `NSTextLayoutManagerDelegate` conformance, a non-Sendable fragment out of `assumeIsolated`, `OverlayRect`/`NSRect` callbacks, `size` used as a property, a duplicate font enum, `frame(width:maxHeight:)`, `Color.separatorColor` | fixed in `7f9b7c2` and `7cfda47` |
+| major | PDF overlays drew and hit-tested in the PDF view's coordinates, not their own: marks offset on every page but the first | fixed in `b63cafc`: page → PDF view → overlay and back; the clicked rect comes from `PDFAnnotationLayout.hit` (Linux-tested, `926e76c`) |
+| major | overlays froze their marks: a marker linked with ⌘K didn't appear until its page scrolled away and back | fixed in `b63cafc`: every page gets an overlay, the session keeps those on screen and `show(_:)` updates them |
+| major | the editor's overlay flip assumed an unflipped scroll view (likely a double flip) | fixed in `722bea0`: `OverlayGeometry.topLeft(_:inHeight:flipped:)` asks the view (Linux-tested); a handoff check covers it |
+| major | (found while verifying) clicks in the notes used `characterIndex(for:)`, which takes screen coordinates | fixed in `cf8b513`: `characterIndexForInsertion(at:)`; task boxes take insertion indices (tested) |
+| minor | a hover lookup still waiting outlived the popover's close | fixed in `af68902` (`endHover()` cancels it) |
+| minor | a PDF search hit re-searched the whole document after jumping to its page | fixed in `fbc0475`: its own page first (`PDFTextMatch`, Linux-tested) |
+| minor | the PDF outline walk was unbounded in breadth and sent unresolved destinations to page 1 | fixed in `fbc0475`: `PDFOutlineTOC`, bounded and nested (Linux-tested, `926e76c`) |
+| minor | accessibility labels interpolated user content through `LocalizedStringKey` | the marker list's labels were already verbatim (**declined** there); the colour and slash-menu labels and help tags made verbatim in `e61f8e3` |
+| minor | review 5's page-scoped refetch had no regression test | fixed in `a26c0ff` (fails with the scoping removed) |
+| nit | unused `target` binding in `open` | fixed in `283e08a` |
+| nit | the flash view stroked half outside its bounds | fixed in `fbc0475` |
+| nit | `mac-visibility.py` can't see member- or statement-level errors | answered by `scripts/mac-typecheck.py` (`bad64a6`, D-099) |
+| nit | MAC_API_NOTES called `Commands` nonisolated; the protocol is `@MainActor @preconcurrency` | fixed in this commit, with every API verified for the stubs |
