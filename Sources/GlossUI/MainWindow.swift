@@ -157,7 +157,10 @@ public struct MainWindow: View {
                           addToNotes: { await commands.addToNotes() })
             .clipShape(shape)
             .background { shape.fill(.background).shadow(color: .black.opacity(0.28), radius: 7, y: 2) }
-            .padding(EdgeInsets(top: 8, leading: 12, bottom: 12, trailing: 12))
+            // One margin all round (D-154); beside the notes the notes' own margin is the gap, so
+            // the card's edge is exactly one margin from the notes text.
+            .padding(EdgeInsets(top: SheetMetrics.margin, leading: SheetMetrics.margin, bottom: SheetMetrics.margin,
+                                trailing: app.workspace.layout == .split ? 0 : SheetMetrics.margin))
             .frame(minWidth: 320)
     }
 
@@ -293,6 +296,11 @@ public struct MainWindow: View {
     }
 }
 
+/// The sheet's one margin, shared with the notes editor's text inset (D-154).
+enum SheetMetrics {
+    static let margin = NotesEditorMetrics.margin
+}
+
 /// The notes half of the window: breadcrumbs, the editor, and a note when a save failed.
 struct NotesPane: View {
     let app: AppModel
@@ -370,8 +378,8 @@ struct NotesPane: View {
                 Text(verbatim: "›").foregroundStyle(.tertiary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .padding(.horizontal, SheetMetrics.margin)
+            .padding(.top, SheetMetrics.margin)
         }
     }
 
@@ -383,10 +391,9 @@ struct NotesPane: View {
             .focused($titleFocused)
             .onSubmit { commitTitle() }
             .onChange(of: titleFocused) { _, focused in if !focused { commitTitle() } }
-            .padding(.leading, 17)  // the text's own inset (12 + the line fragment padding)
-            .padding(.trailing, 12)
-            .padding(.top, 14)
-            .padding(.bottom, 2)
+            // The body's glyphs start one margin in (D-154): the title and breadcrumbs share that edge.
+            .padding(.horizontal, SheetMetrics.margin)
+            .padding(.top, app.notes.breadcrumbs.count > 1 ? 4 : SheetMetrics.margin)
     }
 
     private func shownTitle(_ page: Page?) -> String {
@@ -465,12 +472,14 @@ private struct ReaderNotesLayout<Reader: View, Notes: View>: View {
                 if layout.showsReader {
                     reader.transition(.opacity)
                 }
-                if layout == .split {
-                    grabArea(current: width, widest: widest)
-                }
                 if layout.showsNotes {
                     notes
                         .frame(width: layout == .split ? width : nil)
+                        // The grab area lies over the notes' leading margin instead of taking width,
+                        // so the gap between the card and the text is exactly one margin (D-154).
+                        .overlay(alignment: .leading) {
+                            if layout == .split { grabArea(current: width, widest: widest) }
+                        }
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
             }

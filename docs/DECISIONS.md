@@ -565,3 +565,11 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   API (the toolbar owns its items' layout and the system search field's width), so the animation
   is SwiftUI's transaction on the item swap plus the system's own; if NSToolbar ignores it, the
   swap cuts.
+- **D-154 The notes sheet has one margin, 16 pt, everywhere.** It was the card's 8/12/12/12, the
+  editor's 12×10 inset, a hand-tuned 17 for the title and 12/6 for the breadcrumbs. Now
+  `NotesEditorMetrics.margin` (GlossEditor; `SheetMetrics.margin` in GlossUI) sets the card's
+  padding, the breadcrumbs' and title's insets, and the editor's container inset (margin minus the
+  text container's own line fragment padding, read at runtime, so glyphs land exactly on it). The
+  scroll view stays full-bleed so the scroller sits at the edge. Beside the notes the card has no
+  trailing padding and the drag area overlays the notes' leading margin, so the card-to-text gap
+  is one margin too. NSTextView's inset is symmetric, so the gap from title to body is also 16 pt.

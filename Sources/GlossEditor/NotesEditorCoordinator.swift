@@ -5,6 +5,12 @@ import GlossCore
 import GlossMarkdown
 import GlossNotes
 
+/// The notes sheet's one margin: the editor's text, the page title and breadcrumbs, and the reader
+/// card all keep this distance from the sheet's edges and from each other (D-154).
+public enum NotesEditorMetrics {
+    public static let margin: CGFloat = 16
+}
+
 /// Keeps the text view and the model in step. The view is the source of truth while the user
 /// types; the model restyles and saves. Model-issued edits (format bar, slash menu, key
 /// commands) go back through the view's change APIs so undo records them as one step.
@@ -54,7 +60,10 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         textView.isAutomaticQuoteSubstitutionEnabled = false   // markdown source: no smart quotes
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false
-        textView.textContainerInset = NSSize(width: 12, height: 10)
+        // The text's glyphs sit `NotesEditorMetrics.margin` from every edge of the pane: the
+        // container inset makes up the rest after the line fragment padding (D-154).
+        let padding = textView.textContainer?.lineFragmentPadding ?? 5
+        textView.textContainerInset = NSSize(width: NotesEditorMetrics.margin - padding, height: NotesEditorMetrics.margin)
         // No background of its own: the notes are written straight onto the window's sheet.
         textView.drawsBackground = false
         textView.onTextClick = { [weak self] index in self?.textClicked(at: index) ?? false }

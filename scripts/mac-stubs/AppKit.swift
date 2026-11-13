@@ -481,6 +481,8 @@ extension NSTextViewDelegate {
     public convenience init(usingTextLayoutManager: Bool) { self.init(frame: .zero) }
     open var delegate: (any NSTextViewDelegate)? { get { nil } set {} }
     open var textLayoutManager: NSTextLayoutManager? { nil }
+    /// appkit/nstextview/textcontainer
+    open var textContainer: NSTextContainer? { get { nil } set {} }
     open var textContentStorage: NSTextContentStorage? { nil }
     open var typingAttributes: [NSAttributedString.Key: Any] { get { [:] } set {} }
     open var allowsUndo: Bool { get { false } set {} }
@@ -545,7 +547,17 @@ extension NSTextLayoutManagerDelegate {
 }
 
 /// appkit/nstextlayoutmanager
+/// appkit/nstextcontainer
+open class NSTextContainer: NSObject {
+    /// appkit/nstextcontainer/size
+    open var size: NSSize { get { .zero } set {} }
+    /// appkit/nstextcontainer/linefragmentpadding (default 5)
+    open var lineFragmentPadding: CGFloat { get { 5 } set {} }
+}
+
 open class NSTextLayoutManager: NSObject {
+    /// appkit/nstextlayoutmanager/textcontainer (12.0)
+    open var textContainer: NSTextContainer? { get { nil } set {} }
     open var delegate: (any NSTextLayoutManagerDelegate)? { get { nil } set {} }
     open var textContentManager: NSTextContentManager? { nil }
     open func invalidateLayout(for range: NSTextRange) {}

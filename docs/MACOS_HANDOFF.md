@@ -529,6 +529,13 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
     author, relaunch, and the window comes back notes-only sorted by author.
   - `.link` attributes make gloss and web links clickable with the pointing hand cursor; gloss
     links route inside the app, web links open the browser.
+- **One margin on the sheet (D-154), unverified:** with a book open in split view, the reader
+  card sits 16 pt from the sheet's left, top and bottom edges; the notes text (body, title and
+  breadcrumbs, all on one left edge) sits 16 pt from the card's edge, from the right edge, from
+  the top, and from the bottom when scrolled to the end; the scroller hugs the window's right
+  edge. The divider is still draggable over the notes' left margin (resize cursor there). Check
+  reader only (card 16 pt all round), notes only (text 16 pt from every edge, full width) and a
+  narrow window.
 - `NotesEditorView.swift` — the overlays are SwiftUI over the scroll view, clamped to the pane's
   width (`GeometryReader`); check both stay inside the pane near either edge and at the top.
 - `NotesEditorActions.swift`
