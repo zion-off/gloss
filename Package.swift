@@ -48,6 +48,8 @@ let package = Package(
         .executableTarget(name: "gloss", dependencies: ["GlossCLI", "GlossStore", "GlossEPUB", "GlossPDF", "GlossExport"]),
         // macOS-only (every source wrapped in `#if os(macOS)`).
         .target(name: "GlossReaderKit", dependencies: ["GlossCore", "GlossAppModel", "GlossReaderBridge"]),
+        .target(name: "GlossReaderEPUB", dependencies: ["GlossCore", "GlossReaderBridge", "GlossReaderKit"],
+                resources: [.copy("Resources/reader")]),
         .testTarget(name: "GlossMarkdownTests", dependencies: ["GlossMarkdown"]),
         .testTarget(name: "GlossEPUBTests", dependencies: ["GlossEPUB", "GlossTestSupport"]),
         .testTarget(name: "GlossExportTests", dependencies: ["GlossExport", "GlossTestSupport"]),
