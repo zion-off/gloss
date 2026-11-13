@@ -670,6 +670,57 @@ func keyDown(with event: NSEvent)                                               
 
 ---
 
+# Milestone 11 additions — hover, popovers, split view (verified 2026-11-13, same method)
+
+### Tracking areas and mouse
+```swift
+init(rect: NSRect, options: NSTrackingArea.Options = [], owner: Any?, userInfo: [AnyHashable : Any]? = nil)   // NSTrackingArea, 10.5+
+static var mouseMoved: NSTrackingArea.Options { get }
+static var mouseEnteredAndExited: NSTrackingArea.Options { get }
+static var activeInKeyWindow: NSTrackingArea.Options { get }
+static var inVisibleRect: NSTrackingArea.Options { get }   // the rect is ignored; tracks the visible rect
+func updateTrackingAreas()                                  // NSView, 10.5+; remove stale, add recomputed
+func addTrackingArea(_ trackingArea: NSTrackingArea)         // 10.5+
+func removeTrackingArea(_ trackingArea: NSTrackingArea)      // 10.5+
+var trackingAreas: [NSTrackingArea] { get }
+func mouseMoved(with event: NSEvent)                         // NSResponder; default passes to next responder
+func mouseExited(with event: NSEvent)
+```
+
+### Popovers
+```swift
+init()                                    // NSPopover, 10.7+
+@IBOutlet var contentViewController: NSViewController? { get set }   // set before showing
+var animates: Bool { get set }            // a hint, not guaranteed
+var isShown: Bool { get }
+func close()                              // without consulting the delegate
+@IBAction func performClose(_ sender: Any?)   // respects popoverShouldClose(_:)
+```
+
+### SwiftUI hosting and layout
+```swift
+@MainActor @preconcurrency init(rootView: Content)   // NSHostingController, 10.15+
+@MainActor @preconcurrency required init(rootView: Content)   // NSHostingView, 10.15+
+nonisolated struct HSplitView<Content> where Content : View   // 10.15+, macOS-only
+struct NavigationSplitViewVisibility      // macOS 13.0+; exactly 4 cases:
+static var automatic / all / doubleColumn / detailOnly: NavigationSplitViewVisibility { get }
+nonisolated init(columnVisibility: Binding<NavigationSplitViewVisibility>, @ContentBuilder sidebar: () -> Sidebar, @ContentBuilder detail: () -> Detail) where Content == EmptyView   // 13.0+
+static let navigation: ToolbarItemPlacement   // macOS 11.0+; leading edge of the toolbar
+nonisolated struct ControlGroup<Content> where Content : View   // macOS 12.0+
+init(_ character: Character)               // KeyEquivalent, 11.0+; `KeyEquivalent("[")` compiles
+nonisolated func keyboardShortcut(_ key: KeyEquivalent, modifiers: EventModifiers = .command) -> some View   // 11.0+
+```
+- `keyboardShortcut` resolution on macOS: key window → main window → command groups.
+
+### TextKit 2 point → character
+```swift
+func characterIndexForInsertion(at point: NSPoint) -> Int   // NSTextView, 10.5+; for click/drag insertion points
+var textLineFragments: [NSTextLineFragment] { get }          // NSTextLayoutFragment, 12.0+; valid once geometry is set
+func characterIndex(for point: CGPoint) -> Int               // NSTextLineFragment, 12.0+; point in the line fragment's coordinates
+```
+
+---
+
 ## Verified vs UNVERIFIED
 
 - **61 documented entries total; 57 fully verified** from the Apple docs JSON (exact Swift
