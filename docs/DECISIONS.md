@@ -323,6 +323,88 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   highlights); its notes outline is the notes pane's book, headed with that book's title when the two
   differ. Before this, every navigation dragged the other pane along, so the two always showed one
   book.
+- **D-110 The library's covers are one Apple Books-style grid** (`LibraryGrid`, replacing the
+  placeholder list): `LazyVGrid` of adaptive columns, each cell a cover with the kind badge
+  (bottom-trailing, the format's own word via `FormatRegistry.badge`), a thin progress bar only
+  once the book has been opened, then title and author. A single click opens the book; arrow-key
+  selection is deliberately absent (Books opens on click; a selection ring would be new chrome).
+- **D-111 The "recently read" shelf shows only on "all".** A filtered shelf means "show me this
+  kind", and the row would repeat what the grid below already holds; with nothing recent the
+  section is simply gone (no empty shelf-within-a-shelf).
+- **D-112 The library sort is one persisted setting, and every window agrees within a second.**
+  `LibraryModel` persists it through `services.settings` (chained writes, newest wins, like the
+  layout in D-095); other windows pick it up in their existing one-second poll (`syncSort`),
+  because the change journal can't carry it — all windows share one process origin, so the poll
+  skips their own writes. A NotificationCenter fan-out was rejected: it leaks across parallel
+  tests (each has its own store) and its object filtering isn't portable.
+- **D-113 File › import… is ⇧⌘A, Apple Books' "add to library" shortcut**, placed after the
+  (empty) import/export slot in the File menu. It is added to `FormatBar.reservedShortcuts` so
+  no future format shortcut takes it; ⌘A (select all) stays untouched.
+- **D-114 Import news is one alert, built in the portable model.** `ImportSummary` records what
+  an import found (added, duplicates, failures) and writes the alert's title, message and
+  "open it/open them" action; the view only presents it. Opening several duplicates opens each
+  in turn, ending on the last — one code path, no per-row sheet.
+- **D-115 A never-opened book shows no progress bar: absence is the "new" state.** A bar under
+  the cover appears only once reading has started, so the empty state can't be mistaken for a
+  bug; VoiceOver reads "not started yet" vs "n% read".
+- **D-116 The generated cover's look is decided portably and never changes.** `GeneratedCoverStyle`
+  (GlossAppModel) picks the tint from a fixed ten-colour palette by a stable FNV-1a hash of the
+  document's id (ids never change, so no launch-to-launch or window-to-window drift), wraps the
+  title to at most three 14-character lines with an ellipsis cut, and trims the author. The Mac
+  view only draws it (serif title, white text on the tint).
+- **D-117 The details sheet writes only what changed, and every pane refreshes after.**
+  `DetailsDraft` trims, refuses an emptied title, and returns nil for unchanged fields so an
+  untouched field never marks the document updated; `AppModel.refreshAfterDetailsEdit` then
+  reloads the grid and cover cache, the workspace's document and page (window title, source
+  list), the notes editor's page (its breadcrumbs now follow external changes too) and the
+  book's sidebar tree.
+- **D-118 The whole window is the import drop zone.** `dropDestination(for:)` is deprecated in
+  macOS 27.3 (its replacement needs macOS 26), so the drop uses `onDrop(of: [UTType.fileURL])`
+  with `NSItemProvider.loadObject(ofClass: URL.self)` — the current, non-deprecated API at the
+  macOS 14 target. Folders and files both land in `LibraryModel.importFiles`, the single entry
+  point the Finder and `gloss://` workers call too.
+- **D-119 The import panel is an `NSOpenPanel`, not `.fileImporter`.** The brief needs multiple
+  files *and folders*; fileImporter's documented behaviour for directories can't be confirmed,
+  while `NSOpenPanel.canChooseDirectories` is explicit. It presents as a sheet on the key window
+  (`beginSheetModal`), app-modal (`runModal`) if there is none, filtered to the registered
+  formats' extensions via `UTType(filenameExtension:)` — never a hardcoded epub/pdf list.
+- **D-120 Settings changes travel by `NotificationCenter`, not the change monitor.** Every window
+  polls the journal for *other processes'* writes only (one `origin` per process), so the Settings
+  window's saves would never reach open windows any other way. `NotificationCenter` with
+  `queue: nil` delivers synchronously on the posting (main) thread — verified against
+  swift-corelibs-foundation, so `MainActor.assumeIsolated` in the observer is safe on both
+  platforms; the notification carries the new `ReaderSettings` in `userInfo`.
+- **D-121 The Settings window is one form, not tabs.** The only tab API a macOS 14 target can
+  use (`tabItem`) is deprecated in the newest SDK, and its replacement needs macOS 15; a
+  "general"/"reading" form is the other Apple pattern (Safari's general pane).
+- **D-122 Open EPUB sessions take reading-settings changes live, through the
+  `ReflowableAppearanceApplying` capability the engines already had** (the bridge's
+  `setAppearance` command). PDFs can't reflow, so they pick changes up at their next open;
+  `AppRoot`'s `AppearanceSource` follows the same notification for sessions opened later.
+- **D-123 The reading tab exposes theme, text size, line spacing, margins, flow and columns;
+  `maxInlineSize` stays at its default.** The column-width knob is advanced plumbing Apple Books
+  never shows either, and the struct keeps carrying it, so exposing it later is additive.
+- **D-124 Backup file names live in one place, `LibraryBackupNaming` (GlossCore)**, so the cli's
+  `gloss backup <folder>` and the app's save panel offer the same `gloss backup <date>.sqlite`
+  without the CLI importing app code. The panel doesn't restrict content types (no system UTType
+  for SQLite); gloss never overwrites a backup: the model pre-checks with a friendly message and
+  the store refuses too (D-043's `VACUUM INTO`).
+- **D-125 "back up library…" is a per-window flow (`BackupCommands`) reached from the File menu
+  through a focused value**, like the window commands; the copy itself runs detached off the
+  main actor, and the result is reported by an alert the window applies in one line.
+- **D-126 A vanished open page lands the notes pane on its parent, else its book's main page,
+  else the reader book's main page** — one place (`AppModel.landNotes`), used by this-window
+  trashes and external changes alike. The last step matters once the panes can show different
+  books (D-102): a trashed book's pages must never pull the notes back into it.
+- **D-127 The toast's undo is registered with the window's `UndoManager` at the action site
+  (D-019), in a GlossUI extension: `UndoManager` isn't in swift-corelibs-foundation, so the
+  portable models can't hold it.** No redo is offered: restoring isn't something to redo-undo,
+  and a fresh trash makes a fresh entry.
+- **D-128 A restore says what came back through `TrashModel.lastRestoredMessage`** (portable
+  copy: `restored “x” and 2 more`), shown as a small material note at the bottom of the trash
+  view; the cascade rule (D-029) means the extras can be containers, so the copy stays vague
+  on purpose.
+
 - **D-130 Search is `.searchable` in the toolbar with `.searchScopes`, results replace the detail
   column.** Mail shows search results in the content area and Books closes the search when a
   result is chosen; together that is the least chrome for a window whose content is already a
@@ -364,56 +446,3 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
 - **D-139 A search reveal waits for the book like a passage jump.** `ReaderController.reveal`
   queues while the open book isn't showing and lands after `.opened` (the existing
   pendingFocus pattern), so choosing a hit right after opening a book is never dropped.
-- **D-120 Settings changes travel by `NotificationCenter`, not the change monitor.** Every window
-  polls the journal for *other processes'* writes only (one `origin` per process), so the Settings
-  window's saves would never reach open windows any other way. `NotificationCenter` with
-  `queue: nil` delivers synchronously on the posting (main) thread — verified against
-  swift-corelibs-foundation, so `MainActor.assumeIsolated` in the observer is safe on both
-  platforms; the notification carries the new `ReaderSettings` in `userInfo`.
-- **D-121 The Settings window is one form, not tabs.** The only tab API a macOS 14 target can
-  use (`tabItem`) is deprecated in the newest SDK, and its replacement needs macOS 15; a
-  "general"/"reading" form is the other Apple pattern (Safari's general pane).
-- **D-122 Open EPUB sessions take reading-settings changes live, through the
-  `ReflowableAppearanceApplying` capability the engines already had** (the bridge's
-  `setAppearance` command). PDFs can't reflow, so they pick changes up at their next open;
-  `AppRoot`'s `AppearanceSource` follows the same notification for sessions opened later.
-- **D-123 The reading tab exposes theme, text size, line spacing, margins, flow and columns;
-  `maxInlineSize` stays at its default.** The column-width knob is advanced plumbing Apple Books
-  never shows either, and the struct keeps carrying it, so exposing it later is additive.
-- **D-124 Backup file names live in one place, `LibraryBackupNaming` (GlossCore)**, so the cli's
-  `gloss backup <folder>` and the app's save panel offer the same `gloss backup <date>.sqlite`
-  without the CLI importing app code. The panel doesn't restrict content types (no system UTType
-  for SQLite); gloss never overwrites a backup: the model pre-checks with a friendly message and
-  the store refuses too (D-043's `VACUUM INTO`).
-- **D-125 "back up library…" is a per-window flow (`BackupCommands`) reached from the File menu
-  through a focused value**, like the window commands; the copy itself runs detached off the
-  main actor, and the result is reported by an alert the window applies in one line.
-- **D-126 A vanished open page lands the notes pane on its parent, else its book's main page,
-  else the reader book's main page** — one place (`AppModel.landNotes`), used by this-window
-  trashes and external changes alike. The last step matters once the panes can show different
-  books (D-102): a trashed book's pages must never pull the notes back into it.
-- **D-127 The toast's undo is registered with the window's `UndoManager` at the action site
-  (D-019), in a GlossUI extension: `UndoManager` isn't in swift-corelibs-foundation, so the
-  portable models can't hold it.** No redo is offered: restoring isn't something to redo-undo,
-  and a fresh trash makes a fresh entry.
-- **D-128 A restore says what came back through `TrashModel.lastRestoredMessage`** (portable
-  copy: `restored “x” and 2 more`), shown as a small material note at the bottom of the trash
-  view; the cascade rule (D-029) means the extras can be containers, so the copy stays vague
-  on purpose.
-
-- **D-110 The library's covers are one Apple Books-style grid** (`LibraryGrid`, replacing the
-  placeholder list): `LazyVGrid` of adaptive columns, each cell a cover with the kind badge
-  (bottom-trailing, the format's own word via `FormatRegistry.badge`), a thin progress bar only
-  once the book has been opened, then title and author. A single click opens the book; arrow-key
-  selection is deliberately absent (Books opens on click; a selection ring would be new chrome).
-- **D-111 The "recently read" shelf shows only on "all".** A filtered shelf means "show me this
-  kind", and the row would repeat what the grid below already holds; with nothing recent the
-  section is simply gone (no empty shelf-within-a-shelf).
-- **D-115 A never-opened book shows no progress bar: absence is the "new" state.** A bar under
-  the cover appears only once reading has started, so the empty state can't be mistaken for a
-  bug; VoiceOver reads "not started yet" vs "n% read".
-- **D-116 The generated cover's look is decided portably and never changes.** `GeneratedCoverStyle`
-  (GlossAppModel) picks the tint from a fixed ten-colour palette by a stable FNV-1a hash of the
-  document's id (ids never change, so no launch-to-launch or window-to-window drift), wraps the
-  title to at most three 14-character lines with an ellipsis cut, and trims the author. The Mac
-  view only draws it (serif title, white text on the tint).
