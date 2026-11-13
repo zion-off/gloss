@@ -167,7 +167,7 @@ struct SidebarTests {
         #expect(app.bookSidebar.documentID == nil)
     }
 
-    @Test("a selected page trashed elsewhere leaves the book selected")
+    @Test("a selected page trashed elsewhere lands the notes on its parent")
     func pageTrashed() async throws {
         let lib = TestLibrary()
         let (app, _, _, root) = try await openApp(lib)
@@ -176,7 +176,9 @@ struct SidebarTests {
         _ = try await lib.services.trash.trash(.page, id: child.id.stringValue)
         let change = ChangeRecord(sequence: 1, entity: ChangeEntity.page, entityID: child.id.stringValue, origin: "cli", date: .testEpoch)
         await app.handleExternalChanges([change])
-        #expect(app.workspace.sidebar == .book)
+        // The page went: the notes pane lands on its parent, and that page is selected.
+        #expect(app.workspace.page?.id == root.id)
+        #expect(app.workspace.sidebar == .page(root.id))
         #expect(app.bookSidebar.pages.first?.children == nil)
     }
 }

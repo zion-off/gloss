@@ -242,6 +242,14 @@ import GlossReaderBridge
         await open(document)
     }
 
+    /// Applies new reading settings to the open book, live, when its engine can reflow (EPUB;
+    /// PDFs can't, so the capability is a separate protocol). Books opened afterwards pick the
+    /// new appearance up at open; this is for the one already on screen.
+    public func applyAppearanceIfSupported(_ appearance: ReaderAppearance) async {
+        guard isShowingBook, let driver, let applying = driver as? (any ReflowableAppearanceApplying) else { return }
+        do { try await applying.apply(appearance) } catch { errorMessage = Self.describe(error) }
+    }
+
     public func turnPage(forward: Bool) async {
         guard isShowingBook else { return }
         try? await driver?.turnPage(forward: forward)

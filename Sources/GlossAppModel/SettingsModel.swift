@@ -1,0 +1,92 @@
+import Foundation
+import Observation
+import GlossCore
+import GlossReaderBridge
+
+/// Posted when the Settings window saved (the library is the one store, but a window's change
+/// monitor skips its own process's writes, so reading windows hear it here instead).
+public extension Notification.Name {
+    static let glossSettingsChanged = Notification.Name("gloss.settingsChanged")
+}
+
+public extension Notification {
+    /// The reading settings a `glossSettingsChanged` notification carries.
+    var glossReaderSettings: ReaderSettings? {
+        userInfo?[glossReaderSettingsKey] as? ReaderSettings
+    }
+}
+
+/// The `userInfo` key a `glossSettingsChanged` notification carries reading settings under.
+public let glossReaderSettingsKey = "readerSettings"
+
+/// The Settings window's model (⌘,): trash retention and reading settings. Everything persists
+/// through `services.settings` into the one SQLite file — never UserDefaults (brief
+/// "Constraints"). Saves are debounced (a dragged slider is one save) and announced with
+/// `glossSettingsChanged`, which every open window applies live.
+@MainActor @Observable public final class AppSettingsModel {
+    /// Days things stay in the trash; nil keeps them forever (brief 39).
+    public var retentionDays: Int? = 30 {
+        didSet { guard !suppressSave else { return }; scheduleSave() }
+    }
+    /// The reading settings, edited field by field (D-061: one JSON blob, one key).
+    public var reader: ReaderSettings = ReaderSettings() {
+        didSet { guard !suppressSave else { return }; scheduleSave() }
+    }
+
+    /// The choices the picker offers (brief 39: 7, 30, 90 days, or never).
+    public static let retentionChoices: [Int?] = [7, 30, 90, nil]
+
+    private let services: GlossServices
+    private let saveDelay: Duration
+    private let sleep: @Sendable (Duration) async throws -> Void
+    private var saveTask: Task<Void, Never>?
+    /// Bumped by every change; only the newest may save.
+    private var generation = 0
+    private var suppressSave = false
+
+    public init(services: GlossServices,
+                saveDelay: Duration = .milliseconds(400),
+                sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }) {
+        self.services = services
+        self.saveDelay = saveDelay
+        self.sleep = sleep
+    }
+
+    /// Loads what's stored (defaults when nothing is: 30 days, sepia, paginated).
+    public func load() async {
+        suppressSave = true
+        retentionDays = (try? await services.settings.value(TrashSettings.retentionDays)) ?? 30
+        reader = (try? await ReaderSettingsStore(settings: services.settings).load()) ?? ReaderSettings()
+        suppressSave = false
+    }
+
+    /// Writes pending changes now and waits until they are stored and announced.
+    public func flushSave() async {
+        saveTask?.cancel()
+        saveTask = nil
+        await save()
+    }
+
+    // MARK: Internals
+
+    private func scheduleSave() {
+        generation += 1
+        let token = generation
+        saveTask?.cancel()
+        let delay = saveDelay
+        let sleep = self.sleep
+        saveTask = Task { [weak self] in
+            try? await sleep(delay)
+            guard !Task.isCancelled, let self, token == self.generation else { return }
+            await self.save()
+        }
+    }
+
+    private func save() async {
+        try? await services.settings.set(retentionDays, for: TrashSettings.retentionDays)
+        try? await ReaderSettingsStore(settings: services.settings).save(reader)
+        // `object: self` so windows (and tests) can tell this model's saves from another's.
+        NotificationCenter.default.post(name: .glossSettingsChanged, object: self,
+                                        userInfo: [glossReaderSettingsKey: reader])
+    }
+}

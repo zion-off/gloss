@@ -4,6 +4,7 @@ import GlossCore
 import GlossExport
 import GlossMarkdown
 import GlossNotes
+import GlossReaderBridge
 
 /// One window's models over one set of services, plus the glue that reacts to external
 /// changes. The Mac composition root builds this; views take the piece they need.
@@ -24,10 +25,25 @@ import GlossNotes
     public let presentation = LibraryPresentationModel()
     /// Export and print (the composition root hands in the model over the cli's ExportService).
     public let export: ExportModel
+    /// Moving things to the trash, with the undo toast (brief 39).
+    public let deletion: DeletionModel
     public var linking: LinkingCoordinator { LinkingCoordinator(services: services, reader: reader) }
     public var changeMonitor: ExternalChangeMonitor?
     /// Why the last URL from outside couldn't be opened; the window shows it in a small alert.
     public private(set) var externalURLMessage: String?
+
+    /// Observes settings saved in this process (the Settings window); other processes go
+    /// through `handleExternalChanges`. `@ObservationIgnored`: the token is plumbing, not
+    /// state; only ever touched on the main actor (init, the observer itself, deinit).
+    @ObservationIgnored private var settingsToken: SettingsObserverToken
+
+    /// The observer token, kept out of the main-actor-isolated stored properties so deinit
+    /// (nonisolated) can remove it.
+    struct SettingsObserverToken: @unchecked Sendable {
+        let observer: (any NSObjectProtocol)?
+    }
+    /// Runs the reaction to a settings change; `flushSettingsChanges` waits for it.
+    private var settingsTask: Task<Void, Never>?
 
     public init(services: GlossServices, export: ExportModel? = nil) {
         self.services = services
@@ -41,12 +57,32 @@ import GlossNotes
         self.notes = NotesEditorModel(services: services)
         self.bookSidebar = BookSidebarModel(services: services)
         self.export = export ?? ExportModel(service: nil)
+        self.deletion = DeletionModel(services: services)
+        self.settingsToken = SettingsObserverToken(observer: nil)
         reader.highlightsDidChange = { [weak self] in await self?.refreshBookSidebar() }
         reader.openNote = { [weak self] page, range in
             try? await self?.workspace.openPage(page, revealing: range)
         }
         // A save that changed gloss links moves markers in the open book.
         notes.linksDidChange = { [weak self] in await self?.reader.refreshAnnotations() }
+        // The Settings window saved (same process, so the change monitor never sees it):
+        // reading settings go to the open book live, and retention re-dates the trash.
+        // NotificationCenter delivers synchronously on the posting (main) thread (verified
+        // against swift-corelibs-foundation), so the hop below is safe on both platforms.
+        let observer = NotificationCenter.default.addObserver(forName: .glossSettingsChanged, object: nil, queue: nil) { [weak self] note in
+            let settings = note.userInfo?[glossReaderSettingsKey] as? ReaderSettings
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.settingsTask = Task { await self.applySettingsChange(settings) }
+            }
+        }
+        self.settingsToken = SettingsObserverToken(observer: observer)
+    }
+
+    deinit {
+        // The token is only ever touched on the main actor; the window is going away.
+        let token = settingsToken
+        if let observer = token.observer { NotificationCenter.default.removeObserver(observer) }
     }
 
     /// Wires the change monitor (call once at startup, after the views exist).
@@ -62,11 +98,24 @@ import GlossNotes
         guard !changes.isEmpty else { return }
         let documentIDs = Set(changes.filter { $0.entity == ChangeEntity.document }.map(\.entityID))
         let pageIDs = Set(changes.filter { $0.entity == ChangeEntity.page }.map(\.entityID))
-        if changes.contains(where: { $0.entity == ChangeEntity.trash }) {
+        // A retention change from the cli re-dates everything in the trash.
+        if changes.contains(where: { $0.entity == ChangeEntity.trash || $0.entity == ChangeEntity.setting }) {
             await trash.reload()
         }
         await library.invalidate(ids: documentIDs.compactMap { DocumentID($0) })
+        // The open page may have been trashed elsewhere; remember where it lived so the
+        // notes pane can land somewhere alive once the refresh drops it.
+        let vanishedPage: (parentID: PageID?, documentID: DocumentID)?
+        if let page = workspace.page, pageIDs.contains(page.id.stringValue) {
+            let fresh = try? await services.pages.page(page.id)
+            vanishedPage = (parentID: fresh?.parentID ?? page.parentID, documentID: fresh?.documentID ?? page.documentID)
+        } else {
+            vanishedPage = nil
+        }
         await workspace.refresh()
+        if workspace.document != nil, workspace.page == nil, let vanishedPage {
+            await landNotes(afterVanishing: vanishedPage)
+        }
         if let page = notes.page, pageIDs.contains(page.id.stringValue) {
             await notes.pageChangedExternally()
         }
@@ -89,6 +138,114 @@ import GlossNotes
         let sidebarEntities: Set<String> = [ChangeEntity.page, ChangeEntity.highlight, ChangeEntity.document]
         if changes.contains(where: { sidebarEntities.contains($0.entity) }) {
             await showBookSidebar()
+        }
+    }
+
+    // MARK: Moving to the trash (brief 39)
+
+    /// Moves a book and everything in it to the trash, with the undo toast. Returns the entry
+    /// when it went, nil when it couldn't (the toast says why).
+    @discardableResult
+    public func moveToTrash(_ document: Document) async -> TrashEntry? {
+        guard let entry = await deletion.trash(kind: .document, id: document.id.stringValue) else { return nil }
+        await reactToTrashing(documentIDs: [document.id])
+        return entry
+    }
+
+    /// Moves a page and its subtree to the trash, with the undo toast. The open page lands on
+    /// the trashed page's parent (or the book's root) when it was what went.
+    @discardableResult
+    public func moveToTrash(pageID: PageID) async -> TrashEntry? {
+        let page: Page?
+        do { page = try await services.pages.page(pageID) } catch { page = nil }
+        guard let page else {
+            deletion.reportFailure("couldn't find that page")
+            return nil
+        }
+        guard let entry = await deletion.trash(kind: .page, id: page.id.stringValue) else { return nil }
+        await reactToTrashing(documentIDs: [page.documentID],
+                              vanished: (parentID: page.parentID, documentID: page.documentID))
+        return entry
+    }
+
+    /// The toast's "undo", and Edit › Undo (⌘Z, D-019): restores the entry and whatever was
+    /// trashed with it. Returns what came back, or nil when it was already gone.
+    @discardableResult
+    public func undoTrash(_ entry: TrashEntry) async -> [TrashEntry]? {
+        guard let restored = await deletion.undo(entry) else { return nil }
+        await reactToRestore(restored)
+        return restored
+    }
+
+    /// Everything a window must do after its own user trashed something: the badge, the grid,
+    /// the open book and page, the sidebar's page tree, the reader.
+    private func reactToTrashing(documentIDs: [DocumentID], vanished: (parentID: PageID?, documentID: DocumentID)? = nil) async {
+        await trash.reload()
+        await library.invalidate(ids: documentIDs)
+        await workspace.refresh()
+        // A trashed open page lands somewhere sensible (see `landNotes`).
+        if workspace.document != nil, workspace.page == nil {
+            await landNotes(afterVanishing: vanished)
+        }
+        // The reader's book may have gone (its session must blank, not keep showing a ghost).
+        if let open = reader.document, workspace.document?.id != open.id {
+            await reader.close()
+        }
+        await showBookSidebar()
+        search.contextChanged()
+    }
+
+    /// Where the notes pane lands when the open page went (trashed here or elsewhere): its
+    /// parent if that's alive, else its book's main page, else the reader book's main page —
+    /// the panes can show different books (D-102), and a trashed book's pages must never pull
+    /// the notes back into it. One place, so every path lands the same way.
+    public func landNotes(afterVanishing vanished: (parentID: PageID?, documentID: DocumentID)?) async {
+        if let parentID = vanished?.parentID,
+           let parent = try? await services.pages.page(parentID), parent.trash == nil,
+           (try? await workspace.openPage(parent.id)) != nil {
+            return
+        }
+        if let documentID = vanished?.documentID,
+           let root = try? await services.pages.rootPage(of: documentID), root.trash == nil,
+           (try? await workspace.openPage(root.id)) != nil {
+            return
+        }
+        try? await workspace.showRootPage()  // the reader's book
+    }
+
+    /// Everything a window must do after an undo: the badge, the grid, the page tree, and —
+    /// when what came back was the open book or page — going back there, like any undo.
+    private func reactToRestore(_ restored: [TrashEntry]) async {
+        await trash.reload()
+        await library.invalidate(ids: restored.compactMap(\.documentID))
+        await showBookSidebar()
+        search.contextChanged()
+        if workspace.document == nil, let bookEntry = restored.first(where: { $0.kind == .document }),
+           let bookID = DocumentID(bookEntry.entityID) {
+            try? await workspace.openDocument(bookID)
+        }
+        if let pageEntry = restored.first(where: { $0.kind == .page }),
+           let pageID = PageID(pageEntry.entityID) {
+            // D-102: opening a page moves only the notes pane, so undo returns to the restored
+            // page even while the reader shows another book.
+            try? await workspace.openPage(pageID)
+        }
+    }
+
+    /// Reading settings changed in this process's Settings window: the open book takes them
+    /// live (when its engine can reflow) and the trash re-dates itself.
+    public func applySettingsChange(_ settings: ReaderSettings?) async {
+        await trash.reload()
+        if let settings {
+            await reader.applyAppearanceIfSupported(AppearanceStyler().appearance(for: settings))
+        }
+    }
+
+    /// Waits for the settings reaction (tests, and teardown before quit).
+    public func flushSettingsChanges() async {
+        while let task = settingsTask {
+            await task.value
+            if settingsTask == task { break }
         }
     }
 

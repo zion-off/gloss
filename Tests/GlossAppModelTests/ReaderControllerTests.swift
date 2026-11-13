@@ -24,6 +24,8 @@ final class FakeDriver: ReaderDriving {
     var openIDs: [Int] = []
     var failGo = false
     var failOpen = false
+    /// What live reading-settings changes sent (the `ReflowableAppearanceApplying` tests).
+    var appliedAppearances: [ReaderAppearance] = []
 
     /// The id the engine would echo in `.opened` for the latest open.
     var lastOpenID: Int { openIDs.last ?? 0 }
@@ -48,6 +50,12 @@ final class FakeDriver: ReaderDriving {
     }
 
     var opens: [DocumentID] { calls.compactMap { if case .open(let id, _) = $0 { id } else { nil } } }
+}
+
+extension FakeDriver: ReflowableAppearanceApplying {
+    func apply(_ appearance: ReaderAppearance) async throws {
+        appliedAppearances.append(appearance)
+    }
 }
 
 extension ReaderController {
