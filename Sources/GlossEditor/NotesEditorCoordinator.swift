@@ -18,6 +18,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
     private var displayedPageID: PageID?
     private var displayedSubpageRows: [SubpageRow] = []
     private var lastRevealToken: UUID?
+    let actions: NotesEditorActions
 
     /// A `gloss://` link was clicked (the window routes it).
     var openGlossLink: (@MainActor (GlossLink) async -> Void)?
@@ -30,8 +31,11 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
     /// The caret's rect in the scroll view's coordinates, or nil (the slash menu anchors to it).
     var caretRectChanged: ((NSRect?) -> Void)?
 
-    init(model: NotesEditorModel) {
+    init(model: NotesEditorModel, actions: NotesEditorActions) {
         self.model = model
+        self.actions = actions
+        super.init()
+        actions.coordinator = self
     }
 
     func makeScrollView() -> NSScrollView {
@@ -39,7 +43,9 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
         textView.delegate = self
         textView.textLayoutManager?.delegate = self
         textView.allowsUndo = true
-        textView.isRichText = true                    // the buffer stays plain: attributes are ours
+        // Plain text: pastes arrive as plain markdown (no attachments or foreign fonts in the
+        // buffer); the storage attributes are ours and presentation only.
+        textView.isRichText = false
         textView.usesFindBar = true
         textView.isAutomaticQuoteSubstitutionEnabled = false   // markdown source: no smart quotes
         textView.isAutomaticDashSubstitutionEnabled = false
@@ -47,6 +53,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
         textView.textContainerInset = NSSize(width: 0, height: 10)
         textView.backgroundColor = .textBackgroundColor
         textView.onTextClick = { [weak self] index in self?.textClicked(at: index) }
+        textView.onFocusChange = { [weak self] focused in self?.actions.isEditing = focused }
 
         let scrollView = NSScrollView()
         scrollView.documentView = textView
@@ -67,6 +74,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
     func dismantle() {
         NotificationCenter.default.removeObserver(self)
         textView?.delegate = nil
+        actions.isEditing = false
     }
 
     // MARK: Subpage rows
@@ -106,7 +114,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
 
     /// Brings the view in line with the model: a new page installs its text, an external
     /// change replaces it, and styling catches up with whatever moved.
-    func sync(reveal: (token: UUID, range: Range<Int>)?) {
+    func sync(reveal: NotesReveal?) {
         guard let textView else { return }
         if model.page?.id != displayedPageID {
             displayedPageID = model.page?.id
@@ -119,11 +127,17 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
             textView.setSelectedRange(selection)
             restyle()
         }
-        if let reveal, reveal.token != lastRevealToken {
+        // Only on the page it was meant for, once that page is installed (a marker click may
+        // open another page first), and clamped: the text may have changed since.
+        if let reveal, reveal.token != lastRevealToken, reveal.pageID == displayedPageID {
             lastRevealToken = reveal.token
-            let range = NSRange(reveal.range)
+            let length = textView.string.utf16.count
+            let lower = min(reveal.range.lowerBound, length)
+            let range = NSRange(lower..<min(max(lower, reveal.range.upperBound), length))
+            textView.window?.makeFirstResponder(textView)
             textView.setSelectedRange(range)
             textView.scrollRangeToVisible(range)
+            textView.showFindIndicator(for: range)
         }
         if displayedSubpageRows != model.subpageRows {
             displayedSubpageRows = model.subpageRows
@@ -208,6 +222,11 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
     }
 
     // MARK: Editing
+
+    /// Runs a format command on the current selection, as one undo step.
+    func run(_ command: any MarkdownEditCommand) {
+        if let result = model.run(command) { apply(result) }
+    }
 
     /// Applies the model's edit through the view's change APIs, so undo records it as one step.
     func apply(_ result: EditResult) {

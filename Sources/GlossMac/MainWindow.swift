@@ -14,7 +14,7 @@ struct MainWindow: View {
     @State private var app: AppModel
     @State private var started = false
     @State private var selection: DocumentID?
-    @State private var reveal: (token: UUID, range: Range<Int>)?
+    @State private var reveal: NotesReveal?
     @State private var unsavedFailure: String?
 
     init(root: AppRoot) {
@@ -34,7 +34,7 @@ struct MainWindow: View {
                         ReaderPane(reader: app.reader, engines: root.engines)
                     }
                     if app.workspace.layout.showsNotes {
-                        NotesPane(app: app, reveal: $reveal, unsavedFailure: $unsavedFailure)
+                        NotesPane(app: app, reveal: reveal, unsavedFailure: $unsavedFailure)
                     }
                 }
             } else {
@@ -47,8 +47,8 @@ struct MainWindow: View {
         .task(id: app.workspace.readerFocus) { await app.showReaderFocus() }
         .task(id: app.workspace.document?.id) { selection = app.workspace.document?.id }
         .task(id: app.workspace.pendingNoteReveal) {
-            if let range = app.workspace.pendingNoteReveal {
-                reveal = (UUID(), range)
+            if let range = app.workspace.pendingNoteReveal, let page = app.workspace.page {
+                reveal = NotesReveal(pageID: page.id, range: range)
                 app.workspace.consumeNoteReveal()
             }
         }
@@ -61,20 +61,10 @@ struct MainWindow: View {
         }
     }
 
-    /// Opens the page the editor is showing, honouring unsaved text (review 3/4: never dropped).
-    private func loadEditorPage() async {
-        guard let page = app.workspace.page else { return }
-        do {
-            try await app.notes.load(page)
-        } catch let NotesEditorModel.EditorError.unsavedChanges(reason) {
-            unsavedFailure = reason
-        } catch {}
-    }
-
+    /// Stays on the page the editor still shows (its unsaved text intact): the workspace goes
+    /// back there, and reloading the page already shown keeps the editor's text.
     private func keepEditing() async {
-        // Stay on the page the editor still shows; put the workspace back there.
         if let page = app.notes.page { try? await app.workspace.openPage(page.id) }
-        await loadEditorPage()
     }
 
     private func switchDiscarding() async {
@@ -136,13 +126,13 @@ struct LibrarySidebar: View {
 /// The notes half of the window: breadcrumbs, the editor, and a note when a save failed.
 struct NotesPane: View {
     let app: AppModel
-    @Binding var reveal: (token: UUID, range: Range<Int>)?
+    let reveal: NotesReveal?
     @Binding var unsavedFailure: String?
 
     var body: some View {
         VStack(spacing: 0) {
             breadcrumbs
-            NotesEditor(model: app.notes,
+            NotesEditor(model: app.notes, reveal: reveal,
                         onOpenGlossLink: { link in await app.follow(link) },
                         onOpenWebLink: { url in _ = NSWorkspace.shared.open(url) },
                         onOpenPage: { id in try? await app.workspace.openPage(id) })
@@ -158,7 +148,6 @@ struct NotesPane: View {
                 }
         }
         .task(id: app.workspace.page?.id) { await loadPage() }
-        .task(id: reveal?.token) { passRevealToEditor() }
     }
 
     private var failedMessage: String? {
@@ -169,7 +158,7 @@ struct NotesPane: View {
     private var breadcrumbs: some View {
         HStack(spacing: 4) {
             ForEach(Array(app.notes.breadcrumbs.dropLast().enumerated()), id: \.offset) { _, page in
-                Button(page.title) { try? Task { try await app.workspace.openPage(page.id) } }
+                Button(page.title) { Task { try? await app.workspace.openPage(page.id) } }
                     .buttonStyle(.link)
                     .foregroundStyle(.secondary)
                 Text(verbatim: "›").foregroundStyle(.tertiary)
@@ -191,11 +180,6 @@ struct NotesPane: View {
         } catch let NotesEditorModel.EditorError.unsavedChanges(reason) {
             unsavedFailure = reason
         } catch {}
-    }
-
-    private func passRevealToEditor() {
-        // The reveal is applied by the representable's update; nothing to do here beyond
-        // passing the token down (the editor applies it once).
     }
 }
 #endif

@@ -101,14 +101,27 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
   - Smart quotes/dashes/text replacement are off — type `"` and `--` and they must stay ASCII.
   - The format bar and slash menu anchor to the selection/caret and follow scrolling
     (bounds-change notifications recompute the anchor); check they stay inside the window.
-  - Model edits (format bar, slash menu, Return/Tab in lists) apply as ONE undo step each; ⌘Z
-    undoes them one at a time and the styling follows.
+  - Model edits (format bar clicks, Format menu items, slash menu clicks and keys, Return/Tab in
+    lists) all go through `NotesEditorCoordinator.apply` and land as ONE undo step each; ⌘Z undoes
+    them one at a time and the styling follows.
+  - `isRichText = false`: paste rich text from Safari and only the plain text arrives. **Check the
+    storage attributes still draw** (heading sizes, dimmed syntax) with rich text off — code
+    editors rely on this, but it's unverified here; if they don't, set it back to `true` and
+    restrict pasteboard types instead.
+  - A marker click in the book selects the link in the notes, scrolls to it and flashes it
+    (`showFindIndicator`) — only once the right page is installed (`NotesReveal.pageID`).
   - A failed save shows "couldn't save — your words are still here" at the bottom; switching
     pages then offers keep/discard (never silent loss).
   - `.link` attributes make gloss and web links clickable with the pointing hand cursor; gloss
     links route inside the app, web links open the browser.
-- `NotesEditorView.swift` — the overlays are SwiftUI over the scroll view; check the slash menu's
-  width stays inside the window near the right edge (the Mac check listed in the code).
+- `NotesEditorView.swift` — the overlays are SwiftUI over the scroll view, clamped to the pane's
+  width (`GeometryReader`); check both stay inside the pane near either edge and at the top.
+- `NotesEditorActions.swift`
+  - The Format menu replaces the system's text formatting group (Font, Text submenus): its items
+    carry Notes' shortcuts (⌘B, ⌘I, ⇧⌘H, ⇧⌘7, ⌘', ⇧⌘M, ⇧⌘K) and are enabled only while the notes
+    text view has focus (`becomeFirstResponder`/`resignFirstResponder` overrides).
+  - With focus in the reader, ⌘B does nothing (the item is disabled) and never bolds the book.
+  - Two windows: the menu acts on the key window's editor (`focusedSceneValue`).
 - `SubpageRowFragment.swift` — subpage block lines draw as rows (icon + live title + chevron,
   trashed ones dimmed and struck through) instead of raw markdown. Check: the row's height and
   icon match a Notes-like list, clicking anywhere on the line opens the page, arrow keys still
@@ -137,6 +150,11 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
 - `NSView.boundsDidChangeNotification` on the scroll view's clip view (standard AppKit, not in the
   verified notes) and `postsBoundsChangedNotifications` defaulting to true.
 - `NSColor.separatorColor` in the slash menu border (standard, not in the verified notes).
+- `NSResponder.becomeFirstResponder()`/`resignFirstResponder()` overrides returning `Bool`,
+  `KeyEquivalent(Character)`, `@FocusedValue` in a `Commands` type, `@ObservationIgnored weak var`
+  in an `@Observable` class, and `@Entry public var` on `FocusedValues` (each standard; none in the
+  verified notes beyond `@Entry`/`focusedSceneValue` themselves).
+- Storage attributes drawing in a plain-text (`isRichText = false`) TextKit 2 view.
 - `firstRect(forCharacterRange:actualRange:)` returning screen coordinates and the screen → window →
   scroll-view conversion chain (`convertFromScreen` then `convert(_:from: nil)`), verified as declared;
   the composed result needs a run.

@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import GlossEditor
 
 /// The app's entry point. `AppRoot.load()` is the composition root (CLAUDE.md, "Dependency
 /// inversion"); each window builds its own models over the shared services.
@@ -17,6 +18,7 @@ struct GlossApp: App {
                                        description: Text(verbatim: failure.message))
             }
         }
+        .commands { NotesFormatCommands() }
     }
 }
 #else

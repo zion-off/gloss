@@ -12,6 +12,20 @@ final class NotesTextView: NSTextView {
     /// Offers a click to the coordinator: `true` when it took it (a task box toggled, a
     /// subpage row opened); `false` lets the click through.
     var onTextClick: ((Int) -> Bool)?
+    /// Keyboard focus came or went (enables the Format menu).
+    var onFocusChange: ((Bool) -> Void)?
+
+    override func becomeFirstResponder() -> Bool {
+        let became = super.becomeFirstResponder()
+        if became { onFocusChange?(true) }
+        return became
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let resigned = super.resignFirstResponder()
+        if resigned { onFocusChange?(false) }
+        return resigned
+    }
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)

@@ -9,83 +9,81 @@ import GlossNotes
 /// slash menu over it and a note when a save failed.
 public struct NotesEditor: View {
     let model: NotesEditorModel
+    let reveal: NotesReveal?
     let onOpenGlossLink: @MainActor (GlossLink) async -> Void
     let onOpenWebLink: @MainActor (URL) -> Void
     let onOpenPage: @MainActor (PageID) -> Void
 
+    @State private var actions = NotesEditorActions()
     @State private var selectionRect: NSRect?
     @State private var caretRect: NSRect?
 
-    public init(model: NotesEditorModel,
+    public init(model: NotesEditorModel, reveal: NotesReveal?,
                 onOpenGlossLink: @escaping @MainActor (GlossLink) async -> Void,
                 onOpenWebLink: @escaping @MainActor (URL) -> Void,
                 onOpenPage: @escaping @MainActor (PageID) -> Void) {
         self.model = model
+        self.reveal = reveal
         self.onOpenGlossLink = onOpenGlossLink
         self.onOpenWebLink = onOpenWebLink
         self.onOpenPage = onOpenPage
     }
 
     public var body: some View {
-        NotesEditorRepresentable(model: model,
-                                 onOpenGlossLink: onOpenGlossLink,
-                                 onOpenWebLink: onOpenWebLink,
-                                 onOpenPage: onOpenPage,
-                                 selectionRectChanged: { selectionRect = $0 },
-                                 caretRectChanged: { caretRect = $0 })
-            .overlay(alignment: .topLeading) { overlays }
+        GeometryReader { geometry in
+            NotesEditorRepresentable(model: model, actions: actions, reveal: reveal,
+                                     onOpenGlossLink: onOpenGlossLink,
+                                     onOpenWebLink: onOpenWebLink,
+                                     onOpenPage: onOpenPage,
+                                     selectionRectChanged: { selectionRect = $0 },
+                                     caretRectChanged: { caretRect = $0 })
+                .overlay(alignment: .topLeading) { overlays(in: geometry.size) }
+        }
+        .focusedSceneValue(\.notesEditorActions, actions)
     }
 
-    @ViewBuilder private var overlays: some View {
+    @ViewBuilder private func overlays(in size: CGSize) -> some View {
         if FormatBar.shouldShow(selection: model.selection, subpageRows: model.subpageRows),
            let rect = selectionRect {
-            FormatBarView(model: model, apply: apply)
-                .position(x: rect.midX, y: rect.minY - 26)
+            FormatBarView(model: model, actions: actions)
+                .position(x: Self.clamp(rect.midX, width: FormatBarView.width, in: size.width),
+                          y: max(rect.minY - 26, 16))
         }
         if let menu = model.slashMenu, let rect = caretRect {
-            SlashMenuView(model: model, confirm: { Task { await confirm($0) } })
-                .position(x: min(max(rect.midX, SlashMenuView.width / 2 + 8), caretRectBoundary),
+            SlashMenuView(model: model, confirm: { id in Task { await actions.confirmSlash(id) } })
+                .position(x: Self.clamp(rect.minX + SlashMenuView.width / 2, width: SlashMenuView.width, in: size.width),
                           y: rect.maxY + SlashMenuView.height / 2 + 6)
                 .id(menu.trigger.range.lowerBound)
-                .allowsHitTesting(true)
                 .accessibilityLabel(Text("insert menu"))
         }
     }
 
-    private var caretRectBoundary: CGFloat {
-        // Keep the menu inside the editor's width; SwiftUI gives no geometry here, so anchor
-        // it to the caret and let the Mac check catch overflow (handoff).
-        caretRect.map { $0.maxX + SlashMenuView.width } ?? SlashMenuView.width
-    }
-
-    private func apply(_ result: EditResult?) {
-        guard let result else { return }
-        // The coordinator's apply is reached through the representable's context; the format
-        // bar goes through the model's command, which the view applies on its next sync.
-        model.applyExternally(result)
-    }
-
-    private func confirm(_ itemID: String?) async {
-        await model.confirmSlashExternally(itemID: itemID)
+    /// Keeps an overlay of `width` centred at `x` inside `0…available`.
+    static func clamp(_ x: CGFloat, width: CGFloat, in available: CGFloat) -> CGFloat {
+        let half = width / 2 + 8
+        guard available > 2 * half else { return available / 2 }
+        return min(max(x, half), available - half)
     }
 }
 
 /// The format bar: the standard buttons, in a system material, floating over the selection.
 struct FormatBarView: View {
+    static let width: CGFloat = CGFloat(FormatBar.items.count) * 28 + 12
+
     let model: NotesEditorModel
-    let apply: (EditResult?) -> Void
+    let actions: NotesEditorActions
 
     var body: some View {
         HStack(spacing: 2) {
             ForEach(FormatBar.items) { item in
                 Button {
-                    apply(model.run(item.command))
+                    actions.run(item)
                 } label: {
                     Image(systemName: item.symbol)
                         .frame(width: 26, height: 24)
                 }
                 .buttonStyle(.borderless)
-                .help(item.title)
+                .help("\(item.title) (\(item.shortcutLabel))")
                 .foregroundStyle(model.activeFormats.contains(item.id) ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color.primary))
                 .accessibilityLabel(Text(item.title))
             }
@@ -148,6 +146,8 @@ struct SlashMenuView: View {
 /// The representable that owns the coordinator.
 struct NotesEditorRepresentable: NSViewRepresentable {
     let model: NotesEditorModel
+    let actions: NotesEditorActions
+    let reveal: NotesReveal?
     let onOpenGlossLink: @MainActor (GlossLink) async -> Void
     let onOpenWebLink: @MainActor (URL) -> Void
     let onOpenPage: @MainActor (PageID) -> Void
@@ -155,7 +155,7 @@ struct NotesEditorRepresentable: NSViewRepresentable {
     let caretRectChanged: (NSRect?) -> Void
 
     func makeCoordinator() -> NotesEditorCoordinator {
-        let coordinator = NotesEditorCoordinator(model: model)
+        let coordinator = NotesEditorCoordinator(model: model, actions: actions)
         coordinator.openGlossLink = onOpenGlossLink
         coordinator.openWebLink = onOpenWebLink
         coordinator.openPage = onOpenPage
@@ -169,7 +169,7 @@ struct NotesEditorRepresentable: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        context.coordinator.sync(reveal: nil)
+        context.coordinator.sync(reveal: reveal)
     }
 
     static func dismantleNSView(_ nsView: NSView, coordinator: NotesEditorCoordinator) {
