@@ -8,9 +8,11 @@ import GlossCore
 /// restore, purge and empty here reloads.
 struct TrashView: View {
     let trash: TrashModel
+    /// Holds the "empty the trash?" question: its button lives in the window's toolbar, so the
+    /// trailing toolbar order is the window's to decide (D-153).
+    let presentation: LibraryPresentationModel
     /// The row about to be deleted for good (a confirmation, like the cli's question).
     @State private var confirmDelete: TrashOverview.Item?
-    @State private var confirmEmpty = false
 
     var body: some View {
         Group {
@@ -51,12 +53,6 @@ struct TrashView: View {
                     .padding(.bottom, 12)
             }
         }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button("empty trash", role: .destructive) { confirmEmpty = true }
-                    .disabled(trash.items.isEmpty)
-            }
-        }
         .confirmationDialog("delete for good?",
                             isPresented: Binding(get: { confirmDelete != nil },
                                                  set: { if !$0 { confirmDelete = nil } })) {
@@ -68,7 +64,8 @@ struct TrashView: View {
                 Text(verbatim: "“\(item.title)” goes away for good, with everything inside it.")
             }
         }
-        .confirmationDialog("empty the trash?", isPresented: $confirmEmpty) {
+        .confirmationDialog("empty the trash?", isPresented: Binding(get: { presentation.confirmsEmptyTrash },
+                                                                    set: { presentation.confirmsEmptyTrash = $0 })) {
             Button("empty trash", role: .destructive) { Task { await trash.empty() } }
         } message: {
             Text(verbatim: "\(trash.items.count) \(trash.items.count == 1 ? "thing" : "things") go away for good.")

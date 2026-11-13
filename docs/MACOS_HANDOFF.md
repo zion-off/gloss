@@ -333,6 +333,13 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
   doesn't take focus, move that `searchable` to the detail column (keeping the condition). On
   macOS 14/15 the standard always-visible field stays. There is no ⌘F for it: ⌘F is the notes
   editor's find bar.
+- **Search always right-most, animated (D-153), unverified:** in the library ([sort][search]),
+  the trash ([empty trash][search]) and a book ([layout picker][search]), with the import ring
+  before them while importing, search is the right-most item, collapsed or expanded. Clicking the
+  icon and folding it back (Escape on an empty field, choosing a result) animate with the smooth
+  curve; with Reduce Motion on they cut. Whether NSToolbar animates the swap of the button for the
+  field is the system's call: if it just pops, that's the limit of system parts (note it), not a
+  regression. "empty trash" still asks "empty the trash?" before emptying.
 - **Clearing the field keeps the search (D-151), unverified:** type "whale", then clear the field
   with backspace (or the field's clear button while text remains): the results pane stays and
   shows "search your books and notes · type to search <scope>", not the library. Escape, or

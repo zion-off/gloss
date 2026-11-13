@@ -556,3 +556,12 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   identity. macOS 14/15 keep the standard field. The library's sort menu and the import ring moved
   from `LibraryFeatures` into the window's toolbar builder so the trailing order is fixed:
   [import ring][sort or layout picker][search].
+- **D-153 Every trailing toolbar item is declared by the window, search last; search opens and
+  closes with an animation.** The trash view's "empty trash" item moved into `MainWindow`'s toolbar
+  (its confirmation flag now lives on `LibraryPresentationModel`), so no detail view contributes a
+  trailing item that could land right of search. Opening (the button), closing (the field's
+  `isPresented` binding) and choosing a result wrap the change in `withAnimation(.smooth)`, `nil`
+  under Reduce Motion. A field "growing out of the icon" can't be specified with public toolbar
+  API (the toolbar owns its items' layout and the system search field's width), so the animation
+  is SwiftUI's transaction on the item swap plus the system's own; if NSToolbar ignores it, the
+  swap cuts.

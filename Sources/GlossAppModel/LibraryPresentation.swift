@@ -15,6 +15,8 @@ import GlossCore
     public var dropTargeted = false
     /// The import news to offer once an import ends (nil = nothing to say).
     public var importNews: ImportSummary?
+    /// Whether the trash's "empty the trash?" confirmation shows (the window's toolbar asks).
+    public var confirmsEmptyTrash = false
 
     public init() {}
 }

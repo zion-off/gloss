@@ -152,6 +152,8 @@ public struct EnvironmentValues {
     public var openURL: OpenURLAction { fatalError() }
     /// swiftui/environmentvalues/dismiss
     public var dismiss: DismissAction { fatalError() }
+    /// swiftui/environmentvalues/accessibilityreducemotion (macOS 10.15)
+    public var accessibilityReduceMotion: Bool { false }
 }
 
 /// swiftui/openwindowaction — `@MainActor @preconcurrency struct OpenWindowAction`
@@ -407,8 +409,15 @@ extension LabeledContent where Label == Text, Content: View {
 @frozen public struct Animation {
     /// swiftui/animation/snappy
     public static var snappy: Animation { Animation() }
+    /// swiftui/animation/smooth (docs list macOS 10.15)
+    public static var smooth: Animation { Animation() }
+    /// swiftui/animation/default
+    public static var `default`: Animation { Animation() }
     init() {}
 }
+
+/// swiftui/withanimation(_:_:) (macOS 10.15)
+@MainActor public func withAnimation<Result>(_ animation: Animation? = .default, _ body: () throws -> Result) rethrows -> Result { try body() }
 
 /// swiftui/list
 nonisolated public struct List<SelectionValue: Hashable, Content: View>: View {

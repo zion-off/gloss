@@ -38,11 +38,15 @@ private struct GlossSearch: ViewModifier {
 /// The field itself: query, open/closed state and the scope menu, all the model's.
 private struct SearchField: ViewModifier {
     let model: SearchModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
             .searchable(text: Binding(get: { model.query }, set: { model.query = $0 }),
-                        isPresented: Binding(get: { model.isPresented }, set: { model.isPresented = $0 }),
+                        // Closing animates like opening: the field folds back into the icon (D-153).
+                        isPresented: Binding(get: { model.isPresented }, set: { presented in
+                            withAnimation(SearchMotion.animation(reduceMotion: reduceMotion)) { model.isPresented = presented }
+                        }),
                         placement: .toolbar,
                         prompt: "search")
             .searchScopes(Binding(get: { model.scope }, set: { model.setScope($0) }),
@@ -54,12 +58,20 @@ private struct SearchField: ViewModifier {
     }
 }
 
+/// How the search opens and closes: the standard smooth curve, none under Reduce Motion (D-153).
+enum SearchMotion {
+    static func animation(reduceMotion: Bool) -> Animation? { reduceMotion ? nil : .smooth }
+}
+
 /// The resting search on macOS 26: a magnifying glass that opens the field in its place.
 struct SearchToolbarButton: View {
     let model: SearchModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        Button { model.isPresented = true } label: {
+        Button {
+            withAnimation(SearchMotion.animation(reduceMotion: reduceMotion)) { model.isPresented = true }
+        } label: {
             Label("search", systemImage: "magnifyingglass")
         }
         .help("search your books and notes")
@@ -80,6 +92,7 @@ struct SearchResultKey: Hashable {
 struct SearchResults: View {
     let app: AppModel
     @State private var chosen: SearchResultKey?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         List(selection: Binding(get: { chosen }, set: { chosen = $0 })) {
@@ -124,7 +137,7 @@ struct SearchResults: View {
         let hit = section.hits[key.index]
         Task {
             await app.reveal(SearchModel.Hit(hit: hit, section: key.section).selection)
-            app.search.dismiss()
+            withAnimation(SearchMotion.animation(reduceMotion: reduceMotion)) { app.search.dismiss() }
         }
     }
 }

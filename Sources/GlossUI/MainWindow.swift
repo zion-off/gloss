@@ -129,7 +129,7 @@ public struct MainWindow: View {
                         LibraryGrid(library: app.library, presentation: app.presentation, open: open,
                                    moveToTrash: moveToTrash)
                     case .trash:
-                        TrashView(trash: app.trash)
+                        TrashView(trash: app.trash, presentation: app.presentation)
                     case .book:
                         book
                     }
@@ -217,8 +217,16 @@ public struct MainWindow: View {
                 .help("layout (⌥⌘1, ⌥⌘2, ⌥⌘3)")
             }
         }
-        // Search last, at the trailing edge. On macOS 26 it rests as a magnifying glass and the
-        // field takes its place while the search is open (`glossSearch`), D-152.
+        if case .trash = app.workspace.detail {
+            ToolbarItem(placement: .primaryAction) {
+                Button("empty trash", role: .destructive) { app.presentation.confirmsEmptyTrash = true }
+                    .disabled(app.trash.items.isEmpty)
+            }
+        }
+        // Search last, at the right edge. Every trailing item is declared here, in this order, so
+        // nothing a detail view contributes can land after it (D-153). On macOS 26 it rests as a
+        // magnifying glass and the field takes its place while the search is open (`glossSearch`),
+        // D-152.
         if #available(macOS 26.0, *) {
             if app.search.showsResults {
                 DefaultToolbarItem(kind: .search, placement: .primaryAction)
