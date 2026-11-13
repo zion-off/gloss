@@ -16,6 +16,24 @@ public struct CSSColor: Hashable, Sendable {
         self.alpha = alpha
     }
 
+    /// `rgba(240, 199, 56, 0.35)` — the highlight and marker colours the appearance palette uses.
+    /// Percentages and `/`-notation alpha are not part of the palette; `nil` for anything else.
+    public init?(rgba: String) {
+        let pattern = /^rgba\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*\)$/
+        guard let match = rgba.trimmingCharacters(in: .whitespaces).firstMatch(of: pattern),
+              let red = Double(match.1), let green = Double(match.2),
+              let blue = Double(match.3), let alpha = Double(match.4),
+              red >= 0, red <= 255, green >= 0, green <= 255, blue >= 0, blue <= 255,
+              alpha >= 0, alpha <= 1 else { return nil }
+        self.init(red: red / 255, green: green / 255, blue: blue / 255, alpha: alpha)
+    }
+
+    /// The palette's notation: `#…` hex or `rgba(…)`.
+    public init?(palette text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        if trimmed.hasPrefix("#") { self.init(hex: trimmed) } else { self.init(rgba: trimmed) }
+    }
+
     public init?(hex: String) {
         let text = hex.trimmingCharacters(in: .whitespaces)
         guard text.hasPrefix("#") else { return nil }

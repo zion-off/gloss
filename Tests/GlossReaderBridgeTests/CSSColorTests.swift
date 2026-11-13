@@ -26,4 +26,29 @@ struct CSSColorTests {
             #expect(CSSColor(hex: text) == nil, "\(text)")
         }
     }
+
+    @Test("rgba notation parses, with the palette's own values")
+    func rgba() {
+        #expect(CSSColor(rgba: "rgba(240, 199, 56, 0.35)")
+                == CSSColor(red: 240.0 / 255, green: 199.0 / 255, blue: 56.0 / 255, alpha: 0.35))
+        #expect(CSSColor(rgba: " rgba( 0,0,0,1 ) ") == CSSColor(red: 0, green: 0, blue: 0, alpha: 1))
+        for text in ["rgba(240, 199, 56)", "rgba(260, 0, 0, 0.5)", "rgba(0, 0, 0, 1.5)", "rgb(1, 2, 3)",
+                     "rgba(0, 0, 0, 0.35%)", ""] {
+            #expect(CSSColor(rgba: text) == nil, "\(text)")
+        }
+    }
+
+    @Test("every palette colour parses: backgrounds, markers, all five highlights, all themes")
+    func wholePalette() {
+        for theme in ReaderSettings.Theme.allCases {
+            let appearance = AppearanceStyler().appearance(for: ReaderSettings(theme: theme))
+            #expect(CSSColor(palette: appearance.colors.background) != nil, "\(theme) background")
+            #expect(CSSColor(palette: appearance.colors.foreground) != nil, "\(theme) foreground")
+            #expect(CSSColor(palette: appearance.colors.marker) != nil, "\(theme) marker")
+            for (name, color) in Mirror(reflecting: appearance.colors.highlights).children {
+                #expect(CSSColor(palette: color as? String ?? "") != nil, "\(theme) \(name)")
+            }
+        }
+    }
 }
+
