@@ -15,7 +15,8 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
 
 ## Verify first (riskiest parts)
 
-1. **EPUB opens from the database in the web view.** _(not written yet)_
+1. **EPUB opens from the database in the web view.** Written in milestone 9: import a book with
+   `gloss import`, run `scripts/run-mac.sh`, pick it in the sidebar.
    - **Book scripts never run.** Import an EPUB whose chapter has an inline `<script>`, an
      `onload="…"` attribute and an external `<script src>` that each `fetch` a `gloss-reader://app/book/…`
      URL and post a message: nothing may execute. Then disable the glue's sanitizer (`guardScripts` in
@@ -66,6 +67,25 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
 - `EPUBReadingEngine.swift` — `ReaderBundle.directory()` finds `reader/` both in `build/gloss.app` and
   when running the bare executable (`swift run GlossMac`).
 
+### `Sources/GlossMac/` (milestone 9)
+
+- `GlossApp.swift` — on Linux this target is a stub that prints a line (D-084); on the Mac `@main`
+  must pick the SwiftUI branch. A library that can't open shows the failure instead of a window.
+- `AppRoot.swift`
+  - The library opens at `~/Library/Application Support/gloss/library.sqlite` (or `GLOSS_LIBRARY`),
+    the same file the cli uses: import with the cli while the app runs and the book appears within a
+    second or so.
+  - Reading settings saved in the store give the theme of the first book opened.
+  - Maintenance runs once at launch, off the main actor.
+- `MainWindow.swift`
+  - Selecting a book opens it; selecting another switches in place; the window title is the book's.
+  - Trash the open book with `gloss book trash` while it's showing: the reader blanks to "pick a book".
+  - A second window (⌘N) has its own reader and selection.
+  - The poll loop stops when its window closes (no polling from closed windows).
+- `PDFKitCoverRenderer.swift` — import a PDF; its cover is the first page. Rotated first pages may come
+  out sideways (rotation isn't applied); check, and use `PDFPage.rotation` if so.
+- `scripts/run-mac.sh` — builds `build/gloss.app` (ad hoc signed) and opens it; `--no-open`, `--release`.
+
 ## APIs I was unsure about
 
 - `ContentUnavailableView(_:systemImage:description:)` is verified with a `LocalizedStringResource`
@@ -75,3 +95,6 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
 - `Bundle(url:)` over SwiftPM's resource bundle copied into `Contents/Resources`, and
   `url(forResource: "reader", withExtension: nil)` finding a directory in it.
 - `WKWebView.load(_:)` and `reload()` return `WKNavigation?` without `@discardableResult`, hence `_ =`.
+- `.navigationTitle(_:)` with a `String` (only the `LocalizedStringResource` overload page could be
+  checked).
+- `PDFDocument` and `PDFPage.thumbnail(of:for:)` off the main thread (imports run there).

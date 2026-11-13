@@ -31,8 +31,9 @@ The core is a set of plain Swift services over abstract ports. The CLI and the a
 clients that wire concrete implementations at their composition roots:
 
 - `Sources/gloss/main.swift` — the CLI root: SQLite store, EPUB + PDF formats, exporters.
-- `Sources/GlossMac/GlossApp.swift` — the app root: the same plus reading engines, the
-  editor, and macOS-only extras (PDFKit cover renderer, change polling, URL handling).
+- `Sources/GlossMac/AppRoot.swift` — the app root: the same store and formats plus the reading
+  engines, the PDFKit cover renderer and the reader settings; `GlossApp.swift` is the entry point,
+  and each window builds its own `AppModel` over the shared services and polls for changes.
 
 ## 2. Modules
 
@@ -56,7 +57,7 @@ clients that wire concrete implementations at their composition roots:
 | `GlossReaderPDF` | macOS | GlossReaderKit, GlossPDF | PDFKit view, selection → locator, overlay highlights/markers |
 | `GlossEditor` | macOS | GlossNotes, GlossAppModel | TextKit 2 editor, live styling, format bar, slash menu, subpage rows |
 | `GlossUI` | macOS | all of the above | SwiftUI scenes: library, split view, sidebar, search, switcher, trash, settings |
-| `GlossMac` | macOS | GlossUI + concrete modules | app composition root, menus, URL and file handling |
+| `GlossMac` | macOS | GlossUI + concrete modules | app composition root, menus, URL and file handling (until `GlossUI` exists, milestone 9's window lives here too) |
 
 Every macOS-only source file is wrapped in `#if os(macOS)`. The targets stay in the package on
 Linux (where they compile to empty modules), so the package always resolves and the Linux

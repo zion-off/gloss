@@ -244,3 +244,17 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   time in arrival order, because handling an event awaits engine commands and WebKit delivers
   messages synchronously.
 
+## Mac app
+
+- **D-084 `GlossMac` builds on Linux as a stub that prints one line.** An executable target can't be an
+  empty module, and keeping it in the package (rather than adding it only on macOS in `Package.swift`)
+  lets the Linux compiler parse every Mac source (D-002). The stub is not a Linux app (D-018).
+- **D-085 Each window owns an `AppModel`; the services are shared.** `AppModel` is one window's state
+  (one reader, one workspace), so a second window can't share it. Each window polls the change journal
+  while it is open; the poll is one indexed query.
+- **D-086 Milestone 9's window is a plain source list plus the reader.** The cover grid, import UI and
+  the rest of the library are milestone 12; until then books come in with `gloss import`.
+- **D-087 The development app bundle is `dev.gloss.app`, built by `scripts/run-mac.sh`.** SwiftPM's
+  resource bundles go in `Contents/Resources`, where `ReaderBundle` looks before SwiftPM's own lookup,
+  so the bundle can move without the build directory.
+

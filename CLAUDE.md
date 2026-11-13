@@ -137,7 +137,7 @@ scripts/check.sh                 # everything above, used before every commit
   only some formats have (reflowable appearance, say) are separate protocols.
 - **Dependency inversion:** `GlossCore` knows nothing about GRDB, SwiftUI/AppKit or WebKit.
   Concrete implementations are wired at composition roots, one per executable
-  (`Sources/gloss/main.swift`, `Sources/GlossMac/GlossApp.swift`).
+  (`Sources/gloss/main.swift`, `Sources/GlossMac/AppRoot.swift`).
 - **UI-free core:** the app and the CLI are thin clients over the same core services. The CLI
   never imports UI code. The portable modules stay free of UI and platform code so they can be
   reused later; the UI layer itself is macOS-only and not abstracted.
