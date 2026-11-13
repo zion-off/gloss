@@ -28,7 +28,17 @@ struct GlossApp: App {
         .commands { NotesFormatCommands()
             GlossWindowCommands()
             LibraryCommands()
-            GlossExportCommands() }
+            GlossExportCommands()
+            GlossBackupCommands() }
+        Settings {
+            switch root {
+            case .success(let root):
+                GlossSettingsView(model: root.settingsModel)
+            case .failure(let failure):
+                ContentUnavailableView("gloss couldn't open your library", systemImage: "exclamationmark.triangle",
+                                       description: Text(verbatim: failure.message))
+            }
+        }
     }
 }
 #else

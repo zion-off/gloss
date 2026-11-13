@@ -310,6 +310,63 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
   or `lsregister -f` on the bundle.
 - The url scheme and document types only exist in the dev bundle `run-mac.sh` builds — a bare
   `swift run GlossMac` has neither, so external links won't reach it (expected).
+### `Sources/GlossUI/TrashView.swift` + `TrashToast.swift` (milestone 12)
+
+- The trash view: click "trash" in the sidebar. Each row shows an icon, its title, the book a
+  page lived in, and `trashed 2 hours ago · gone for good in 28 days` (both dates are live
+  `Text(date, style:)`s, so they must tick on their own) or `kept until you empty the trash`.
+- "put back" (the row's button and the context menu) restores; the note at the bottom says
+  `restored “x” and 2 more` when a cascade pulled its containers back too. The sidebar badge
+  follows every trash, restore, purge and empty — also from the cli: run `gloss trash empty`
+  in a terminal while the window is open.
+- "delete for good…" (context menu) and "empty trash" (toolbar) confirm first, Apple-style and
+  lowercase; the empty one names how many things go.
+- The undo toast: right-click a notes page that isn't the book's main page, or the book row in
+  "reading" → "move to trash". A material capsule slides up from the bottom of the window,
+  says `“moby dick” moved to the trash`, offers "undo", and goes away on its own after ~6 s.
+  A second trash replaces the first toast.
+- ⌘Z restores after the toast is gone (registered with the window's undo manager, D-019;
+  Edit › Undo reads "move to trash"). Two trashes in a row undo in reverse order. There is no
+  redo after an undo (D-127).
+- VoiceOver: the toast posts an announcement through `NSAccessibility.post` with
+  `NSApplication.shared` as the element — check it reads the message once, naturally, and
+  doesn't fight the "undo" button's own accessibility (the element choice needs a run).
+- Trashing the open book blanks the reader to "pick a book" and shows the grid; trashing the
+  open page lands the notes on its parent (or the book's main page); undo brings the book or
+  page back open where it was.
+- Edit › Delete and the delete key on a selected page, the book row, or a highlight act on
+  each; the book's main page answers with the "trash the book instead" toast and stays.
+- The toast must not cover the toolbar or the trash view's "restored" note; check light, dark,
+  Increase Contrast and Reduce Transparency.
+
+### `Sources/GlossUI/SettingsView.swift` + `Sources/GlossMac/GlossApp.swift` (milestone 12)
+
+- ⌘, opens the Settings window: one form with "general" (keep trashed things: for 7, 30 or
+  90 days, or forever; default 30) and "reading" (theme, text size, line spacing, margins,
+  flow, columns). It is a form, not tabs, because the only tab API a macOS 14 target can use
+  is deprecated in the newest SDK (D-121).
+- Everything persists in the one library file: `gloss trash keep 7` and the picker agree, both
+  ways, while the app runs.
+- With an EPUB open, changing theme, size, spacing, margins, flow or columns re-applies to the
+  book on screen **live** (through `ReflowableAppearanceApplying`); the reading position must
+  not jump. A PDF can't reflow, so it picks changes up at its next open (D-122).
+- A book opened after a change starts with it (AppRoot's appearance source follows the same
+  notification). Settings saved while a book is mid-open (between click and `.opened`) apply
+  at the next open — check the theme doesn't stick stale in that window.
+- Check the 420 pt width feels right, labels don't truncate, and dragging a slider saves once
+  (no flicker of the picker's checkmark).
+
+### `Sources/GlossUI/BackupCommands.swift` (milestone 12)
+
+- File › back up library…: the save panel offers `gloss backup <date>.sqlite` — the same name
+  the cli's `gloss backup` gives a folder (shared `LibraryBackupNaming`).
+- Picking an existing file reports "already exists — gloss never overwrites a backup" and
+  leaves the file untouched (the model pre-checks; the store refuses too).
+- The copy runs off the main actor: with a big library the window must stay responsive during
+  the backup.
+- Success reports with a "show in finder" button (Finder opens with the file selected);
+  failure says why. The command acts on the key window — with two windows open, it works from
+  whichever is key.
 
 ### `Sources/GlossEditor/` (milestone 10)
 

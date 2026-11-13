@@ -227,6 +227,20 @@ nonisolated public struct Text: View, Equatable, Sendable {
     public static func + (lhs: Text, rhs: Text) -> Text { lhs }
 }
 
+extension Text {
+    /// swiftui/text/init(_:style:) (macOS 11.0+)
+    public init(_ date: Date, style: Text.DateStyle) {}
+}
+
+/// swiftui/text/datestyle (macOS 11.0+)
+extension Text {
+    public struct DateStyle: Sendable {
+        public static let date = Text.DateStyle(), time = Text.DateStyle()
+        public static let relative = Text.DateStyle(), offset = Text.DateStyle(), timer = Text.DateStyle()
+        init() {}
+    }
+}
+
 /// swiftui/image
 nonisolated public struct Image: View, Equatable, Sendable {
     public init(systemName: String) {}
@@ -338,6 +352,62 @@ public enum Axis: Sendable {
 nonisolated public struct ScrollView<Content: View>: View {
     public init(_ axes: Axis.Set = .vertical, @ViewBuilder content: () -> Content) {}
     public var body: Never { fatalError() }
+}
+
+/// swiftui/form (macOS 10.15+) — grouped rows on macOS by default.
+nonisolated public struct Form<Content: View>: View {
+    /// swiftui/form/init(content:)
+    public init(@ViewBuilder content: () -> Content) {}
+    public var body: Never { fatalError() }
+}
+
+/// swiftui/slider (macOS 10.15+)
+nonisolated public struct Slider<Label: View, ValueLabel: View>: View {
+    public var body: Never { fatalError() }
+}
+extension Slider where Label == EmptyView, ValueLabel == EmptyView {
+    /// swiftui/slider/init(value:in:step:oneditingchanged:)
+    public init<V>(value: Binding<V>, in bounds: ClosedRange<V>, step: V.Stride = 1, onEditingChanged: @escaping (Bool) -> Void = { _ in }) where V : BinaryFloatingPoint, V.Stride : BinaryFloatingPoint {}
+}
+extension Slider {
+    /// swiftui/slider/init(value:in:step:label:oneditingchanged:)
+    public init<V>(value: Binding<V>, in bounds: ClosedRange<V>, step: V.Stride = 1, @ViewBuilder label: () -> Label, onEditingChanged: @escaping (Bool) -> Void = { _ in }) where V : BinaryFloatingPoint, V.Stride : BinaryFloatingPoint, ValueLabel == EmptyView {}
+}
+
+/// swiftui/stepper (macOS 10.15+)
+nonisolated public struct Stepper<Label: View>: View {
+    public var body: Never { fatalError() }
+}
+extension Stepper where Label == Text {
+    /// swiftui/stepper/init(_:value:in:step:oneditingchanged:)-99t9q (macOS 13)
+    public init<S: StringProtocol, V>(_ title: S, value: Binding<V>, in bounds: ClosedRange<V>, step: V.Stride = 1, onEditingChanged: @escaping (Bool) -> Void = { _ in }) where V : Strideable {}
+}
+
+/// swiftui/labeledcontent (macOS 13.0+)
+nonisolated public struct LabeledContent<Label, Content>: View {
+    public var body: Never { fatalError() }
+}
+extension LabeledContent where Label == Text, Content: View {
+    /// swiftui/labeledcontent/init(_:content:)-6g03w (macOS 13)
+    public init<S: StringProtocol>(_ title: S, @ViewBuilder content: () -> Content) {}
+}
+
+/// swiftui/anytransition (macOS 10.15+)
+@frozen public struct AnyTransition {
+    /// swiftui/anytransition/opacity
+    nonisolated(unsafe) public static let opacity: AnyTransition = AnyTransition()
+    /// swiftui/anytransition/move(edge:)
+    public static func move(edge: Edge) -> AnyTransition { AnyTransition() }
+    /// swiftui/anytransition/combined(with:)
+    public func combined(with other: AnyTransition) -> AnyTransition { self }
+    init() {}
+}
+
+/// swiftui/animation (macOS 10.15+)
+@frozen public struct Animation {
+    /// swiftui/animation/snappy
+    public static var snappy: Animation { Animation() }
+    init() {}
 }
 
 /// swiftui/list
@@ -805,6 +875,11 @@ extension View {
     nonisolated public func buttonStyle<S: ButtonStyle>(_ style: S) -> some View { _Modified(self) }
     nonisolated public func pickerStyle<S: PickerStyle>(_ style: S) -> some View { _Modified(self) }
     nonisolated public func labelStyle<S: LabelStyle>(_ style: S) -> some View { _Modified(self) }
+    /// swiftui/view/transition(_:)-5h5h0 — the AnyTransition overload (10.15+; the page's
+    /// 14.0 availability belongs to the generic `Transition` form above it).
+    nonisolated public func transition(_ t: AnyTransition) -> some View { _Modified(self) }
+    /// swiftui/view/animation(_:value:) (macOS 10.15+)
+    nonisolated public func animation<V: Equatable>(_ animation: Animation?, value: V) -> some View { _Modified(self) }
 
     // Help and accessibility
     nonisolated public func help(_ textKey: LocalizedStringKey) -> some View { _Modified(self) }

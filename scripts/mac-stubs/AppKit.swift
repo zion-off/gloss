@@ -151,6 +151,8 @@ open class NSTrackingArea: NSObject {
 open class NSWorkspace: NSObject {
     open class var shared: NSWorkspace { NSWorkspace() }
     @discardableResult open func open(_ url: URL) -> Bool { true }
+    /// appkit/nsworkspace/activatefileviewerselecting(_:) (macOS 10.6+)
+    open func activateFileViewerSelecting(_ fileURLs: [URL]) {}
 }
 
 /// appkit/nsapplication
@@ -199,6 +201,8 @@ open class NSWorkspace: NSObject {
     open var canCreateDirectories: Bool { get { true } set {} }
     /// appkit/nssavepanel/url — `var url: URL? { get }`
     open var url: URL? { nil }
+    /// appkit/nssavepanel/directoryurl (macOS 10.6+)
+    open var directoryURL: URL? { get { nil } set {} }
 }
 
 /// appkit/nsprintinfo — `class NSPrintInfo` (the docs pages carry no availability; AppKit since
@@ -249,6 +253,24 @@ open class NSItemProvider: NSObject {
     public func canLoadObject<T>(ofClass: T.Type) -> Bool { false }
     /// foundation/nsitemprovider/loadobject(ofclass:completionhandler:)-6pysm (macOS 10.13)
     @discardableResult public func loadObject<T>(ofClass: T.Type, completionHandler: @escaping @Sendable (T?, (any Error)?) -> Void) -> Progress { fatalError() }
+}
+
+/// appkit/nsaccessibility-swift.struct — `struct NSAccessibility` (the Swift-side API).
+public struct NSAccessibility {
+    /// appkit/nsaccessibility-swift.struct/post(element:notification:userinfo:) (macOS 10.7+)
+    public static func post(element: Any, notification: NSAccessibility.Notification, userInfo: [NSAccessibility.NotificationUserInfoKey : Any]?) {}
+    /// appkit/nsaccessibility-swift.struct/notification — `struct Notification`
+    public struct Notification: Hashable, Sendable {
+        /// appkit/nsaccessibility-swift.struct/notification/announcementrequested (macOS 10.7+)
+        public static let announcementRequested: NSAccessibility.Notification = Notification()
+        init() {}
+    }
+    /// appkit/nsaccessibility-swift.struct/notificationuserinfokey — `struct NotificationUserInfoKey`
+    public struct NotificationUserInfoKey: Hashable, Sendable {
+        /// appkit/nsaccessibility-swift.struct/notificationuserinfokey/announcement (macOS 10.7+)
+        public static let announcement: NSAccessibility.NotificationUserInfoKey = NotificationUserInfoKey()
+        init() {}
+    }
 }
 
 // MARK: - Colours, fonts, images, drawing

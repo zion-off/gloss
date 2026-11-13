@@ -37,6 +37,9 @@ struct SourceList: View {
                         // brief 37: details are reachable while reading too, Books' Get Info spot.
                         .contextMenu {
                             Button("edit details…") { app.presentation.detailsDocument = document.id }
+                            Button("move to trash", role: .destructive) {
+                                app.trashBook(document, undoManager: undoManager)
+                            }
                         }
                 }
                 contents
@@ -45,7 +48,7 @@ struct SourceList: View {
             }
         }
         .listStyle(.sidebar)
-        .onDeleteCommand(perform: deleteSelectedHighlight)
+        .onDeleteCommand(perform: deleteSelection)
     }
 
     /// Clicks go to the app model; it updates `workspace.sidebar`, which the list reads back.
@@ -94,9 +97,10 @@ struct SourceList: View {
         }
     }
 
-    /// The notes pane's pages as a read-only tree (brief 25: no drag to reorder or reparent). After
-    /// a cross-book link they belong to another book than the reader's, and the header says
-    /// which (D-102).
+    /// The notes pane's pages as a read-only tree (brief 25: no drag to reorder or reparent).
+    /// After a cross-book link they belong to another book than the reader's, and the header
+    /// says which (D-102). Anything but the root can go to the trash (D-032); the root goes
+    /// with its book.
     private var notes: some View {
         Section(isExpanded: $showsNotes) {
             OutlineGroup(app.bookSidebar.pages, children: \.children) { page in
@@ -104,6 +108,13 @@ struct SourceList: View {
                 Label(page.title, systemImage: "doc.text")
                     .lineLimit(1)
                     .tag(SidebarSelection.page(page.id))
+                    .contextMenu {
+                        if page.id != app.bookSidebar.pages.first?.id {
+                            Button("move to trash", role: .destructive) {
+                                app.trashPage(page.id, undoManager: undoManager)
+                            }
+                        }
+                    }
             }
         } header: {
             if let title = app.bookSidebar.notesTitle {
@@ -114,11 +125,22 @@ struct SourceList: View {
         }
     }
 
-    /// Edit › Delete (and the delete key) on a selected highlight removes it, undoably.
-    private func deleteSelectedHighlight() {
-        guard case .highlight(let id) = app.workspace.sidebar,
-              let highlight = app.bookSidebar.highlights.first(where: { $0.id == id }) else { return }
-        app.reader.removeHighlight(highlight, undo: undoManager)
+    /// Edit › Delete (and the delete key) removes the selection: a highlight, a notes page, or
+    /// the open book. A page that can't go to the trash says so in a toast.
+    private func deleteSelection() {
+        switch app.workspace.sidebar {
+        case .highlight(let id):
+            guard let highlight = app.bookSidebar.highlights.first(where: { $0.id == id }) else { return }
+            app.reader.removeHighlight(highlight, undo: undoManager)
+        case .page(let id):
+            app.trashPage(id, undoManager: undoManager)
+        case .book:
+            if let document = app.workspace.document {
+                app.trashBook(document, undoManager: undoManager)
+            }
+        case .library, .trash, .contents:
+            break
+        }
     }
 }
 

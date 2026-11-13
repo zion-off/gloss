@@ -933,14 +933,63 @@ optional func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, w
 - **UNVERIFIED (needs a run):** that printing right after `didFinish` has the web view laid
   out — the html is static, but if the first page comes out blank, wait a beat after
   `didFinish` — and that `printOperation(with:)` paginates long notes.
+# Milestone 12 additions — the trash, settings and backup (verified 2026-11-13, same method)
+
+### AppKit
+```swift
+@MainActor class NSSavePanel                                     // init inherited (no init page; see note)
+func runModal() -> NSApplication.ModalResponse                   // page carries no introducedAt (10.0-era)
+var url: URL? { get }
+var nameFieldStringValue: String { get set }                     // 10.6+
+var directoryURL: URL? { get set }                               // 10.6+
+var message: String! { get set }                                 // implicitly unwrapped
+var prompt: String! { get set }
+var canCreateDirectories: Bool { get set }
+struct ModalResponse                                             // NSApplication: `static var OK`, `static var cancel`
+static func post(element: Any, notification: NSAccessibility.Notification, userInfo: [NSAccessibility.NotificationUserInfoKey : Any]?)   // NSAccessibility, 10.7+
+static let announcementRequested: NSAccessibility.Notification          // 10.7+
+static let announcement: NSAccessibility.NotificationUserInfoKey         // 10.7+
+func activateFileViewerSelecting(_ fileURLs: [URL])              // NSWorkspace, 10.6+
+```
+- `NSSavePanel()` has no initializer page of its own (the class page lists none); the stub
+  models it as the inherited no-argument init, the same way `NSView()` is modelled. Apple's
+  own sample code calls `NSSavePanel()`.
+- `NSAccessibility.post(element:notification:userInfo:)` is the Swift-side struct API
+  (`nsaccessibility-swift.struct`), not the old `NSAccessibilityNotifications` C API. Which
+  element to pass for an announcement from SwiftUI is a judgement call (gloss passes
+  `NSApplication.shared`); the API itself is verified.
+- `allowedContentTypes` is deliberately NOT stubbed or used: there is no system UTType for a
+  SQLite file, and the default name already carries the extension (D-124).
+
+### SwiftUI
+```swift
+nonisolated struct Form<Content: View>                           // 10.15+; init(content:) (the stub uses @ViewBuilder spelling)
+nonisolated struct Slider<Label, ValueLabel>                      // 10.15+
+init<V>(value: Binding<V>, in bounds: ClosedRange<V>, step: V.Stride = 1, onEditingChanged: @escaping (Bool) -> Void = { _ in }) where V : BinaryFloatingPoint, V.Stride : BinaryFloatingPoint   // unlabeled
+init<V>(value: Binding<V>, in bounds: ClosedRange<V>, step: V.Stride = 1, @ViewBuilder label: () -> Label, onEditingChanged: @escaping (Bool) -> Void = { _ in }) where V : BinaryFloatingPoint, V.Stride : BinaryFloatingPoint, ValueLabel == EmptyView
+init<S: StringProtocol, V>(_ title: S, value: Binding<V>, in bounds: ClosedRange<V>, step: V.Stride = 1, onEditingChanged: @escaping (Bool) -> Void = { _ in }) where V : Strideable    // Stepper, -99t9q, macOS 13
+nonisolated struct LabeledContent<Label, Content>
+init<S: StringProtocol>(_ title: S, @ViewBuilder content: () -> Content) where Label == Text   // -6g03w, macOS 13
+init(_ date: Date, style: Text.DateStyle)                        // Text, 11.0+
+struct Text.DateStyle                                            // 11.0+: .date, .time, .relative, .offset, .timer
+@frozen struct AnyTransition                                     // 10.15+: .opacity, .move(edge:), .combined(with:)
+nonisolated func transition(_ t: AnyTransition) -> some View     // the -5h5h0 overload (the page's 14.0 is the generic form)
+nonisolated func animation<V: Equatable>(_ animation: Animation?, value: V) -> some View   // 10.15+
+@frozen struct Animation                                         // static var snappy
+```
+- `tabItem(_:)` is **deprecated macOS 27.3**; its replacement (`Tab`/`TabContentBuilder`)
+  needs macOS 15, above the target. That's why the Settings window is a form, not tabs (D-121).
+- `Slider`'s unlabeled initializer's `Label == EmptyView` constraint comes from the page's
+  generic constraints; the labeled one carries `ValueLabel == EmptyView` (per the docs page's
+  conformance).
 
 ---
 
 ## Verified vs UNVERIFIED
 
-- **61 documented entries total; 57 fully verified** from the Apple docs JSON (exact Swift
+- **83 documented entries total; 79 fully verified** from the Apple docs JSON (exact Swift
   declaration tokens, macOS availability, actor isolation, and discussion notes).
-- **4 entries carry UNVERIFIED aspects:**
+- **5 entries carry UNVERIFIED aspects:**
   1. `NSTextView.init(usingTextLayoutManager:)` minimum macOS version — docs metadata omits
      `introducedAt` (likely docs data gap; TextKit 2 siblings are 12.0+).
   2. Swift spelling of `PDFViewSelectionChangedNotification` / `PDFViewPageChangedNotification` —
@@ -949,5 +998,7 @@ optional func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, w
      docs (verified absent); whether it works is unverifiable from documentation (private API).
   4. WKWebView drag/drop APIs — no public drag/drop API present in the WebKit docs index (absence
      verified, but absence of evidence in the index is the only proof available).
+  5. `NSSavePanel()` — no initializer page exists in the docs JSON (the class page lists none);
+     the inherited no-argument init is assumed, as Apple's sample code calls it.
 
 Sources: `https://developer.apple.com/tutorials/data/documentation/{webkit,appkit,pdfkit,swiftui,observation,uniformtypeidentifiers}/...json`, fetched 2026-11-13.

@@ -24,8 +24,12 @@ struct CompositionFailure: Error {
     /// Export and print for the windows: the same service the cli wires (D-133).
     let export: ExportModel
     let libraryURL: URL
+    /// The Settings window's model (⌘,); the Settings scene reads it.
+    let settingsModel: AppSettingsModel
     private let appearance: AppearanceSource
     private var prepared = false
+    /// The app object lives as long as the process, so the observer never needs removing.
+    private var settingsObserver: (any NSObjectProtocol)?
 
     static func load() -> Result<AppRoot, CompositionFailure> {
         let url = LibraryLocation.resolve()
@@ -51,10 +55,22 @@ struct CompositionFailure: Error {
         self.export = export
         self.libraryURL = libraryURL
         self.appearance = appearance
+        self.settingsModel = AppSettingsModel(services: services)
         self.engines = ReadingEngineRegistry([
             EPUBReadingEngine(readerDirectory: readerDirectory, library: services.library) { appearance.current },
             PDFReadingEngine(library: services.library) { appearance.current },
         ])
+        // Reading settings saved in the Settings window (or any window of this process) become
+        // what new reader sessions open with; open ones take them live through AppModel.
+        // NotificationCenter delivers synchronously on the posting (main) thread (verified
+        // against swift-corelibs-foundation), so the hop below is safe on both platforms.
+        settingsObserver = NotificationCenter.default.addObserver(forName: .glossSettingsChanged, object: nil, queue: nil) { [weak appearance] note in
+            let settings = note.userInfo?[glossReaderSettingsKey] as? ReaderSettings
+            MainActor.assumeIsolated {
+                guard let appearance, let settings else { return }
+                appearance.current = AppearanceStyler().appearance(for: settings)
+            }
+        }
     }
 
     /// Once per launch, before the first window shows a book: load the reading settings and

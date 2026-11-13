@@ -12,6 +12,7 @@ import GlossReaderKit
 /// the detail column. Each window has its own models (AppModel is one window's state) over the
 /// shared services, which the composition root (GlossMac) hands in with the reading engines.
 public struct MainWindow: View {
+    @Environment(\.undoManager) private var undoManager
     private let engines: ReadingEngineRegistry
     private let prepare: @MainActor () async -> Void
     @State private var app: AppModel
@@ -20,6 +21,8 @@ public struct MainWindow: View {
     @State private var unsavedFailure: String?
     @State private var commands: WindowCommands
     @State private var exportActions: ExportActions
+    /// The window's "back up library…" flow (File menu reaches it through a focused value).
+    @State private var backup: BackupCommands
     /// The reader's engine session lives with the window, so hiding the reader keeps the book.
     @State private var readerHost = ReaderSessionHost()
 
@@ -39,6 +42,7 @@ public struct MainWindow: View {
         _app = State(initialValue: app)
         _commands = State(initialValue: commands)
         _exportActions = State(initialValue: exportActions)
+        _backup = State(initialValue: BackupCommands(services: services))
     }
 
     public var body: some View {
@@ -57,7 +61,7 @@ public struct MainWindow: View {
                         LibraryGrid(library: app.library, presentation: app.presentation, open: open,
                                    moveToTrash: moveToTrash)
                     case .trash:
-                        ContentUnavailableView("trash", systemImage: "trash")
+                        TrashView(trash: app.trash)
                     case .book:
                         book
                     }
@@ -75,6 +79,9 @@ public struct MainWindow: View {
         .exportFailureAlert(app: app)
         .focusedSceneValue(\.windowCommands, commands)
         .focusedSceneValue(\.exportActions, exportActions)
+        .focusedSceneValue(\.backupCommands, backup)
+        .backupResultAlert(backup)
+        .overlay(alignment: .bottom) { TrashToastOverlay(app: app) }
         .task { await run() }
         .task(id: app.workspace.readerFocus) { await app.showReaderFocus() }
         .task(id: app.bookSidebarSubjects) {
@@ -172,7 +179,7 @@ public struct MainWindow: View {
     /// brief 39's move-to-trash (with its undo toast) lands with the trash slice; the lead wires
     /// this closure at merge. The grid takes it as a parameter so that slice owns the behaviour.
     private func moveToTrash(document: Document) {
-        _ = document
+        app.trashBook(document, undoManager: undoManager)
     }
 
     /// Starts the window, then polls for changes from the cli and other windows once a second
