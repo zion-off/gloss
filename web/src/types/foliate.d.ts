@@ -59,6 +59,8 @@ declare module 'foliate/view.js' {
         data: unknown
     }
     export interface Book {
+        /** EPUB only: the raw text of a resource in the book, by its href (a section's `id`) */
+        loadText?(href: string): Promise<string>
         /** EPUB only: fires `load` and `data` events while resources load */
         transformTarget?: EventTarget
         toc?: FoliateTocItem[]

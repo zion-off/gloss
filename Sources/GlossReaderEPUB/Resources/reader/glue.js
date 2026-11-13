@@ -452,7 +452,9 @@ const textNodes = (doc) => {
             if (node.nodeType !== Node.ELEMENT_NODE)
                 return NodeFilter.FILTER_ACCEPT;
             const name = node.localName.toLowerCase();
-            return name === 'script' || name === 'style' ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP;
+            // svg and math text isn't in gloss's extracted text either (HTMLText skips them)
+            return name === 'script' || name === 'style' || name === 'svg' || name === 'math'
+                ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP;
         },
     });
     for (let node = walker.nextNode(); node; node = walker.nextNode())
@@ -471,8 +473,17 @@ const resolveQuote = async (target) => {
         return known;
     const generation = bookGeneration.value();
     let cfi = null;
+    let failed = false;
     try {
-        const doc = await view.book.sections[target.section]?.createDocument?.();
+        const section = view.book.sections[target.section];
+        let doc = await section?.createDocument?.();
+        // Broken XHTML: foliate renders it as HTML (and so does the sanitizer), so parse it that
+        // way too, or the CFI's path would point into WebKit's error document.
+        if (doc && section && (doc.getElementsByTagName('parsererror').length > 0 || !doc.body)) {
+            const markup = await view.book.loadText?.(section.id);
+            if (typeof markup === 'string')
+                doc = new DOMParser().parseFromString(markup, 'text/html');
+        }
         if (doc) {
             for (const element of Array.from(doc.querySelectorAll('*')))
                 if (sanitize.shouldRemove(element))
@@ -488,9 +499,11 @@ const resolveQuote = async (target) => {
         }
     }
     catch (error) {
+        failed = true;
         console.warn('gloss: a quote did not resolve', error);
     }
-    if (bookGeneration.isCurrent(generation))
+    // a failure may be passing (a section still loading); only settled answers are remembered
+    if (!failed && bookGeneration.isCurrent(generation))
         quoteCfis.set(key, cfi);
     return cfi;
 };

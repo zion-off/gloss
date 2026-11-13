@@ -167,12 +167,12 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
     /// lines measured by PDFKit (the portable resolver does the rest and remembers it).
     private func resolvedQuote(_ locator: Locator) -> Locator? {
         guard let pdf = document else { return nil }
-        return quotes.resolve(locator, pageText: { pdf.page(at: $0)?.string }, lineRects: { Self.lineRects(in: pdf, page: $0, range: $1) })
+        return quotes.resolve(locator, pageText: { $0 >= 0 && $0 < pdf.pageCount ? pdf.page(at: $0)?.string : nil }, lineRects: { Self.lineRects(in: pdf, page: $0, range: $1) })
     }
 
     private func resolvingQuotes(in annotations: ReaderAnnotations) -> ReaderAnnotations {
         guard let pdf = document else { return annotations }
-        return quotes.resolve(annotations, pageText: { pdf.page(at: $0)?.string },
+        return quotes.resolve(annotations, pageText: { $0 >= 0 && $0 < pdf.pageCount ? pdf.page(at: $0)?.string : nil },
                               lineRects: { Self.lineRects(in: pdf, page: $0, range: $1) })
     }
 

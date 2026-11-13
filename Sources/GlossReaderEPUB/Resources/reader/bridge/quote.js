@@ -98,7 +98,10 @@ const pick = (anchor, starts, length, text, ignoreCase) => {
     const before = fold(anchor.prefix, ignoreCase).units;
     const after = fold(anchor.suffix, ignoreCase).units;
     const scores = starts.map(start => commonSuffix(before, text.units, start) + commonPrefix(after, text.units, start + length));
-    const top = Math.max(...scores);
+    let top = 0;
+    for (const score of scores)
+        if (score > top)
+            top = score;
     let chosen = -1;
     for (let i = 0; i < starts.length; i++) {
         if (scores[i] !== top)
