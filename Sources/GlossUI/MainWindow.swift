@@ -63,6 +63,8 @@ public struct MainWindow: View {
         .navigationTitle(title)
         .toolbar { toolbar }
         .glossSearch(model: app.search)
+        .quickSwitcher(app: app, isPresented: Binding(get: { commands.showsSwitcher },
+                                                       set: { commands.showsSwitcher = $0 }))
         .focusedSceneValue(\.windowCommands, commands)
         .task { await run() }
         .task(id: app.workspace.readerFocus) { await app.showReaderFocus() }

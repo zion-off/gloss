@@ -853,6 +853,19 @@ extension View {
     nonisolated public func searchScopes<V, S>(_ scope: Binding<V>, activation: SearchScopeActivation,
                                               @ViewBuilder _ scopes: () -> S) -> some View where V: Hashable, S: View { _Modified(self) }
     nonisolated public func searchable(text: Binding<String>, placement: SearchFieldPlacement = .automatic, prompt: LocalizedStringKey) -> some View { _Modified(self) }
+    /// swiftui/view/onkeypress(keys:phases:action:) (macOS 14.0)
+    /// swiftui/view/onkeypress(keys:phases:action:) (macOS 14.0)
+    nonisolated public func onKeyPress(keys: Set<KeyEquivalent>, phases: KeyPress.Phases = [.down, .repeat],
+                                       action: @escaping (KeyPress) -> KeyPress.Result) -> some View { _Modified(self) }
+    /// swiftui/view/onkeypress(_:phases:action:) (macOS 14.0)
+    nonisolated public func onKeyPress(_ key: KeyEquivalent, phases: KeyPress.Phases = [.down, .repeat],
+                                       action: @escaping (KeyPress) -> KeyPress.Result) -> some View { _Modified(self) }
+    /// swiftui/view/textfieldstyle(_:) (macOS 12.0)
+    nonisolated public func textFieldStyle<_Style: TextFieldStyle>(_ style: _Style) -> some View { _Modified(self) }
+    /// swiftui/view/cornerradius(_:antialiased:) — the method form (macOS 10.15)
+    nonisolated public func cornerRadius(_ radius: CGFloat, antialiased: Bool = true) -> some View { _Modified(self) }
+    /// swiftui/view/ontapgesture(count:coordinateSpace:perform:) (macOS 10.15)
+    nonisolated public func onTapGesture(count: Int = 1, coordinateSpace: CoordinateSpace = .local, perform action: @escaping () -> Void) -> some View { _Modified(self) }
     nonisolated public func inspector<V: View>(isPresented: Binding<Bool>, @ViewBuilder content: () -> V) -> some View { _Modified(self) }
     /// swiftui/view/liststyle(_:) (macOS 10.15)
     nonisolated public func listStyle<S: ListStyle>(_ style: S) -> some View { _Modified(self) }
@@ -902,6 +915,58 @@ public struct SearchScopeActivation: Sendable {
     /// swiftui/searchscopeactivation/ontextentry
     public static var onTextEntry: SearchScopeActivation { .init() }
     private init() {}
+}
+
+/// swiftui/keypress (macOS 14.0) — `struct KeyPress`
+/// swiftui/keypress (macOS 14.0) — `struct KeyPress`
+public struct KeyPress: Sendable {
+    /// swiftui/keypress/key
+    public let key: KeyEquivalent
+    /// swiftui/keypress/characters
+    public let characters: String
+    /// swiftui/keypress/modifiers
+    public let modifiers: EventModifiers
+    /// swiftui/keypress/phase
+    public let phase: KeyPress.Phase
+
+    /// swiftui/keypress/result (macOS 14.0) — `enum Result`
+    public enum Result: Sendable {
+        /// swiftui/keypress/result/handled
+        case handled
+        /// swiftui/keypress/result/ignored
+        case ignored
+    }
+
+    /// swiftui/keypress/phases (macOS 14.0) — `struct Phases`
+    public struct Phases: OptionSet, Sendable {
+        public let rawValue: Int
+        public init(rawValue: Int) { self.rawValue = rawValue }
+        /// swiftui/keypress/phases/down
+        public static let down = Phases(rawValue: 1)
+        /// swiftui/keypress/phases/up
+        public static let up = Phases(rawValue: 2)
+        /// swiftui/keypress/phases/repeat
+        public static let `repeat` = Phases(rawValue: 4)
+        /// swiftui/keypress/phases/all
+        public static let all = Phases(rawValue: 7)
+    }
+
+    /// swiftui/keypress/phase
+    public enum Phase: Sendable {
+        case down, up, `repeat`
+    }
+}
+
+/// swiftui/textfieldstyle — a protocol like the other style protocols.
+public protocol TextFieldStyle {}
+public struct PlainTextFieldStyle: TextFieldStyle { public init() {} }
+public struct RoundedTextFieldStyle: TextFieldStyle { public init() {} }
+extension TextFieldStyle where Self == PlainTextFieldStyle { public static var plain: PlainTextFieldStyle { .init() } }
+extension TextFieldStyle where Self == RoundedTextFieldStyle { public static var rounded: RoundedTextFieldStyle { .init() } }
+
+/// swiftui/coordinatespace
+public enum CoordinateSpace: Hashable, Sendable {
+    case local, global, named
 }
 
 // MARK: - Keyboard

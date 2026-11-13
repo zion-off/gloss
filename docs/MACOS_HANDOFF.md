@@ -255,6 +255,24 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
 - Debounce: type fast — the results follow the last keystroke, never one query per character,
   and the UI never blocks (searches run off the main actor through `SearchService`).
 
+### `Sources/GlossUI/QuickSwitcherPane.swift` + `WindowCommands.swift` (milestone 12)
+
+- File › open quickly… (⇧⌘O, D-071) opens a small sheet over the window: one field, results
+  (books and pages, mixing titles and note text like the model's search), the keyboard's pick
+  highlighted. Check the menu item is in the File menu after "new", the shortcut is ⇧⌘O (not
+  ⌘O — File › open must still be untouched), and the field is focused when it opens.
+- Keyboard: ↑/↓ move (wrapping), Return opens the pick, Escape closes the sheet. **The arrows
+  must move the selection and not the text caret** — `onKeyPress` on the TextField intercepts
+  and returns `.handled`; if on a Mac the caret moves instead (onKeyPress not consulted before
+  the text view), the fallback is hidden `Button`s with `.keyboardShortcut(.upArrow, modifiers: [])`
+  inside the sheet.
+- The field takes focus when the sheet opens (`@FocusState` set in `onAppear`); if that races
+  the sheet's animation on a Mac and the field isn't focused, move the focus set to
+  `.onAppear` + a short `Task.sleep`, or use `.defaultFocus`.
+- Empty query shows the "nothing yet" state (Xcode-like: no recents).
+- Opening a book from the sheet opens it in this window (reader + notes follow, today's both-
+  panes behaviour).
+
 ### `Sources/GlossEditor/` (milestone 10)
 
 - `NotesEditorTheme.swift` — system fonts and colours only; check light/dark, Increase Contrast

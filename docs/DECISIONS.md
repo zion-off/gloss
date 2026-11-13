@@ -328,6 +328,10 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   result is chosen; together that is the least chrome for a window whose content is already a
   list. The scope menu appears on text entry (`searchScopes(activation: .onTextEntry)`), and the
   window adopts the context's default scope when the open document changes (brief 32).
+- **D-131 Open Quickly is ⇧⌘O in the File menu, presented as a sheet.** D-071 fixed the key;
+  Xcode's Open Quickly lives in File, and a small sheet is the standard SwiftUI way to host one
+  field plus a result list. Keyboard: up/down/return via `onKeyPress` (macOS 14), escape is the
+  sheet's own cancel; an empty query shows nothing, like Xcode.
 - **D-132 Every URL from outside goes through one portable door, `AppModel.open(url:)`.** The
   classifier (`IncomingURLClassifier`: gloss link / registered file / other) and the routing are
   testable on Linux, and pane-independent navigation (brief 15) can switch the one call inside.

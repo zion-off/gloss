@@ -13,11 +13,18 @@ public final class WindowCommands {
     @ObservationIgnored weak var app: AppModel?
     /// Which pane takes ⌘[ / ⌘]: the notes editor's focus state, else the reader.
     public internal(set) var notesFocused = false
+    /// The quick switcher's sheet (File › open quickly…, ⇧⌘O).
+    public internal(set) var showsSwitcher = false
 
     public init() {}
 
     public func bind(_ app: AppModel) {
         self.app = app
+    }
+
+    /// File › open quickly… (D-071): opens the switcher sheet over the window.
+    public func openQuickly() {
+        showsSwitcher = true
     }
 
     // MARK: Linking
@@ -78,6 +85,11 @@ public struct GlossWindowCommands: Commands {
     public init() {}
 
     public var body: some Commands {
+        CommandGroup(after: .newItem) {
+            Button("open quickly…") { commands?.openQuickly() }
+                .keyboardShortcut("o", modifiers: [.shift, .command])
+                .disabled(commands == nil)
+        }
         CommandGroup(after: .sidebar) {
             Divider()
             ForEach(Self.layouts, id: \.layout) { entry in
