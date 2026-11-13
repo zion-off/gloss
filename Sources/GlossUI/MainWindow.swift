@@ -50,28 +50,14 @@ public struct MainWindow: View {
             SourceList(app: app)
                 .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 360)
         } detail: {
-            if started {
-                if app.search.hasQuery {
-                    // Searching replaces the detail column, Mail-style (D-130); choosing a hit
-                    // dismisses the search and jumps there.
-                    SearchResults(app: app)
-                } else {
-                    switch app.workspace.detail {
-                    case .library:
-                        LibraryGrid(library: app.library, presentation: app.presentation, open: open,
-                                   moveToTrash: moveToTrash)
-                    case .trash:
-                        TrashView(trash: app.trash)
-                    case .book:
-                        book
-                    }
-                }
-            } else {
-                ProgressView()
-            }
+            detailColumn
+                // A click on empty space takes focus from the search field (and any other field):
+                // a plain background view never asks for it, so it stayed in the field.
+                .contentShape(Rectangle())
+                .simultaneousGesture(TapGesture().onEnded { NSApp.keyWindow?.makeFirstResponder(nil) })
         }
         .navigationTitle(title)
-        .background(HideWindowTitle())
+        .hidingSystemTitle()
         .toolbar { toolbar }
         .glossSearch(model: app.search)
         .libraryFeatures(app: app)  // the drop zone, ⇧⌘A, the import alert, the details sheet, the sort menu
@@ -119,23 +105,62 @@ public struct MainWindow: View {
         }
     }
 
-    /// Reader and notes side by side with a draggable divider; the View menu and the toolbar
-    /// switch the layout (persisted, shared by all windows). The reader's session lives in
-    /// `readerHost`, so showing the library and coming back keeps the book where it was.
-    private var book: some View {
-        HSplitView {
-            if app.workspace.layout.showsReader {
-                ReaderPane(reader: app.reader, engines: engines, host: readerHost,
-                           addToNotes: { await commands.addToNotes() })
-                    .frame(minWidth: 320)
+    @ViewBuilder private var detailColumn: some View {
+            if started {
+                if app.search.hasQuery {
+                    // Searching replaces the detail column, Mail-style (D-130); choosing a hit
+                    // dismisses the search and jumps there.
+                    SearchResults(app: app)
+                } else {
+                    switch app.workspace.detail {
+                    case .library:
+                        LibraryGrid(library: app.library, presentation: app.presentation, open: open,
+                                   moveToTrash: moveToTrash)
+                    case .trash:
+                        TrashView(trash: app.trash)
+                    case .book:
+                        book
+                    }
+                }
+            } else {
+                ProgressView()
             }
-            if app.workspace.layout.showsNotes {
-                NotesPane(app: app, reveal: reveal, unsavedFailure: $unsavedFailure,
-                          commands: commands)
-                    .frame(minWidth: 280)
-                    .notesExportMenu(actions: exportActions)
+        
+    }
+
+    /// The book, in the Apple way: the reader is an inset card with a soft shadow, and the notes
+    /// are an inspector on the trailing edge (Pages, Keynote, Xcode), whose divider stops under
+    /// the toolbar instead of running through it. "reader only" closes the inspector; "notes only"
+    /// gives the notes the whole column. The reader's session lives in `readerHost`, so showing the
+    /// library and coming back keeps the book where it was.
+    private var book: some View {
+        Group {
+            if app.workspace.layout == .notesOnly {
+                notesPane
+            } else {
+                readerCard
             }
         }
+        .inspector(isPresented: Binding(get: { app.workspace.layout == .split },
+                                        set: { commands.layout = $0 ? .split : .readerOnly })) {
+            notesPane
+                .inspectorColumnWidth(min: 280, ideal: 380, max: 640)
+        }
+    }
+
+    private var readerCard: some View {
+        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+        return ReaderPane(reader: app.reader, engines: engines, host: readerHost,
+                          addToNotes: { await commands.addToNotes() })
+            .clipShape(shape)
+            .background { shape.fill(.background).shadow(color: .black.opacity(0.28), radius: 7, y: 2) }
+            .padding(EdgeInsets(top: 8, leading: 12, bottom: 12, trailing: 12))
+            .frame(minWidth: 320)
+    }
+
+    private var notesPane: some View {
+        NotesPane(app: app, reveal: reveal, unsavedFailure: $unsavedFailure, commands: commands)
+            .notesExportMenu(actions: exportActions)
     }
 
     /// The window's title follows the detail column: the shelf, the trash, or the book.
@@ -147,6 +172,11 @@ public struct MainWindow: View {
         case .book: app.workspace.document?.title ?? "gloss"
         }
     }
+
+    /// Whether the title is drawn by our toolbar (it is where the system one can be removed).
+    private static let titleInToolbar: Bool = {
+        if #available(macOS 15.0, *) { true } else { false }
+    }()
 
     /// Back/forward on the leading edge (Safari, Finder); the layout switch on the trailing side.
     @ToolbarContentBuilder private var toolbar: some ToolbarContent {
@@ -162,8 +192,13 @@ public struct MainWindow: View {
         }
         // The title follows the chevrons (Finder, Safari): the system puts its own title first, so it
         // is hidden (HideWindowTitle) and drawn here.
-        ToolbarItem(placement: .navigation) {
-            Text(verbatim: title).font(.headline).lineLimit(1)
+        if Self.titleInToolbar {
+            if #available(macOS 26.0, *) {
+                ToolbarItem(placement: .navigation) { Text(verbatim: title).font(.headline).lineLimit(1) }
+                    .sharedBackgroundVisibility(.hidden)
+            } else {
+                ToolbarItem(placement: .navigation) { Text(verbatim: title).font(.headline).lineLimit(1) }
+            }
         }
         // Only while the book is on screen: on the library or the trash there is no reader to lay out.
         if case .book = app.workspace.detail {
@@ -352,17 +387,12 @@ struct NotesPane: View {
     }
 }
 
-/// Hides the window's visible title text (the window keeps its title for the Window menu and
-/// accessibility): the toolbar draws it after back and forward instead.
-private struct HideWindowTitle: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView { TitleHidingView() }
-    func updateNSView(_ view: NSView, context: Context) {}
-
-    private final class TitleHidingView: NSView {
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-            window?.titleVisibility = .hidden
-        }
+extension View {
+    /// Takes the system's title out of the toolbar where the SDK allows it (macOS 15+), so the
+    /// toolbar can draw it after back and forward. Older systems keep the system title.
+    @ViewBuilder fileprivate func hidingSystemTitle() -> some View {
+        if #available(macOS 15.0, *) { self.toolbar(removing: .title) } else { self }
     }
 }
+
 #endif
