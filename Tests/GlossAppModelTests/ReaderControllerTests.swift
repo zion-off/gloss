@@ -580,6 +580,27 @@ struct PassageLinkRoundTripTests {
         #expect(app.workspace.pendingNoteReveal == 4..<(4 + link.utf16.count))
     }
 
+    @Test("hovering a marker shows the passage and the lines that link to it")
+    func markerHover() async throws {
+        let lib = TestLibrary()
+        let (book, root) = try await lib.book()
+        let app = AppModel(services: lib.services)
+        let target = try await lib.services.links.target(for: lib.passage("one must imagine sisyphus happy", at: "cfi-9"), in: book.id)
+        try await lib.services.pages.updateBody(root.id, to: "the myth of sisyphus\n> one must imagine [him](gloss://passage/\(target.id)) happy")
+        let sub = try await lib.services.pages.createSubpage(under: root.id, title: "sub")
+        try await lib.services.pages.updateBody(sub.id, to: "see [this](gloss://passage/\(target.id)) and more")
+
+        let hover = try #require(await app.reader.hover(over: target.id))
+        #expect(hover.quote == "one must imagine sisyphus happy")
+        #expect(hover.pages.map(\.page.id) == [root.id, sub.id])
+        #expect(hover.pages.first?.snippet == "> one must imagine [him](gloss://passage/\(target.id)) happy")
+        #expect(hover.pages.last?.snippet == "see [this](gloss://passage/\(target.id)) and more")
+
+        // A target nothing links to has nothing to show.
+        let orphan = try await lib.services.links.target(for: lib.passage("gone", at: "cfi-x"), in: book.id)
+        #expect(await app.reader.hover(over: orphan.id) == nil)
+    }
+
     @Test("add to notes without an editor writes the quote line and draws the marker")
     func addToNotes() async throws {
         let lib = TestLibrary()

@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import GlossCore
+import GlossMarkdown
 import GlossNotes
 import GlossReaderBridge
 
@@ -24,6 +25,22 @@ import GlossReaderBridge
     public struct HighlightFocus: Equatable, Sendable {
         public var highlight: Highlight
         public var anchor: ReaderRect
+    }
+
+    /// What hovering a note marker shows: the passage it marks, and every note that links to
+    /// it with the line that holds the link.
+    public struct MarkerHover: Equatable, Sendable {
+        public struct ReferringPage: Equatable, Sendable, Identifiable {
+            public var page: Page
+            /// The line containing the link, trimmed.
+            public var snippet: String
+
+            public var id: PageID { page.id }
+        }
+
+        /// The marked passage, as stored on the target.
+        public var quote: String
+        public var pages: [ReferringPage]
     }
 
     public private(set) var document: Document?
@@ -252,6 +269,22 @@ import GlossReaderBridge
     public func restoreHighlight(_ highlight: Highlight) async throws {
         try await services.highlights.restore(highlight)
         await refreshAnnotations()
+    }
+
+    /// What hovering `marker` shows; nil when nothing links to it any more.
+    public func hover(over marker: LinkTargetID) async -> MarkerHover? {
+        guard let target = try? await services.links.linkTarget(marker) else { return nil }
+        let referring = (try? await services.links.referringPages(to: marker)) ?? []
+        let pages = referring.map { page -> MarkerHover.ReferringPage in
+            let body = page.body
+            let text = MarkdownText(body)
+            let link = LinkRanges.ranges(of: .passage(marker), in: body).first
+            let line = text.lines.first { line in link.map { line.overlaps($0) } ?? false }
+                ?? link ?? 0..<0
+            return MarkerHover.ReferringPage(page: page, snippet: String(text[line]).trimmingCharacters(in: .whitespaces))
+        }
+        guard !pages.isEmpty else { return nil }
+        return MarkerHover(quote: target.passage.quote, pages: pages)
     }
 
     /// Picks a page from the marker list.
