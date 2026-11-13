@@ -9,7 +9,7 @@ public enum PDFError: Error, Equatable, Sendable {
 /// The PDF import format: metadata and full-text extraction in pure Swift (Foundation
 /// only), used on every platform for import and search. Rendering is PDFKit's job on
 /// the Mac and deliberately not part of this module.
-public struct PDFFormat: DocumentFormat, TextExtracting {
+public struct PDFFormat: DocumentFormat, TextExtracting, QuoteLocating {
     public init() {}
 
     public var kind: DocumentKind { .pdf }
@@ -101,6 +101,20 @@ public struct PDFFormat: DocumentFormat, TextExtracting {
         out = out.replacingOccurrences(of: "&apos;", with: "'")
         out = out.replacingOccurrences(of: "&amp;", with: "&")
         return out
+    }
+
+    // MARK: QuoteLocating
+
+    public var partName: String { "page" }
+
+    /// The page number, 1-based (text chunks carry the 0-based page index).
+    public func partNumber(of chunk: TextChunk) -> Int? {
+        chunk.locator.scheme == PDFLocators.pageScheme ? Int(chunk.locator.value).map { $0 + 1 } : nil
+    }
+
+    public func quoteLocator(for anchor: QuoteAnchor, in chunk: TextChunk) -> Locator? {
+        guard chunk.locator.scheme == PDFLocators.pageScheme, let page = Int(chunk.locator.value), page >= 0 else { return nil }
+        return PDFQuoteLocator(page: page, quote: anchor).locator
     }
 
     // MARK: Text extraction

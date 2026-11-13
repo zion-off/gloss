@@ -11,6 +11,40 @@ public enum PDFLocators {
     /// A passage inside a PDF; the value is compact `PDFPassageLocator` JSON. Used by
     /// highlights and note links.
     public static let passageScheme = LocatorScheme("pdf")
+    /// A passage pinned by its words (`gloss link`, D-160): `PDFQuoteLocator` JSON, resolved by
+    /// the PDFKit reader against the page's text.
+    public static let quoteScheme = LocatorScheme("pdf-quote")
+}
+
+/// A passage the CLI pinned by quoting a page's extracted text: the page plus the quote, its
+/// context and occurrence. The PDFKit reader finds the words in `PDFPage.string` and turns them
+/// into a `PDFPassageLocator` when it draws or jumps.
+public struct PDFQuoteLocator: Codable, Hashable, Sendable {
+    public var v: Int = 1
+    /// Zero-based page index.
+    public var page: Int
+    public var quote: QuoteAnchor
+
+    public init(page: Int, quote: QuoteAnchor) {
+        self.page = page
+        self.quote = quote
+    }
+
+    /// The opaque locator: compact JSON with sorted keys, so the same quote makes the same
+    /// locator and reuses its link target.
+    public var locator: Locator {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        let value = (try? encoder.encode(self)).map { String(decoding: $0, as: UTF8.self) } ?? ""
+        return Locator(scheme: PDFLocators.quoteScheme, value: value)
+    }
+
+    public init?(locator: Locator) {
+        guard locator.scheme == PDFLocators.quoteScheme,
+              let decoded = try? JSONDecoder().decode(PDFQuoteLocator.self, from: Data(locator.value.utf8)),
+              decoded.page >= 0 else { return nil }
+        self = decoded
+    }
 }
 
 /// Where a highlighted passage sits: page(s) plus UTF-16 ranges into PDFKit's

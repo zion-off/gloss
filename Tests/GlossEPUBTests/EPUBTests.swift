@@ -50,6 +50,22 @@ struct EPUBTests {
         #expect(chunks[1].text == "Part Two\nCafé & sun — heat.\nNext")
     }
 
+    @Test("quotes in a section become epub-quote locators naming the spine index")
+    func quoteLocators() throws {
+        var builder = EPUBBuilder()
+        builder.chapters = [("One", "<p>a</p>"), ("Two", "<p>Mother died today.</p>")]
+        let chunk = try format.extractText(from: try builder.build())[1]
+        #expect(format.partName == "section")
+        #expect(format.partNumber(of: chunk) == 2)
+        let anchor = QuoteAnchor(text: "died today", prefix: "Mother", suffix: ".", occurrence: 0)
+        let locator = try #require(format.quoteLocator(for: anchor, in: chunk))
+        #expect(locator.scheme == EPUBLocators.quoteScheme)
+        #expect(locator.value == #"{"quote":{"occurrence":0,"prefix":"Mother","suffix":".","text":"died today"},"section":1,"v":1}"#)
+        #expect(EPUBQuoteLocator(locator: locator) == EPUBQuoteLocator(section: 1, quote: anchor))
+        #expect(EPUBQuoteLocator(locator: Locator(scheme: EPUBLocators.cfiScheme, value: locator.value)) == nil)
+        #expect(format.quoteLocator(for: anchor, in: TextChunk(locator: Locator(scheme: EPUBLocators.cfiScheme, value: "x"), label: nil, text: "")) == nil)
+    }
+
     @Test("epub 2 books use the NCX for labels")
     func ncx() throws {
         var builder = EPUBBuilder()

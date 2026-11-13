@@ -53,4 +53,17 @@ struct PDFLocatorTests {
         #expect(PDFPassageLocator(locator: Locator(scheme: PDFLocators.passageScheme, value: "{not json")) == nil)
         #expect(PDFPassageLocator(locator: Locator(scheme: PDFLocators.passageScheme, value: "{\"v\":1}")) == nil)
     }
+
+    @Test("quotes on a page become pdf-quote locators naming the page index")
+    func quoteLocators() throws {
+        let format = PDFFormat()
+        let chunk = TextChunk(locator: Locator(scheme: PDFLocators.pageScheme, value: "11"), label: "page 12", text: "some words")
+        #expect(format.partName == "page")
+        #expect(format.partNumber(of: chunk) == 12)
+        let anchor = QuoteAnchor(text: "words", prefix: "some", suffix: "", occurrence: 0)
+        let locator = try #require(format.quoteLocator(for: anchor, in: chunk))
+        #expect(locator.scheme == PDFLocators.quoteScheme)
+        #expect(PDFQuoteLocator(locator: locator) == PDFQuoteLocator(page: 11, quote: anchor))
+        #expect(PDFPassageLocator(locator: locator) == nil)
+    }
 }
