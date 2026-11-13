@@ -16,10 +16,13 @@ struct MainWindow: View {
     @State private var selection: DocumentID?
     @State private var reveal: NotesReveal?
     @State private var unsavedFailure: String?
+    @State private var commands = WindowCommands()
 
     init(root: AppRoot) {
         self.root = root
-        _app = State(initialValue: AppModel(services: root.services))
+        let app = AppModel(services: root.services)
+        _app = State(initialValue: app)
+        _commands = State(initialValue: WindowCommands().bound(app))
     }
 
     var body: some View {
@@ -32,9 +35,11 @@ struct MainWindow: View {
                 HSplitView {
                     if app.workspace.layout.showsReader {
                         ReaderPane(reader: app.reader, engines: root.engines)
+                            .onAppear { commands.notesFocused = false }
                     }
                     if app.workspace.layout.showsNotes {
-                        NotesPane(app: app, reveal: reveal, unsavedFailure: $unsavedFailure)
+                        NotesPane(app: app, reveal: reveal, unsavedFailure: $unsavedFailure,
+                                  commands: commands)
                     }
                 }
             } else {
@@ -143,7 +148,11 @@ struct NotesPane: View {
             NotesEditor(model: app.notes, reveal: reveal,
                         onOpenGlossLink: { link in await app.follow(link) },
                         onOpenWebLink: { url in _ = NSWorkspace.shared.open(url) },
-                        onOpenPage: { id in try? await app.workspace.openPage(id) })
+                        onOpenPage: { id in Task { try? await app.workspace.openPage(id) } },
+                        actions: { actions in
+                            commands.editorCoordinator = actions.coordinator
+                            actions.onFocusChange = { focused in commands.notesFocused = focused }
+                        })
                 .overlay(alignment: .bottom) {
                     if let message = failedMessage {
                         Text(verbatim: message)

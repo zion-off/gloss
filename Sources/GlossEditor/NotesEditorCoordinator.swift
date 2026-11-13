@@ -57,7 +57,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
         textView.textContainerInset = NSSize(width: 0, height: 10)
         textView.backgroundColor = .textBackgroundColor
         textView.onTextClick = { [weak self] index in self?.textClicked(at: index) }
-        textView.onFocusChange = { [weak self] focused in self?.actions.isEditing = focused }
+        textView.onFocusChange = { [weak self] focused in self?.actions.focusChanged(focused) }
         textView.onHover = { [weak self] point in self?.pointerMoved(to: point) }
         textView.onHoverEnd = { [weak self] in self?.hover.close() }
 

@@ -18,7 +18,8 @@ struct GlossApp: App {
                                        description: Text(verbatim: failure.message))
             }
         }
-        .commands { NotesFormatCommands() }
+        .commands { NotesFormatCommands()
+            GlossWindowCommands() }
     }
 }
 #else

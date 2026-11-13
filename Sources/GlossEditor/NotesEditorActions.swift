@@ -9,8 +9,10 @@ import GlossNotes
 /// one step (review: clicks used to replace the text behind undo's back).
 @MainActor @Observable public final class NotesEditorActions {
     @ObservationIgnored weak var coordinator: NotesEditorCoordinator?
-    /// The notes text view has keyboard focus (the Format menu is enabled only then).
+    /// The notes text view has keyboard focus (the Format menu and ⌘[ are enabled only then).
     public internal(set) var isEditing = false
+    /// Called whenever the focus state changes (the window routes history shortcuts by it).
+    var onFocusChange: ((Bool) -> Void)?
 
     public init() {}
 
@@ -22,6 +24,12 @@ import GlossNotes
     /// A click on a slash menu row.
     func confirmSlash(_ itemID: String?) async {
         await coordinator?.confirmSlashMenu(itemID: itemID)
+    }
+
+    /// The editor's focus state changed.
+    func focusChanged(_ focused: Bool) {
+        isEditing = focused
+        onFocusChange?(focused)
     }
 }
 
