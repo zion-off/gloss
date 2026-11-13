@@ -157,6 +157,18 @@ struct ImportSummaryTests {
         #expect(model.lastImportedIDs.isEmpty)
     }
 
+    @Test("a mixed import says finished, not failed (review 7)")
+    func mixedImportTitle() {
+        var summary = ImportSummary()
+        let book = Document(id: DocumentID(GlossID(high: 1, low: 1)), kind: DocumentKind("fake"),
+                            title: "Exile", author: "", contentHash: ContentHash.of(Data("x".utf8)),
+                            fileSize: 1, addedAt: .testEpoch, updatedAt: .testEpoch)
+        summary.imported.append(book)
+        summary.failures.append(ImportSummary.Failure(name: "bad.broken", reason: "damaged"))
+        #expect(summary.alertTitle == "import finished")  // three in, one out: not a failure
+        #expect(summary.hasNews)
+    }
+
     @Test("a lone duplicate is named; several are counted")
     func duplicateCopy() {
         var summary = ImportSummary()

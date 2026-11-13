@@ -232,7 +232,7 @@ public struct ImportSummary: Equatable, Sendable {
 
     /// The alert's title.
     public var alertTitle: String {
-        if duplicates.isEmpty { return "couldn't import" }
+        if duplicates.isEmpty, imported.isEmpty { return "couldn't import" }
         return failures.isEmpty ? "already in your library" : "import finished"
     }
 
