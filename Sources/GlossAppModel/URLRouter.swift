@@ -16,6 +16,26 @@ public enum RouteOutcome: Hashable, Sendable {
     case missing
 
     public var routed: GlossRoute? { if case .routed(let route) = self { route } else { nil } }
+
+    /// What to tell someone whose link couldn't be followed; nil when it was.
+    public var problem: RouteProblem? {
+        switch self {
+        case .routed:
+            return nil
+        case .inTrash(let title):
+            let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
+            return RouteProblem(title: "“\(name.isEmpty ? PageService.untitled : name)” is in the trash",
+                                detail: "restore it from the trash to follow this link.")
+        case .missing:
+            return RouteProblem(title: "this link leads nowhere", detail: "what it pointed to has been deleted for good.")
+        }
+    }
+}
+
+/// The message for a link that led nowhere (lowercase and short, like the rest of gloss).
+public struct RouteProblem: Hashable, Sendable {
+    public var title: String
+    public var detail: String
 }
 
 /// Turns `gloss://` links (from notes, `gloss open`, or other apps) into routes.

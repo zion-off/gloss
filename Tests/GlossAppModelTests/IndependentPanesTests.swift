@@ -190,4 +190,12 @@ struct IndependentPanesTests {
         #expect(driver.lastAnnotations?.markers.contains { $0.id.stringValue == id } == true)
     }
 
+    @Test("a link that leads nowhere says why")
+    func problems() async throws {
+        let (book, _) = try await TestLibrary().book()
+        #expect(RouteOutcome.routed(.document(book.id)).problem == nil)
+        #expect(RouteOutcome.inTrash("moby dick").problem?.title == "“moby dick” is in the trash")
+        #expect(RouteOutcome.inTrash("  ").problem?.title == "“\(PageService.untitled)” is in the trash")
+        #expect(RouteOutcome.missing.problem?.title == "this link leads nowhere")
+    }
 }
