@@ -114,6 +114,12 @@ import GlossReaderBridge
     public func handle(_ event: ReaderEngineEvent) async {
         switch event {
         case .ready:
+            if isReady {
+                // Ready again: the engine reloaded (its web content process restarted) and
+                // shows nothing. Reopen where the reader was.
+                stopShowingBook()
+                if pendingOpen == nil, let document { pendingOpen = (document, location?.locator) }
+            }
             isReady = true
             await performPendingOpen()
         case .opened(let toc, let openID):

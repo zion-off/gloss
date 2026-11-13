@@ -343,6 +343,24 @@ struct ReaderControllerTests {
         #expect(reloaded.lastAnnotations?.highlights.count == 2)
     }
 
+    @Test("ready again from the same engine means it reloaded: the book reopens where it was")
+    func engineReload() async throws {
+        let lib = TestLibrary()
+        let (book, _) = try await lib.book()
+        let controller = ReaderController(services: lib.services)
+        let driver = FakeDriver()
+        controller.attach(driver)
+        await controller.openShowing(book, on: driver)
+        await controller.handle(.relocated(location("here", 0.3)))
+        await controller.handle(.selectionChanged(lib.passage("words", at: "s"), anchor: anchor))
+
+        await controller.handle(.ready)
+        #expect(!controller.isShowingBook && controller.selection == nil)
+        #expect(driver.calls.last == .open(book.id, Locator(scheme: FakeFormat.scheme, value: "here")))
+        await controller.handle(.opened(toc: [], openID: driver.lastOpenID))
+        #expect(controller.isShowingBook)
+    }
+
     @Test("highlighting the selection clears its anchor too")
     func highlightClearsAnchor() async throws {
         let lib = TestLibrary()
