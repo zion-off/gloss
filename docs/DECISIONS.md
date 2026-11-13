@@ -547,3 +547,12 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   `isPresented || hasQuery`: an open, empty search shows "search your books and notes" with the
   scope ("type to search this book"); Escape, the cancel button or losing focus with an empty field
   closes it and the detail column comes back; a standing query keeps its results after focus moves.
+- **D-152 On macOS 26 search rests as a magnifying-glass toolbar button; sort sits just before it.**
+  `searchToolbarBehavior(.minimize)` is documented for iOS/iPadOS/Catalyst/visionOS 26 only, so the
+  Mail-style collapsed search is built from system parts: a toolbar `Button` with `magnifyingglass`
+  while the search is closed, and while it is open (`SearchModel.showsResults`) the real
+  `searchable` field placed by `DefaultToolbarItem(kind: .search, placement: .primaryAction)`. The
+  `searchable` lives on a conditional background view so the window's own view tree never changes
+  identity. macOS 14/15 keep the standard field. The library's sort menu and the import ring moved
+  from `LibraryFeatures` into the window's toolbar builder so the trailing order is fixed:
+  [import ring][sort or layout picker][search].

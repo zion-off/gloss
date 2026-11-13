@@ -324,6 +324,15 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
   on a row selects it (single click selects; selection jumps). Check arrow keys actually move
   selection and that typing while the list has focus edits the field.
 - The empty state ("no matches") shows while the query is non-empty and nothing was found.
+- **Search as a toolbar icon on macOS 26 (D-152), unverified:** the trailing toolbar reads
+  [sort][🔍] on the library, [layout picker][🔍] in a book, the import ring before them while
+  importing. Click the magnifying glass: the field appears in its place, focused, with the scope
+  menu once you type. Escape with an empty field (or clicking outside with it empty) folds it back
+  into the icon; with a query it stays a field. **Riskiest assumption:** the field's `searchable`
+  sits on a background view that appears only while the search is open — if no field shows, or it
+  doesn't take focus, move that `searchable` to the detail column (keeping the condition). On
+  macOS 14/15 the standard always-visible field stays. There is no ⌘F for it: ⌘F is the notes
+  editor's find bar.
 - **Clearing the field keeps the search (D-151), unverified:** type "whale", then clear the field
   with backspace (or the field's clear button while text remains): the results pane stays and
   shows "search your books and notes · type to search <scope>", not the library. Escape, or

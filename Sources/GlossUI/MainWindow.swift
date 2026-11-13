@@ -196,6 +196,15 @@ public struct MainWindow: View {
                 ToolbarItem(placement: .navigation) { titleLabel }
             }
         }
+        // An import's progress, like Safari's downloads or Mail's activity, wherever the window is
+        // (a Finder or gloss:// import can run while a book is open), D-148.
+        if app.library.importing {
+            ToolbarItem(placement: .primaryAction) { ImportActivity(library: app.library) }
+        }
+        // The sort menu only on the library, right before the search (D-152).
+        if case .library = app.workspace.detail {
+            ToolbarItem(placement: .primaryAction) { LibrarySortMenu(app: app) }
+        }
         // Only while the book is on screen: on the library or the trash there is no reader to lay out.
         if case .book = app.workspace.detail {
             ToolbarItem(placement: .primaryAction) {
@@ -206,6 +215,15 @@ public struct MainWindow: View {
                 }
                 .pickerStyle(.segmented)
                 .help("layout (⌥⌘1, ⌥⌘2, ⌥⌘3)")
+            }
+        }
+        // Search last, at the trailing edge. On macOS 26 it rests as a magnifying glass and the
+        // field takes its place while the search is open (`glossSearch`), D-152.
+        if #available(macOS 26.0, *) {
+            if app.search.showsResults {
+                DefaultToolbarItem(kind: .search, placement: .primaryAction)
+            } else {
+                ToolbarItem(placement: .primaryAction) { SearchToolbarButton(model: app.search) }
             }
         }
     }

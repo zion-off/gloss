@@ -5,20 +5,64 @@ import GlossCore
 
 /// The toolbar search (brief 31): `.searchable` puts the field in the toolbar, `.searchScopes`
 /// hangs the scope menu off it (the options come from where the user is, via `SearchModel`),
-/// and the results replace the detail column while the search is open or a query stands — Mail's
-/// search, with Books' "choosing a result closes the search" (D-130, D-151).
+/// and the results replace the detail column while the search is open or a query stands —
+/// Mail's search, with Books' "choosing a result closes the search" (D-130, D-151).
+///
+/// On macOS 26 the search rests as a magnifying-glass toolbar button (`SearchToolbarButton`) and
+/// the field exists only while the search is open or holds a query, like Mail's (D-152):
+/// `searchToolbarBehavior(.minimize)` is unavailable on macOS, so the field's `searchable` sits on
+/// a background view that comes and goes, leaving the window's own view tree untouched. Earlier
+/// systems keep the standard always-visible field.
 extension View {
     public func glossSearch(model: SearchModel) -> some View {
-        searchable(text: Binding(get: { model.query }, set: { model.query = $0 }),
-                   isPresented: Binding(get: { model.isPresented }, set: { model.isPresented = $0 }),
-                   placement: .toolbar,
-                   prompt: "search")
+        modifier(GlossSearch(model: model))
+    }
+}
+
+private struct GlossSearch: ViewModifier {
+    let model: SearchModel
+
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content.background {
+                if model.showsResults {
+                    Color.clear.modifier(SearchField(model: model))
+                }
+            }
+        } else {
+            content.modifier(SearchField(model: model))
+        }
+    }
+}
+
+/// The field itself: query, open/closed state and the scope menu, all the model's.
+private struct SearchField: ViewModifier {
+    let model: SearchModel
+
+    func body(content: Content) -> some View {
+        content
+            .searchable(text: Binding(get: { model.query }, set: { model.query = $0 }),
+                        isPresented: Binding(get: { model.isPresented }, set: { model.isPresented = $0 }),
+                        placement: .toolbar,
+                        prompt: "search")
             .searchScopes(Binding(get: { model.scope }, set: { model.setScope($0) }),
                           activation: .onTextEntry) {
                 ForEach(model.scopeOptions) { option in
                     Text(verbatim: option.title).tag(option.scope)
                 }
             }
+    }
+}
+
+/// The resting search on macOS 26: a magnifying glass that opens the field in its place.
+struct SearchToolbarButton: View {
+    let model: SearchModel
+
+    var body: some View {
+        Button { model.isPresented = true } label: {
+            Label("search", systemImage: "magnifyingglass")
+        }
+        .help("search your books and notes")
     }
 }
 

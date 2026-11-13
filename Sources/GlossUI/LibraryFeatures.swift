@@ -7,7 +7,7 @@ import GlossCore
 
 /// Everything the library adds around the window, in one modifier MainWindow applies in one
 /// line: the whole-window drop zone, the import panel, the "already in your library" offer,
-/// the details sheet and the toolbar's sort menu. The panel and drop both funnel into
+/// the details sheet (the toolbar's sort menu and import ring are placed by the window's toolbar). The panel and drop both funnel into
 /// `LibraryModel.importFiles`, the single import entry point (the Finder and `gloss://` paths
 /// call it too).
 extension View {
@@ -51,34 +51,6 @@ private struct LibraryFeatures<Content: View>: View {
                 Button("not now", role: .cancel) { app.presentation.importNews = nil }
             } message: {
                 Text(verbatim: importNews?.alertMessage ?? "")
-            }
-            .toolbar {
-                // An import's progress is the toolbar's, like Safari's downloads or Mail's activity:
-                // a small ring wherever the window is (a Finder or gloss:// import can run while a
-                // book is open), with what it's doing in the tooltip (D-148).
-                if app.library.importing {
-                    ToolbarItem {
-                        ImportActivity(library: app.library)
-                    }
-                }
-                // Only while the library is showing, Books-style at the trailing edge.
-                if case .library = app.workspace.detail {
-                    ToolbarItem {
-                        Menu {
-                            Picker("sort by", selection: Binding(
-                                get: { app.library.sort },
-                                set: { app.library.sort = $0 }
-                            )) {
-                                ForEach(LibrarySort.allCases, id: \.self) { sort in
-                                    Text(verbatim: librarySortTitles[sort] ?? sort.rawValue).tag(sort)
-                                }
-                            }
-                        } label: {
-                            Label("sort", systemImage: "arrow.up.arrow.down")
-                        }
-                        .help("how the grid is ordered")
-                    }
-                }
             }
             .focusedSceneValue(\.libraryPresentation, app.presentation)
     }
@@ -163,9 +135,31 @@ private struct LibraryFeatures<Content: View>: View {
 }
 
 /// How the sort menu names each order (data, never localization keys).
+/// The library's sort menu (toolbar, only on the library). The window's toolbar places it, so the
+/// trailing order is fixed: [sort][search] (D-152).
+struct LibrarySortMenu: View {
+    let app: AppModel
+
+    var body: some View {
+        Menu {
+            Picker("sort by", selection: Binding(
+                get: { app.library.sort },
+                set: { app.library.sort = $0 }
+            )) {
+                ForEach(LibrarySort.allCases, id: \.self) { sort in
+                    Text(verbatim: librarySortTitles[sort] ?? sort.rawValue).tag(sort)
+                }
+            }
+        } label: {
+            Label("sort", systemImage: "arrow.up.arrow.down")
+        }
+        .help("how the grid is ordered")
+    }
+}
+
 /// The toolbar's import progress: a small circular indicator, determinate once the files are
 /// counted ("3 of 8" for VoiceOver), spinning while folders are still being looked through.
-private struct ImportActivity: View {
+struct ImportActivity: View {
     let library: LibraryModel
 
     var body: some View {
