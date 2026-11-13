@@ -214,17 +214,21 @@ private struct CoverArt: View {
     @State private var image: NSImage?
 
     var body: some View {
-        ZStack {
-            if let image {
-                Image(nsImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                GeneratedCoverView(style: GeneratedCoverStyle(document: entry.document))
+        // The cell's size comes from this 2:3 shape alone; the cover is drawn over it. An image
+        // laid out as the content would size the cell to its own aspect ratio (a PDF page is
+        // not 2:3) and spill into its neighbours, clipping or not.
+        Color.clear
+            .aspectRatio(2.0 / 3.0, contentMode: .fit)
+            .overlay {
+                if let image {
+                    Image(nsImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    GeneratedCoverView(style: GeneratedCoverStyle(document: entry.document))
+                }
             }
-        }
-        .aspectRatio(2.0 / 3.0, contentMode: .fit)
-        .clipped()
+            .clipped()
         .shadow(color: .black.opacity(0.25), radius: 1.5, y: 1.5)
         .task(id: CoverKey(entry: entry)) {
             image = await library.cover(of: entry.id).flatMap { NSImage(data: $0.data) }
