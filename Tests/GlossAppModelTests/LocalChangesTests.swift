@@ -61,17 +61,19 @@ struct LocalChangesTests {
         #expect(appB.trash.items.isEmpty)
     }
 
-    @Test("a details edit in one window refreshes the book in the other")
+    @Test("a details edit in one window refreshes the open book in the other")
     func crossWindowDetails() async throws {
         let lib = TestLibrary()
         let (book, _) = try await lib.book("Camus")
         let appA = AppModel(services: lib.services)
         let appB = AppModel(services: lib.services)
+        try await appB.workspace.openDocument(book.id)  // B has the book open under its old name
         try await lib.services.library.updateDetails(book.id, title: "The Fall")
         await appA.refreshAfterDetailsEdit(of: book.id)  // what the details sheet calls after a save
         await appB.flushLocalChanges()
-        await appB.library.reload()  // the reaction invalidated the cache; the reload sees the new title
-        #expect(appB.library.entries.map(\.document.title) == ["The Fall"])
+        // Only the fan-out moves B here: nothing in this test reloads B, so without the post its
+        // copy of the open book still says "Camus" (review 8 — the old test's own reload hid it).
+        #expect(appB.workspace.document?.title == "The Fall")
     }
 
     @Test("windows over another library never hear this one")
