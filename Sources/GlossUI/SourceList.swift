@@ -15,6 +15,10 @@ struct SourceList: View {
     @SceneStorage("sidebar.highlights") private var showsHighlights = true
     @SceneStorage("sidebar.notes") private var showsNotes = true
 
+    private var showsBook: Bool {
+        if case .book = app.workspace.detail { true } else { false }
+    }
+
     var body: some View {
         List(selection: selection) {
             Section("library") {
@@ -50,6 +54,10 @@ struct SourceList: View {
             }
         }
         .listStyle(.sidebar)
+        // The book's sections come and go with the detail column; SwiftUI left one of their rows
+        // behind in the list when they went (a stray page row on the library), so the list is
+        // rebuilt on the change. Selection and expansion live outside it.
+        .id(showsBook)
         .onDeleteCommand(perform: deleteSelection)
     }
 
