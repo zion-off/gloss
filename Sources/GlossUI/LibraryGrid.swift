@@ -107,21 +107,20 @@ private struct CoverCell: View {
         } label: {
             VStack(alignment: .leading, spacing: 6) {
                 CoverArt(entry: entry, library: library)
-                    .overlay(alignment: .bottomTrailing) { kindBadge }
-                if entry.position != nil {
-                    // A book never opened shows no bar: absence is the "new" state (D-115).
-                    ProgressView(value: entry.progress)
-                        .padding(.top, -2)
-                }
+                // Every cell reserves the same text lines, so covers line up whatever is below them.
                 Text(verbatim: entry.document.title)
                     .font(.callout)
-                    .lineLimit(2)
-                if !entry.document.author.isEmpty {
-                    Text(verbatim: entry.document.author)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+                    .lineLimit(2, reservesSpace: true)
+                Text(verbatim: entry.document.author.isEmpty ? " " : entry.document.author)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                // Like Books: a quiet line of text, no bar and no badge on the cover. A book never
+                // opened shows only its format: absence of a percentage is the "new" state (D-115).
+                Text(verbatim: statusLine)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
             }
         }
         .buttonStyle(.plain)
@@ -135,14 +134,11 @@ private struct CoverCell: View {
         .accessibilityLabel(Text(verbatim: accessibilityLabel))
     }
 
-    /// The badge names the kind ("epub", "pdf") — the format's own word, never a switch on kind.
-    private var kindBadge: some View {
-        Text(verbatim: library.badge(of: entry.document.kind))
-            .font(.caption2)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2)
-            .background(.thinMaterial, in: Capsule())
-            .padding(5)
+    /// The format's own word ("epub", "pdf"), then how far along the reader is, when they've started.
+    private var statusLine: String {
+        let kind = library.badge(of: entry.document.kind)
+        guard entry.position != nil else { return kind }
+        return entry.progress >= 0.995 ? "\(kind) · finished" : "\(kind) · \(Int((entry.progress * 100).rounded()))%"
     }
 
     private var accessibilityLabel: String {
