@@ -27,21 +27,11 @@ public struct QuoteAnchor: Hashable, Codable, Sendable {
         self.occurrence = occurrence
     }
 
-    /// The anchor for a UTF-16 range of `source` (which must fall on scalar boundaries).
+    /// The anchor for a UTF-16 range of `source` (which must fall on scalar boundaries). To anchor
+    /// many ranges of one text, use `QuoteAnchoring`, which folds it once.
     public init(range: Range<Int>, in source: String) {
-        let utf16 = Array(source.utf16)
-        func slice(_ r: Range<Int>) -> String { String(decoding: utf16[r], as: UTF16.self) }
-        let lower = max(0, min(range.lowerBound, utf16.count))
-        let upper = max(lower, min(range.upperBound, utf16.count))
-        text = Passage.normalize(slice(lower..<upper))
-        let before = Passage.normalize(slice(max(0, lower - 4 * Self.contextLength)..<lower))
-        let after = Passage.normalize(slice(upper..<min(utf16.count, upper + 4 * Self.contextLength)))
-        prefix = String(before.suffix(Self.contextLength))
-        suffix = String(after.prefix(Self.contextLength))
-        let folded = FoldedText(source, whitespace: .stripped)
-        let quote = FoldedText(text, whitespace: .stripped)
-        let start = folded.foldedIndex(atOrAfter: lower)
-        occurrence = folded.occurrences(of: quote.units).firstIndex(of: start) ?? 0
+        var anchoring = QuoteAnchoring(source)
+        self = anchoring.anchor(for: range)
     }
 
     /// Where the anchored passage is in `source` now, as a UTF-16 range; nil when it can't be
@@ -114,5 +104,42 @@ public struct QuoteAnchor: Hashable, Codable, Sendable {
         var count = 0
         while count < context.count, start + count < units.count, context[count] == units[start + count] { count += 1 }
         return count
+    }
+}
+
+/// Anchors for many ranges of one text: the text is folded once and each quote's matches are
+/// counted once, so listing every match in a long chapter stays linear.
+public struct QuoteAnchoring: Sendable {
+    let units: [UInt16]
+    let stripped: FoldedText
+    private var occurrences: [[UInt16]: [Int]] = [:]
+
+    public init(_ source: String) {
+        units = Array(source.utf16)
+        stripped = FoldedText(source, whitespace: .stripped)
+    }
+
+    public mutating func anchor(for range: Range<Int>) -> QuoteAnchor {
+        func slice(_ r: Range<Int>) -> String { String(decoding: units[r], as: UTF16.self) }
+        let length = QuoteAnchor.contextLength
+        let lower = max(0, min(range.lowerBound, units.count))
+        let upper = max(lower, min(range.upperBound, units.count))
+        let text = Passage.normalize(slice(lower..<upper))
+        let before = Passage.normalize(slice(max(0, lower - 4 * length)..<lower))
+        let after = Passage.normalize(slice(upper..<min(units.count, upper + 4 * length)))
+        let quote = FoldedText(text, whitespace: .stripped).units
+        let starts = occurrences[quote] ?? stripped.occurrences(of: quote)
+        occurrences[quote] = starts
+        let start = stripped.foldedIndex(atOrAfter: lower)
+        // `starts` is sorted: binary search for this match.
+        var low = 0
+        var high = starts.count
+        while low < high {
+            let mid = (low + high) / 2
+            if starts[mid] < start { low = mid + 1 } else { high = mid }
+        }
+        let occurrence = low < starts.count && starts[low] == start ? low : 0
+        return QuoteAnchor(text: text, prefix: String(before.suffix(length)), suffix: String(after.prefix(length)),
+                           occurrence: occurrence)
     }
 }

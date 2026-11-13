@@ -111,9 +111,13 @@ public struct BookText: Sendable {
                 let start = FoldedText(from, whitespace: .collapsed, ignoringCase: query.ignoringCase).units
                 let end = FoldedText(through, whitespace: .collapsed, ignoringCase: query.ignoringCase).units
                 guard !start.isEmpty, !end.isEmpty else { return [] }
+                // Both lists are sorted and the first acceptable end only moves forward: one pass.
                 let ends = folded.occurrences(of: end)
+                var next = 0
                 return folded.occurrences(of: start).compactMap { s in
-                    ends.first { $0 >= s && $0 + end.count >= s + start.count }.map { s..<($0 + end.count) }
+                    let earliest = max(s, s + start.count - end.count)
+                    while next < ends.count, ends[next] < earliest { next += 1 }
+                    return next < ends.count ? s..<(ends[next] + end.count) : nil
                 }
             }
         }
@@ -121,23 +125,26 @@ public struct BookText: Sendable {
 
     /// The candidate for an exact UTF-16 range of chunk `index`.
     public func candidate(chunk index: Int, range: Range<Int>) throws -> PassageCandidate {
+        var anchoring = QuoteAnchoring(chunks[index].text)
+        return try candidate(chunk: index, range: range, anchoring: &anchoring)
+    }
+
+    private func candidate(chunk index: Int, range: Range<Int>, anchoring: inout QuoteAnchoring) throws -> PassageCandidate {
         let chunk = chunks[index]
-        let utf16 = chunk.text.utf16
-        guard range.upperBound <= utf16.count else {
-            throw GlossError.invalid("that range runs past the end of \(label(of: chunk)) (\(utf16.count) characters)")
+        let units = anchoring.units
+        guard range.upperBound <= units.count else {
+            throw GlossError.invalid("that range runs past the end of \(label(of: chunk)) (\(units.count) characters)")
         }
-        let start = String.Index(utf16Offset: range.lowerBound, in: chunk.text)
-        let end = String.Index(utf16Offset: range.upperBound, in: chunk.text)
-        guard start.samePosition(in: chunk.text.unicodeScalars) != nil, end.samePosition(in: chunk.text.unicodeScalars) != nil else {
+        func splitsScalar(_ offset: Int) -> Bool { offset < units.count && UTF16.isTrailSurrogate(units[offset]) }
+        guard !splitsScalar(range.lowerBound), !splitsScalar(range.upperBound) else {
             throw GlossError.invalid("that range splits a character; offsets count utf-16 units")
         }
-        let anchor = QuoteAnchor(range: range, in: chunk.text)
+        let anchor = anchoring.anchor(for: range)
         guard !anchor.text.isEmpty else { throw GlossError.invalid("there's only space at \(BookTextRef(chunk: chunk.locator, range: range))") }
         guard let locator = locating.quoteLocator(for: anchor, in: chunk) else {
             throw GlossError.notAllowed("gloss can't point at \(label(of: chunk)) of this book")
         }
         let progression = total > 0 ? Double(offsets[index] + range.lowerBound) / Double(total) : 0
-        let units = Array(utf16)
         func context(_ r: Range<Int>) -> String {
             Passage.normalize(String(decoding: units[r], as: UTF16.self))
         }
@@ -148,7 +155,7 @@ public struct BookText: Sendable {
         let before = context(max(0, range.lowerBound - 4 * PassageCandidate.contextLength)..<range.lowerBound)
             + (isSpace(range.lowerBound - 1) ? " " : "")
         let after = (isSpace(range.upperBound) ? " " : "")
-            + context(range.upperBound..<min(utf16.count, range.upperBound + 4 * PassageCandidate.contextLength))
+            + context(range.upperBound..<min(units.count, range.upperBound + 4 * PassageCandidate.contextLength))
         return PassageCandidate(ref: BookTextRef(chunk: chunk.locator, range: range), label: chunk.label,
                                 part: locating.partNumber(of: chunk),
                                 before: String(before.suffix(PassageCandidate.contextLength)),
@@ -165,10 +172,12 @@ public struct BookText: Sendable {
         var result: [PassageCandidate] = []
         for (index, chunk) in chunks.enumerated() where inScope(chunk, query) {
             let folded = FoldedText(chunk.text, whitespace: .collapsed, ignoringCase: query.ignoringCase)
+            var anchoring: QuoteAnchoring?
             for range in matches(folded) where folded.isWholeWords(range) {
                 guard Self.ends(folded.units, before: range.lowerBound, with: before),
                       Self.starts(folded.units, after: range.upperBound, with: after) else { continue }
-                result.append(try candidate(chunk: index, range: folded.sourceRange(range)))
+                if anchoring == nil { anchoring = QuoteAnchoring(chunk.text) }
+                result.append(try candidate(chunk: index, range: folded.sourceRange(range), anchoring: &anchoring!))
             }
         }
         return result
