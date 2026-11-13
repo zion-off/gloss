@@ -4,8 +4,8 @@ import GlossNotes
 
 /// Draws a subpage block line as a row (icon + live title) instead of its raw markdown. The
 /// text itself is hidden (the theme's `hidden` style), and this fragment replaces the default
-/// text drawing entirely.
-@MainActor
+/// text drawing entirely. Not main-actor isolated: neither is `NSTextLayoutFragment`, whose
+/// `draw(at:in:)` this overrides.
 final class SubpageRowFragment: NSTextLayoutFragment {
     var row: SubpageRow?
 
@@ -37,7 +37,7 @@ final class SubpageRowFragment: NSTextLayoutFragment {
         title.draw(in: textRect)
         if row.isTrashed == false {
             let chevron = NSAttributedString(string: "›", attributes: Self.titleAttributes(trashed: false))
-            let size = chevron.size
+            let size = chevron.size()
             chevron.draw(at: CGPoint(x: bounds.maxX - size.width - 6, y: bounds.midY - size.height / 2))
         }
     }

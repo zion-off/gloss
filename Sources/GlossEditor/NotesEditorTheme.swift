@@ -8,18 +8,12 @@ import GlossNotes
 ///
 /// A class: `baseFont` caches the system fonts it resolves (review 5).
 @MainActor final class NotesEditorTheme {
-    /// The font a run draws with, before bold/italic traits.
-    enum FontSpec: Hashable {
-        case body
-        case heading(Int)
-        case monospaced
-    }
-
-    private var fonts: [FontSpec: NSFont] = [:]
+    /// Resolved fonts per role, before bold/italic traits.
+    private var fonts: [TextStyle.FontRole: NSFont] = [:]
 
     init() {}
 
-    func baseFont(_ spec: FontSpec) -> NSFont {
+    func baseFont(_ spec: TextStyle.FontRole) -> NSFont {
         if let cached = fonts[spec] { return cached }
         let font: NSFont
         switch spec {
@@ -59,7 +53,7 @@ import GlossNotes
         if style.strikethrough == true { attributes[.strikethroughStyle] = NSNumber(value: NSUnderlineStyle.single.rawValue) }
         switch style.underline {
         case .single?: attributes[.underlineStyle] = NSNumber(value: NSUnderlineStyle.single.rawValue)
-        case .dotted?: attributes[.underlineStyle] = NSNumber(value: [NSUnderlineStyle.single, NSUnderlineStyle.patternDot].rawValue)
+        case .dotted?: attributes[.underlineStyle] = NSNumber(value: NSUnderlineStyle.single.union(.patternDot).rawValue)
         case nil: break
         }
 

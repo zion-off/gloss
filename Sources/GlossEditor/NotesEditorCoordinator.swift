@@ -9,7 +9,7 @@ import GlossNotes
 /// types; the model restyles and saves. Model-issued edits (format bar, slash menu, key
 /// commands) go back through the view's change APIs so undo records them as one step.
 @MainActor
-final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
+final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutManagerDelegate {
     private let model: NotesEditorModel
     private let notesTheme = NotesTheme.standard
     private let theme = NotesEditorTheme()
@@ -30,10 +30,10 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
     var openWebLink: (@MainActor (URL) -> Void)?
     /// The slash menu created a page (the window opens it).
     var openPage: (@MainActor (PageID) -> Void)?
-    /// The selection's rect in the scroll view's coordinates, or nil (the format bar anchors to it).
-    var selectionRectChanged: ((NSRect?) -> Void)?
-    /// The caret's rect in the scroll view's coordinates, or nil (the slash menu anchors to it).
-    var caretRectChanged: ((NSRect?) -> Void)?
+    /// The selection's rect in the editor's top-left coordinates, or nil (the format bar anchors to it).
+    var selectionRectChanged: ((OverlayRect?) -> Void)?
+    /// The caret's rect in the editor's top-left coordinates, or nil (the slash menu anchors to it).
+    var caretRectChanged: ((OverlayRect?) -> Void)?
 
     init(model: NotesEditorModel, actions: NotesEditorActions) {
         self.model = model
@@ -56,7 +56,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
         textView.isAutomaticTextReplacementEnabled = false
         textView.textContainerInset = NSSize(width: 0, height: 10)
         textView.backgroundColor = .textBackgroundColor
-        textView.onTextClick = { [weak self] index in self?.textClicked(at: index) }
+        textView.onTextClick = { [weak self] index in self?.textClicked(at: index) ?? false }
         textView.onFocusChange = { [weak self] focused in self?.actions.focusChanged(focused) }
         textView.onHover = { [weak self] point in self?.pointerMoved(to: point) }
         textView.onHoverEnd = { [weak self] in self?.hover.close() }
@@ -114,27 +114,28 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate {
     // MARK: Subpage rows
 
     /// The layout fragment for a paragraph: a subpage block line becomes a row; everything
-    /// else draws its text. The requirement isn't main-actor isolated, but TextKit lays out on
-    /// the main thread — `assumeIsolated` states that assumption (crashes loudly if broken).
+    /// else draws its text. Neither the requirement nor TextKit's classes are main-actor
+    /// isolated, so only the model read hops over: `assumeIsolated` states that TextKit lays out
+    /// on the main thread (and crashes loudly if that's ever broken).
     nonisolated func textLayoutManager(_ textLayoutManager: NSTextLayoutManager,
                                        textLayoutFragmentFor location: any NSTextLocation,
-                                       in textElement: any NSTextElement) -> NSTextLayoutFragment {
-        MainActor.assumeIsolated {
-            let fragment = SubpageRowFragment(textElement: textElement, range: nil)
-            fragment.row = row(for: fragment, in: textLayoutManager)
-            return fragment
+                                       in textElement: NSTextElement) -> NSTextLayoutFragment {
+        let fragment = SubpageRowFragment(textElement: textElement, range: nil)
+        if let paragraph = Self.offsets(of: textElement, in: textLayoutManager) {
+            fragment.row = MainActor.assumeIsolated { SubpageRows.row(covering: paragraph, in: model.subpageRows) }
         }
+        return fragment
     }
 
-    /// The subpage row this fragment covers, if its paragraph is a block line.
-    @MainActor private func row(for fragment: NSTextLayoutFragment, in manager: NSTextLayoutManager) -> SubpageRow? {
-        guard let paragraph = fragment.textElement as? NSTextParagraph,
+    /// Where a paragraph sits in the text, in UTF-16 offsets (nil for anything but a paragraph).
+    nonisolated private static func offsets(of element: NSTextElement, in manager: NSTextLayoutManager) -> Range<Int>? {
+        guard element is NSTextParagraph,
               let content = manager.textContentManager as? NSTextContentStorage,
-              let elementRange = paragraph.elementRange else { return nil }
+              let elementRange = element.elementRange else { return nil }
         let document = content.documentRange
         let lower = content.offset(from: document.location, to: elementRange.location)
         let upper = content.offset(from: document.location, to: elementRange.endLocation)
-        return SubpageRows.row(covering: lower..<upper, in: model.subpageRows)
+        return lower..<upper
     }
 
     /// Rows changed without the text changing (a rename from another window): rebuild the

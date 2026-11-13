@@ -139,9 +139,10 @@ struct SlashMenuView: View {
                 }
                 .padding(4)
             }
-            .frame(width: Self.width, maxHeight: Self.height)
+            .frame(width: Self.width)
+            .frame(maxHeight: Self.height)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.separatorColor, lineWidth: 1))
+            .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1) }
             .shadow(radius: 4, y: 2)
         }
     }
@@ -155,8 +156,8 @@ struct NotesEditorRepresentable: NSViewRepresentable {
     let onOpenGlossLink: @MainActor (GlossLink) async -> Void
     let onOpenWebLink: @MainActor (URL) -> Void
     let onOpenPage: @MainActor (PageID) -> Void
-    let selectionRectChanged: (NSRect?) -> Void
-    let caretRectChanged: (NSRect?) -> Void
+    let selectionRectChanged: (OverlayRect?) -> Void
+    let caretRectChanged: (OverlayRect?) -> Void
 
     func makeCoordinator() -> NotesEditorCoordinator {
         let coordinator = NotesEditorCoordinator(model: model, actions: actions)
