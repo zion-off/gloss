@@ -58,12 +58,16 @@ public final class WindowCommands {
 
     private var paneCanGoBack: Bool { notesFocused ? (app?.workspace.canGoBackInNotes ?? false) : (app?.workspace.canGoBackInReader ?? false) }
     private var paneCanGoForward: Bool { notesFocused ? (app?.workspace.canGoForwardInNotes ?? false) : (app?.workspace.canGoForwardInReader ?? false) }
-    /// At the start of a book's trail, back leaves for the library, and forward comes back.
-    public var canGoBack: Bool { paneCanGoBack || app?.workspace.canGoHome == true }
-    public var canGoForward: Bool { paneCanGoForward || app?.workspace.canReturnToBook == true }
+    /// While the search shows, back leaves it (the field folds away, the previous view returns)
+    /// and forward has nowhere to go (D-159). At the start of a book's trail, back leaves for the
+    /// library, and forward comes back.
+    private var searching: Bool { app?.search.showsResults == true }
+    public var canGoBack: Bool { searching || paneCanGoBack || app?.workspace.canGoHome == true }
+    public var canGoForward: Bool { !searching && (paneCanGoForward || app?.workspace.canReturnToBook == true) }
 
     public func goBack() {
         guard let app else { return }
+        if searching { app.search.dismiss(); return }
         if !paneCanGoBack { app.workspace.goHome(); return }
         Task {
             if notesFocused { try? await app.workspace.goBackInNotes() } else { try? await app.workspace.goBackInReader() }
@@ -71,7 +75,7 @@ public final class WindowCommands {
     }
 
     public func goForward() {
-        guard let app else { return }
+        guard let app, !searching else { return }
         if app.workspace.canReturnToBook { app.workspace.returnToBook(); return }
         Task {
             if notesFocused { try? await app.workspace.goForwardInNotes() } else { try? await app.workspace.goForwardInReader() }

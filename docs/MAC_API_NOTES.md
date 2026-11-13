@@ -920,6 +920,7 @@ nonisolated func labelsHidden() -> some View                                    
 nonisolated func progressViewStyle<S>(_ style: S) -> some View where S : ProgressViewStyle                          // view/progressviewstyle(_:), macOS 11.0
 init(_ titleKey: LocalizedStringKey, text: Binding<String>, axis: Axis)                                             // TextField init(_:text:axis:)-7n1bm, macOS 13.0
 nonisolated func lineLimit(_ limit: PartialRangeFrom<Int>) -> some View                                             // view/linelimit(_:)-251ko, macOS 13.0
+nonisolated func onExitCommand(perform action: (() -> Void)?) -> some View                                          // view/onexitcommand(perform:), macOS 10.15 ("while the view has focus")
 nonisolated func controlGroupStyle<S>(_ style: S) -> some View where S : ControlGroupStyle                          // view/controlgroupstyle(_:), macOS 12.0
 nonisolated func searchable(text: Binding<String>, isPresented: Binding<Bool>, placement: SearchFieldPlacement = .automatic, prompt: LocalizedStringResource) -> some View   // macOS 14.0
 nonisolated init(_ sizing: SpacerSizing = .flexible, placement: ToolbarItemPlacement = .automatic)                 // ToolbarSpacer, macOS 26.0; SpacerSizing.flexible / .fixed

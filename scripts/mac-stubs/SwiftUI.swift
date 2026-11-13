@@ -891,6 +891,8 @@ extension View {
     nonisolated public func lineLimit(_ number: Int?) -> some View { _Modified(self) }
     /// view/linelimit(_:)-251ko (macOS 13.0)
     nonisolated public func lineLimit(_ limit: PartialRangeFrom<Int>) -> some View { _Modified(self) }
+    /// view/onexitcommand(perform:) (macOS 10.15)
+    nonisolated public func onExitCommand(perform action: (() -> Void)?) -> some View { _Modified(self) }
     nonisolated public func multilineTextAlignment(_ alignment: TextAlignment) -> some View { _Modified(self) }
     nonisolated public func opacity(_ opacity: Double) -> some View { _Modified(self) }
     nonisolated public func shadow(color: Color = .black, radius: CGFloat, x: CGFloat = 0, y: CGFloat = 0) -> some View { _Modified(self) }

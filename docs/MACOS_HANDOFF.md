@@ -354,6 +354,11 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
   curve; with Reduce Motion on they cut. Whether NSToolbar animates the swap of the button for the
   field is the system's call: if it just pops, that's the limit of system parts (note it), not a
   regression. "empty trash" still asks "empty the trash?" before emptying.
+- **A way back from search (D-159), unverified:** search "whale", click a blank area of the
+  results (the field loses focus): the toolbar's back button is enabled and leaves the search —
+  the field folds back to the icon and the previous view (library or book) returns; forward is
+  greyed out while searching. ⌘[ and Go › Back do the same. Escape with focus anywhere in the
+  window (results list included) leaves the search too. Choosing a result still jumps and closes it.
 - **Clearing the field keeps the search (D-151), unverified:** type "whale", then clear the field
   with backspace (or the field's clear button while text remains): the results pane stays and
   shows "search your books and notes · type to search <scope>", not the library. Escape, or

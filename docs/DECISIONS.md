@@ -598,3 +598,9 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   back/forward; on macOS 26 it rendered as an empty glass pill between the chevrons and the title
   (the title text itself is drawn by `navigationTitle`). The system title follows the navigation
   items on its own, so the item is gone (the `.title` stub stays, verified).
+- **D-159 Back leaves the search; Escape does too, from anywhere.** Once the field lost focus
+  (a click in the results), only clicking back into it and pressing Escape got out. Now
+  `WindowCommands` treats an open search (`SearchModel.showsResults`) as the first step back:
+  back (toolbar, ⌘[, Go menu) dismisses it and forward is disabled meanwhile; `.onExitCommand` on
+  the window dismisses it on Escape wherever focus is. A standing query still survives focus
+  moving away, and choosing a result still closes the search.
