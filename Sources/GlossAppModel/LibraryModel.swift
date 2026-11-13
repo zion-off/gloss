@@ -36,6 +36,8 @@ import GlossCore
 
     /// The source list's symbol for a shelf (its format names it).
     public func symbol(of shelf: LibraryShelf) -> String { services.formats.symbol(of: shelf) }
+    /// The symbol of a document of this kind (its format names it).
+    public func symbol(of kind: DocumentKind) -> String { services.formats.symbol(of: kind) }
 
     public func reload() async {
         reloadGeneration += 1

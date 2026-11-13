@@ -139,6 +139,10 @@ struct LibraryTests {
         #expect(lib.services.formats.symbol(of: .books) == "book")
         #expect(lib.services.formats.symbol(of: .pdfs) == "doc")
         #expect(lib.services.formats.symbol(of: LibraryShelf("comics")) == "doc")
+        // A document takes its own format's symbol.
+        #expect(lib.services.formats.symbol(of: FakeFormat().kind) == "book")
+        #expect(lib.services.formats.symbol(of: OtherFormat().kind) == "doc")
+        #expect(lib.services.formats.symbol(of: DocumentKind("comic")) == "doc")
     }
 
     @Test("editing details keeps the root page title in step only if it was untouched")

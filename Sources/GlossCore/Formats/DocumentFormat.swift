@@ -103,6 +103,8 @@ public struct FormatRegistry: Sendable {
     public func symbol(of shelf: LibraryShelf) -> String {
         formats.first { $0.shelf == shelf }?.shelfSymbol ?? "doc"
     }
+    /// The symbol of a document of this kind: its own format's ("doc" for a kind nobody reads).
+    public func symbol(of kind: DocumentKind) -> String { format(for: kind)?.shelfSymbol ?? "doc" }
     public func badge(of kind: DocumentKind) -> String { format(for: kind)?.badge ?? kind.rawValue }
 
     public func textExtractor(for kind: DocumentKind) -> (any TextExtracting)? {
