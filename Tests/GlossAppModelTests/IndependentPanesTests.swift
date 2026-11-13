@@ -100,6 +100,18 @@ struct IndependentPanesTests {
         #expect(app.workspace.document?.id == b.id)
     }
 
+    @Test("a book-text search hit into another book moves only the reader (review 7)")
+    func searchHitKeepsNotes() async throws {
+        let lib = TestLibrary()
+        let (app, a, aRoot, b, _, target) = try await twoBooks(lib)
+        await app.follow(.passage(target.id))  // reader: B, notes: A
+        let hit = SearchModel.Selection.bookText(a.id, locator: Locator(scheme: FakeFormat.scheme, value: "hit"), matchText: "whale")
+        await app.reveal(hit)
+        #expect(app.workspace.document?.id == a.id)
+        #expect(app.workspace.page?.id == aRoot.id)  // the notes stay on A's page
+        _ = b
+    }
+
     @Test("a jump from outside the panes brings the other pane along")
     func openBringsTheOtherPane() async throws {
         let lib = TestLibrary()

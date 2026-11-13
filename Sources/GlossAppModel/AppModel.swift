@@ -461,9 +461,10 @@ import GlossReaderBridge
                 workspace.layout = workspace.layout.showsReader ? workspace.layout : .split
                 await reader.reveal(searchHit: locator, text: matchText)
             } else {
-                // Another book (or none): open it at the hit's locator and flash it — the
+                // Another book (or none): the reader shows it at the hit's locator (D-102: only
+                // the reader moves — a search hit never drags the notes off their page). The
                 // precise find-near-locator reveal only applies to the book already showing.
-                try? await workspace.openDocument(documentID, locator: locator)
+                try? await workspace.showBook(documentID, locator: locator)
                 workspace.layout = workspace.layout.showsReader ? workspace.layout : .split
             }
         case .document(let documentID):
