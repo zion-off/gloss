@@ -76,9 +76,10 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
         pageCount = pdf.pageCount
         pdfView.document = pdf
         inbox.post(.opened(toc: Self.toc(of: pdf), openID: openID))
+        // A position this engine can't read (another engine's, or malformed) opens at the top.
         if let position, (try? PDFReaderTarget(position)) != nil {
             try await go(to: position, flash: false)
-        } else if pdfView.currentPage == nil, let first = pdf.page(at: 0) {
+        } else if let first = pdf.page(at: 0) {
             pdfView.go(to: first)
         }
         pageChanged()
@@ -94,14 +95,15 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
 
     func go(to locator: Locator, flash: Bool) async throws {
         let target = try PDFReaderTarget(locator)
-        guard let pdf = document, let page = pdf.page(at: min(target.pageIndex, max(pageCount - 1, 0))) else { return }
+        guard let pdf = document, let page = pdf.page(at: clamped(target.pageIndex)) else { return }
         switch target {
         case .page(let index):
-            if let current = pdfView.currentPage, pdf.index(for: current) != index { pdfView.go(to: page) }
+            if pdfView.currentPage.map({ pdf.index(for: $0) }) != index { pdfView.go(to: page) }
         case .passage(let passage):
             guard let span = passage.pages.min(by: { $0.page < $1.page }),
-                  let rect = span.rects.compactMap(PDFPageRect.init).first else { pdfView.go(to: page); return }
-            pdfView.go(to: PDFDestination(page: page, at: NSPoint(x: rect.x, y: rect.y)))
+                  let rect = span.rects.compactMap(PDFPageRect.init).first else { pdfView.go(to: page); break }
+            // The top of the passage's first line (page space is bottom-left: maxY is the top).
+            pdfView.go(to: PDFDestination(page: page, at: NSPoint(x: rect.x, y: rect.y + rect.height)))
         }
         if flash { flashRect(target: target) }
     }
@@ -123,13 +125,29 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
         pdfView.clearSelection()
     }
 
+    /// A search hit: its own occurrence on its own page when it has a locator (search chunks
+    /// are pages); the document's first occurrence only when it has none (review 6).
     func reveal(searchHit locator: Locator?, text: String) async throws {
-        if let locator { try await go(to: locator, flash: true) }
-        guard let pdf = document, let hit = pdf.findString(text).first, let page = hit.pages.first else { return }
+        guard let pdf = document else { return }
+        if let locator {
+            let target = try PDFReaderTarget(locator)
+            if let page = pdf.page(at: clamped(target.pageIndex)),
+               let match = page.string.flatMap({ PDFTextMatch.range(of: text, in: $0) }),
+               let selection = page.selection(for: NSRange(location: match.lowerBound, length: match.count)) {
+                pdfView.go(to: selection)
+                flashRect(on: page, rect: Self.pageRect(selection.bounds(for: page)))
+            } else {
+                try await go(to: locator, flash: true)
+            }
+            return
+        }
+        guard let hit = pdf.findString(text, withOptions: [.caseInsensitive, .diacriticInsensitive]).first,
+              let page = hit.pages.first else { return }
         pdfView.go(to: hit)
-        flashRect(on: page, rect: PDFPageRect(x: hit.bounds(for: page).minX, y: hit.bounds(for: page).minY,
-                                              width: hit.bounds(for: page).width, height: hit.bounds(for: page).height))
+        flashRect(on: page, rect: Self.pageRect(hit.bounds(for: page)))
     }
+
+    private func clamped(_ index: Int) -> Int { min(max(index, 0), max(pageCount - 1, 0)) }
 
     // MARK: PDFViewDelegate
 
@@ -194,23 +212,20 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
                 guard nsrange.length > 0 else { return nil }
                 return nsrange.location..<(nsrange.location + nsrange.length)
             }
-            let bounds = line.bounds(for: page)
             let existing = byPage[index] ?? PDFPageSelection(page: index, ranges: [], rects: [], text: "")
             byPage[index] = PDFPageSelection(page: index, ranges: existing.ranges + ranges,
-                                            rects: existing.rects + [PDFPageRect(x: bounds.minX, y: bounds.minY,
-                                                                                  width: bounds.width, height: bounds.height)],
+                                            rects: existing.rects + [Self.pageRect(line.bounds(for: page))],
                                             text: existing.text.isEmpty ? text : existing.text + " " + text)
         }
         let pages = byPage.keys.sorted().compactMap { byPage[$0] }
         guard let passage = PDFSelectionMapping.passage(from: pages, pageCount: pageCount,
                                                         pageLabel: { pdf.page(at: $0)?.label }) else { return }
-        let anchor = anchorRect(for: selection, in: pdf)
-        inbox.post(.selectionChanged(passage, anchor: anchor))
+        inbox.post(.selectionChanged(passage, anchor: anchorRect(for: selection)))
     }
 
     /// The selection's first line, in the reader's top-left-origin coordinates (what popovers
     /// anchor to).
-    private func anchorRect(for selection: PDFSelection, in pdf: PDFDocument) -> ReaderRect {
+    private func anchorRect(for selection: PDFSelection) -> ReaderRect {
         for line in selection.selectionsByLine() {
             guard let page = line.pages.first else { continue }
             return Self.readerRect(pdfView.convert(line.bounds(for: page), from: page), in: pdfView)
@@ -238,9 +253,9 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
     // MARK: Drawing help
 
     private func flashRect(target: PDFReaderTarget) {
-        guard let pdf = document, let page = pdf.page(at: target.pageIndex) else { return }
+        guard let pdf = document, let page = pdf.page(at: clamped(target.pageIndex)) else { return }
         let rect: PDFPageRect
-        if case .passage(let passage) = target, let span = passage.pages.first,
+        if case .passage(let passage) = target, let span = passage.pages.min(by: { $0.page < $1.page }),
            let first = span.rects.compactMap(PDFPageRect.init).first {
             rect = first
         } else {
@@ -252,10 +267,12 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
 
     /// A brief outline over a target, like the reader's flash in the web view.
     private func flashRect(on page: PDFPage, rect: PDFPageRect) {
-        let inView = pdfView.convert(NSRect(x: rect.x, y: rect.y, width: rect.width, height: rect.height), from: page)
-        let flash = PDFFlashView(frame: inView)
+        let flash = PDFFlashView(frame: pdfView.convert(Self.nsRect(rect), from: page).insetBy(dx: -2, dy: -2))
         pdfView.addSubview(flash)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak flash] in flash?.removeFromSuperview() }
+        Task { @MainActor [weak flash] in
+            try? await Task.sleep(for: .seconds(1.5))
+            flash?.removeFromSuperview()
+        }
     }
 
     static func color(_ css: String) -> NSColor? {
@@ -264,24 +281,13 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
                        blue: CGFloat(color.blue), alpha: CGFloat(color.alpha))
     }
 
-    /// The PDF's own outline as the table of contents; pages without one get none (the sidebar
-    /// TOC is milestone 12).
+    /// The PDF's own outline as the table of contents (bounded: it comes from the file).
     static func toc(of pdf: PDFDocument) -> [ReaderTocEntry] {
-        func entries(_ outline: PDFOutline?, limit: Int) -> [ReaderTocEntry] {
-            guard let outline, limit > 0 else { return [] }
-            var result: [ReaderTocEntry] = []
-            var index = 0
-            while let child = outline.child(at: index) {
-                if let label = child.label, let destination = child.destination {
-                    result.append(ReaderTocEntry(label: label,
-                                                 target: PDFReaderPositions.locator(page: destination.page.map { pdf.index(for: $0) } ?? 0)))
-                }
-                result.append(contentsOf: entries(child, limit: limit - 1))
-                index += 1
-            }
-            return result
-        }
-        return entries(pdf.outlineRoot, limit: 2)
+        PDFOutlineTOC.entries(root: pdf.outlineRoot,
+                              childCount: { $0.numberOfChildren },
+                              child: { $0.child(at: $1) },
+                              label: { $0.label },
+                              page: { $0.destination?.page.map { pdf.index(for: $0) } })
     }
 }
 
@@ -366,12 +372,12 @@ final class PDFPageOverlay: NSView {
     }
 }
 
-/// The flash outline over a revealed target.
+/// The flash outline over a revealed target (its frame is the target grown by the stroke).
 @MainActor
 final class PDFFlashView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         NSColor.controlAccentColor.setStroke()
-        let path = NSBezierPath(rect: bounds.insetBy(dx: -1, dy: -1))
+        let path = NSBezierPath(rect: bounds.insetBy(dx: 1, dy: 1))
         path.lineWidth = 2
         path.stroke()
     }
