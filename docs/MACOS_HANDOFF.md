@@ -36,8 +36,18 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
 
 ## Checklist by file
 
-_(filled in as Mac code lands)_
+### `Sources/GlossReaderKit/` (milestone 9)
+
+- `ReadingEngine.swift` — protocols and registry only; should just compile.
+- `ReaderPane.swift`
+  - The placeholder shows over the engine view for: no book, no engine for the kind (PDFs until
+    milestone 11), and a book that failed to open. It must not cover a book that is showing.
+  - `.task(id: reader.document?.kind)` creates the session the first time a book of a kind opens;
+    switching EPUB → EPUB keeps the same web view (watch for a flash or a reload: there must be none).
+  - `ReaderHostView` returns the session's view from `makeNSView`; check it resizes with the window and
+    that closing the window releases the web view (no leak in the memory graph).
 
 ## APIs I was unsure about
 
-_(filled in as Mac code lands)_
+- `ContentUnavailableView(_:systemImage:description:)` is verified with a `LocalizedStringResource`
+  title; the code passes string literals.

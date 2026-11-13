@@ -46,6 +46,8 @@ let package = Package(
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
         ]),
         .executableTarget(name: "gloss", dependencies: ["GlossCLI", "GlossStore", "GlossEPUB", "GlossPDF", "GlossExport"]),
+        // macOS-only (every source wrapped in `#if os(macOS)`).
+        .target(name: "GlossReaderKit", dependencies: ["GlossCore", "GlossAppModel", "GlossReaderBridge"]),
         .testTarget(name: "GlossMarkdownTests", dependencies: ["GlossMarkdown"]),
         .testTarget(name: "GlossEPUBTests", dependencies: ["GlossEPUB", "GlossTestSupport"]),
         .testTarget(name: "GlossExportTests", dependencies: ["GlossExport", "GlossTestSupport"]),
