@@ -61,6 +61,9 @@ public struct TrashToast: Equatable, Sendable {
             if toast?.entry?.id == entry.id { clearToast() }
             return restored
         } catch {
+            // The entry was purged from the cli between the toast and its undo, or the read
+            // failed: say so instead of leaving a dead Undo button on screen (review 7).
+            publish(TrashToast(message: "couldn't put it back — it may have gone for good", entry: nil))
             return nil
         }
     }

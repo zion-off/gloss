@@ -31,7 +31,15 @@ struct TrashView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if let message = trash.lastRestoredMessage {
+            if let problem = trash.restoreProblem {
+                // A restore that brought nothing back says so (review 7).
+                Text(verbatim: problem)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+            } else if let message = trash.lastRestoredMessage {
                 Text(verbatim: message)
                     .font(.callout)
                     .foregroundStyle(.secondary)

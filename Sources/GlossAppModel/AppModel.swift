@@ -508,6 +508,10 @@ import GlossReaderBridge
             let imported = await library.importFiles(at: [file])
             // A duplicate is not a failure: the existing copy is the destination.
             guard let document = imported.first ?? library.lastDuplicates.first else {
+                // The import knows why it failed; don't bury it under a generic shrug (review 7).
+                if let failure = library.lastImport?.failures.first {
+                    return .refused("couldn't add \(failure.name): \(failure.reason)")
+                }
                 return .refused("couldn't add \(file.lastPathComponent) — is it a book gloss can read?")
             }
             try? await workspace.openDocument(document.id)

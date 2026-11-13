@@ -10,6 +10,8 @@ import GlossCore
     public private(set) var retentionDays: Int? = 30
     /// What the last restore brought back, so the view can say so ("restored “x” and 2 more").
     public private(set) var lastRestored: [TrashEntry] = []
+    /// Why the last restore brought nothing back; nil when it worked (review 7).
+    public private(set) var restoreProblem: String?
 
     /// Entries whose entities this window's trash actions restored or purged: AppModel tells
     /// the app's other windows (review 7; the journal's origin is per-process).
@@ -38,10 +40,21 @@ import GlossCore
 
     @discardableResult
     public func restore(_ id: TrashEntryID) async -> [TrashEntry] {
-        let restored = (try? await services.trash.restore(id)) ?? []
-        lastRestored = restored
-        await reload()
-        return restored
+        do {
+            let restored = try await services.trash.restore(id)
+            lastRestored = restored
+            restoreProblem = nil
+            onWrote?(restored)
+            await reload()
+            return restored
+        } catch {
+            // Nothing came back (purged from the cli meanwhile, or a failed read): the view
+            // says so instead of staying silent (review 7).
+            lastRestored = []
+            restoreProblem = "couldn't put it back — it may have gone for good"
+            await reload()
+            return []
+        }
     }
 
     public func purge(_ id: TrashEntryID) async {
