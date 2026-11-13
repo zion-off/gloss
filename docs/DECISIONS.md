@@ -526,3 +526,11 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   (`ImportSummary.announcement`). Duplicates and failures keep the existing alert. Per-cover
   progress (Books' downloads) doesn't fit: a book has no cell until it has been stored. A drag
   over the window draws only an accent rounded outline, like Finder and Mail.
+- **D-149 (supersedes D-122's live apply) Open books take new reading settings when Settings
+  closes.** The user doesn't want the book re-flowing under every slider step. Edits still save
+  debounced (nothing is lost on quit), but only `AppSettingsModel.flushSave()`, called from the
+  Settings view's `onDisappear`, announces `glossSettingsChanged`, once, and only if the values
+  differ from what was last announced or loaded; every window's `AppModel` then applies the
+  appearance to its open EPUB and AppRoot's appearance source updates for later opens. The sample
+  page inside Settings is the live preview: it reads the model's draft values and shows theme,
+  size, spacing, margins (half scale) and columns/flow.

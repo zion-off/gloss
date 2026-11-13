@@ -136,7 +136,7 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
     light and in dark system appearance, with each theme (light, sepia, night). The whole reader
     card is one solid colour: margins, the gap between the two columns, below a chapter's last
     lines, the blank page sliding in at a chapter end, and while rubber-banding in scrolled flow.
-    Changing the theme in ⌘, recolours all of it live, including the rubber-band area. Night: a
+    Changing the theme in ⌘, recolours all of it once the window closes, rubber-band area included. Night: a
     book that sets its own dark text colour reads light-on-dark; links and highlights still show.
     If white still shows anywhere, inspect (Develop menu) whether `html` of the reader page has
     `--gloss-background` set and whether the iframe's `html` computed background is the theme's.
@@ -421,21 +421,25 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
   is deprecated in the newest SDK (D-121).
 - Everything persists in the one library file: `gloss trash keep 7` and the picker agree, both
   ways, while the app runs.
-- With an EPUB open, changing theme, size, spacing, margins, flow or columns re-applies to the
-  book on screen **live** (through `ReflowableAppearanceApplying`); the reading position must
-  not jump. A PDF can't reflow, so it picks changes up at its next open (D-122).
-- A book opened after a change starts with it (AppRoot's appearance source follows the same
-  notification). Settings saved while a book is mid-open (between click and `.opened`) apply
+- **Applied on close (D-149, supersedes D-122's live apply), unverified:** with an EPUB open,
+  change theme, size, spacing, margins, flow and columns: the open book does NOT change while the
+  Settings window is open (only the sample page does). Close the window (red button or ⌘W): the
+  book takes the final values once, at the same reading position, in every window with an EPUB
+  open. Close without changing anything: the book doesn't flicker. A PDF can't reflow, so it picks
+  changes up at its next open.
+- A book opened after the window closed starts with the new settings (AppRoot's appearance source
+  follows the same notification, so it also updates on close). Settings saved while a book is mid-open (between click and `.opened`) apply
   at the next open — check the theme doesn't stick stale in that window.
 - **Crash fixed (D-143):** changing any setting twice within 400 ms aborted the app in
   `AppSettingsModel.scheduleSave` (`swift_task_dealloc`). Drag a slider back and forth and click
-  through every theme quickly: no crash, and the book follows. Undo toasts (trash two things
+  through every theme quickly: no crash, and the book follows when the window closes. Undo toasts (trash two things
   quickly) use the same sleep — check they still dismiss after ~6 s.
 - **Redone (D-145), unverified:** the window is 480 pt wide and as tall as its content, grouped
   like System Settings: labels left, controls right-aligned, no label shown twice. Theme, layout
   and columns are segmented controls; each slider shows its value (pt, or the spacing factor) in
-  a fixed-width column that doesn't jiggle. The sample page at the top takes the theme colours,
-  text size and line spacing as you drag. Columns greys out under "scrolling". A failed save
+  a fixed-width column that doesn't jiggle. The sample page at the top follows every control
+  instantly as you drag: theme colours, text size, line spacing (the reader's system font), the
+  margins (at half scale), two columns under pages + two, one column under scrolling or one. Columns greys out under "scrolling". A failed save
   shows as the trash section's footer. Labels don't truncate; dragging a slider saves once.
 
 ### `Sources/GlossUI/BackupCommands.swift` (milestone 12)

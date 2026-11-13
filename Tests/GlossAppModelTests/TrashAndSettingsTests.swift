@@ -306,7 +306,7 @@ struct AppSettingsModelTests {
         #expect(try await ReaderSettingsStore(settings: lib.services.settings).load().fontSize == 24)
     }
 
-    @Test("a window applies saved reading settings to its open book live, and re-dates its trash")
+    @Test("a window applies the settings to its open book when Settings closes, and re-dates its trash")
     func liveApplication() async throws {
         let lib = TestLibrary()
         let (book, root) = try await lib.book()
@@ -328,9 +328,8 @@ struct AppSettingsModelTests {
         settings.retentionDays = nil
         await settings.flushSave()
         await app.flushSettingsChanges()
-        // Two saves were flushed (the theme change and the retention change each announced),
-        // so the open book took the new appearance at least once — and the last one is the
-        // night theme the settings ended on.
+        // The flush (the window closing) announced the final settings once: the open book took
+        // the night theme the settings ended on.
         #expect(!driver.appliedAppearances.isEmpty)
         #expect(driver.appliedAppearances.last?.colors.background == "#1c1c1e")
         #expect(app.trash.items.first?.expiresAt == nil)  // "kept until you empty the trash"
@@ -379,6 +378,11 @@ struct AppSettingsModelTests {
         let lib = TestLibrary()
         let settings = AppSettingsModel(services: lib.services, saveDelay: .milliseconds(50))
         await settings.load()
+        let posts = Note<Int>(0)
+        let token = NotificationCenter.default.addObserver(forName: .glossSettingsChanged, object: settings, queue: nil) { [posts] _ in
+            posts.value! += 1
+        }
+        defer { NotificationCenter.default.removeObserver(token) }
         for size in 15...19 {
             settings.reader.fontSize = Double(size)
             try await Task.sleep(for: .milliseconds(10))
@@ -386,6 +390,11 @@ struct AppSettingsModelTests {
         try await Task.sleep(for: .milliseconds(300))
         let stored = try await ReaderSettingsStore(settings: lib.services.settings).load()
         #expect(stored.fontSize == 19)
+        #expect(posts.value == 0)  // stored, but open books wait for the window to close (D-149)
+        await settings.flushSave()  // the window closes
+        #expect(posts.value == 1)
+        await settings.flushSave()  // nothing changed since: nothing more to apply
+        #expect(posts.value == 1)
     }
 }
 

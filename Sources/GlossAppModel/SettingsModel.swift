@@ -21,8 +21,9 @@ public let glossReaderSettingsKey = "readerSettings"
 
 /// The Settings window's model (⌘,): trash retention and reading settings. Everything persists
 /// through `services.settings` into the one SQLite file — never UserDefaults (brief
-/// "Constraints"). Saves are debounced (a dragged slider is one save) and announced with
-/// `glossSettingsChanged`, which every open window applies live.
+/// "Constraints"). Edits save debounced (a dragged slider is one save) but stay quiet: only
+/// `flushSave()`, which the window calls as it closes, announces them with
+/// `glossSettingsChanged`, so open books take the final values once, on close (D-149).
 @MainActor @Observable public final class AppSettingsModel {
     /// Days things stay in the trash; nil keeps them forever (brief 39).
     public var retentionDays: Int? = 30 {
@@ -45,6 +46,8 @@ public let glossReaderSettingsKey = "readerSettings"
     /// Bumped by every change; only the newest may save.
     private var generation = 0
     private var suppressSave = false
+    /// What open windows last heard (or what was loaded): closing without a change says nothing.
+    private var announced: (retentionDays: Int?, reader: ReaderSettings)?
 
     public init(services: GlossServices,
                 saveDelay: Duration = .milliseconds(400),
@@ -60,13 +63,21 @@ public let glossReaderSettingsKey = "readerSettings"
         retentionDays = (try? await services.settings.value(TrashSettings.retentionDays)) ?? 30
         reader = (try? await ReaderSettingsStore(settings: services.settings).load()) ?? ReaderSettings()
         suppressSave = false
+        announced = (retentionDays, reader)
     }
 
-    /// Writes pending changes now and waits until they are stored and announced.
+    /// Writes pending changes now, then announces them to every window (their open books and
+    /// trash take them) if they changed since the last announcement. The Settings window calls
+    /// it when it closes; a save that didn't store announces nothing.
     public func flushSave() async {
         saveTask?.cancel()
         saveTask = nil
-        await save()
+        guard await save() else { return }
+        if let announced, announced.retentionDays == retentionDays, announced.reader == reader { return }
+        announced = (retentionDays, reader)
+        // `object: self` so windows (and tests) can tell this model's saves from another's.
+        NotificationCenter.default.post(name: .glossSettingsChanged, object: self,
+                                        userInfo: [glossReaderSettingsKey: reader])
     }
 
     // MARK: Internals
@@ -84,18 +95,18 @@ public let glossReaderSettingsKey = "readerSettings"
         }
     }
 
-    private func save() async {
+    /// Stores both settings; `false` when a write failed (nothing may be announced then: every
+    /// window would apply settings that never landed, review 7).
+    @discardableResult
+    private func save() async -> Bool {
         saveProblem = nil
         do {
             try await services.settings.set(retentionDays, for: TrashSettings.retentionDays)
             try await ReaderSettingsStore(settings: services.settings).save(reader)
-            // `object: self` so windows (and tests) can tell this model's saves from another's.
-            // Posted only once both writes stored: a failed save must not make every window
-            // apply settings that never landed (review 7).
-            NotificationCenter.default.post(name: .glossSettingsChanged, object: self,
-                                            userInfo: [glossReaderSettingsKey: reader])
+            return true
         } catch {
             saveProblem = "couldn't save your settings — try again"
+            return false
         }
     }
 }

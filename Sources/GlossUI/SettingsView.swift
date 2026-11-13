@@ -9,8 +9,8 @@ import GlossReaderBridge
 /// The Settings window (⌘,): one grouped form like System Settings, "reading" first (it is what
 /// people come here for), then "trash". Tabs are the other Apple pattern, but the only tab API a
 /// macOS 14 target can use (`tabItem`) is deprecated in the newest SDK, and its replacement needs
-/// macOS 15 (D-121). A sample page at the top shows the reading settings as they change; an open
-/// book follows live too (D-122).
+/// macOS 15 (D-121). A sample page at the top shows the reading settings as they change; open
+/// books take them once, when the window closes (D-149).
 public struct GlossSettingsView: View {
     @Bindable var model: AppSettingsModel
 
@@ -67,6 +67,8 @@ public struct GlossSettingsView: View {
         .frame(width: 480)
         .fixedSize(horizontal: false, vertical: true)
         .task { await model.load() }
+        // Closing the window is when open books change: store what's pending, then announce it.
+        .onDisappear { Task { await model.flushSave() } }
     }
 
     /// The picker edits the model's choice directly; the save is the model's didSet.
@@ -120,23 +122,51 @@ private struct ValueSlider: View {
     }
 }
 
-/// A few lines in the chosen theme, size and spacing: what the book will look like.
+/// A page of the book as it will look: the theme's colours, the reader's font at the chosen size
+/// and spacing, the margins (at half scale, so the page still fits) and one or two columns. It
+/// reads the model's values as they are edited, so every drag shows at once.
 private struct ReadingSample: View {
     let settings: ReaderSettings
 
+    private static let passages = [
+        "it was the best of times, it was the worst of times, it was the age of wisdom, it was the age of foolishness, it was the epoch of belief, it was the epoch of incredulity, it was the season of light, it was the season of darkness.",
+        "it was the spring of hope, it was the winter of despair, we had everything before us, we had nothing before us, we were all going direct to heaven, we were all going direct the other way.",
+    ]
+    /// Margins are shown at this scale: at full size a 96 pt margin would leave no page.
+    private static let marginScale = 0.5
+    private static let height: CGFloat = 200
+
     var body: some View {
         let colors = AppearanceStyler().appearance(for: settings).colors
-        Text(verbatim: "it was the best of times, it was the worst of times, it was the age of wisdom, it was the age of foolishness, it was the epoch of belief, it was the epoch of incredulity.")
-            .font(.system(size: settings.fontSize, design: .serif))
-            .lineSpacing(max(0, settings.lineHeight - 1) * settings.fontSize)
-            .foregroundStyle(Self.color(colors.foreground, fallback: .labelColor))
-            .lineLimit(3)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(14)
-            .background(Self.color(colors.background, fallback: .textBackgroundColor),
-                        in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("sample text in the \(settings.theme.rawValue) theme")
+        let foreground = Self.color(colors.foreground, fallback: .labelColor)
+        let twoColumns = settings.flow == .paginated && settings.maxColumnCount > 1
+        GeometryReader { proxy in
+            // The reader's gap between columns is 6% of the page (AppearanceStyler's layout).
+            let gap = proxy.size.width * 0.06
+            HStack(alignment: .top, spacing: gap) {
+                column(Self.passages[0] + (twoColumns ? "" : " " + Self.passages[1]))
+                if twoColumns { column(Self.passages[1]) }
+            }
+            .foregroundStyle(foreground)
+            .padding(.vertical, CGFloat(settings.margin) * Self.marginScale)
+            .padding(.horizontal, gap / 2 + 8)
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+        }
+        .frame(height: Self.height)
+        .background(Self.color(colors.background, fallback: .textBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("sample page in the \(settings.theme.rawValue) theme")
+    }
+
+    /// One column of text in the reader's font: `-apple-system` (the system font) at the text
+    /// size, with CSS line-height approximated as extra spacing over the font's own (~1.2×).
+    private func column(_ text: String) -> some View {
+        Text(verbatim: text)
+            .font(.system(size: settings.fontSize))
+            .lineSpacing(max(0, settings.lineHeight - 1.2) * settings.fontSize)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .clipped()
     }
 
     static func color(_ css: String, fallback: NSColor) -> Color {

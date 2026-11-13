@@ -81,8 +81,8 @@ import GlossReaderBridge
         }
         // A save that changed gloss links moves markers in the open book.
         notes.linksDidChange = { [weak self] in await self?.reader.refreshAnnotations() }
-        // The Settings window saved (same process, so the change monitor never sees it):
-        // reading settings go to the open book live, and retention re-dates the trash.
+        // The Settings window closed with changes (same process, so the change monitor never sees
+        // them): reading settings go to the open book, and retention re-dates the trash (D-149).
         // NotificationCenter delivers synchronously on the posting (main) thread (verified
         // against swift-corelibs-foundation), so the hop below is safe on both platforms.
         let observer = NotificationCenter.default.addObserver(forName: .glossSettingsChanged, object: nil, queue: nil) { [weak self] note in
@@ -323,8 +323,8 @@ import GlossReaderBridge
         }
     }
 
-    /// Reading settings changed in this process's Settings window: the open book takes them
-    /// live (when its engine can reflow) and the trash re-dates itself.
+    /// This process's Settings window closed with new reading settings: the open book takes them
+    /// (when its engine can reflow) and the trash re-dates itself.
     public func applySettingsChange(_ settings: ReaderSettings?) async {
         await trash.reload()
         if let settings {
