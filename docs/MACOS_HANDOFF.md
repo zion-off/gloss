@@ -39,6 +39,12 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
   an untinted icon); no way to name a page (the title field above the body, brief 21, was missing);
   I-beam over the format bar; book sections and layout switch shown on the library; title before the
   chevrons in the toolbar; the heading button's icon read as a font-size control.
+- **Changed after feedback (unverified):** opening a book from the library, open quickly or a URL starts a
+  fresh reader and notes history; back at the start of the trail goes to the library and forward comes
+  back (`WorkspaceModel.goHome`/`returnToBook`). Layout changes animate. The sheet layout (reader card
+  left, notes on the same paper right), the title field above the body, hidden markdown syntax (D-141)
+  and hover/click on subpage rows were redone from feedback and await a re-check.
+- **Open:** trackpad scrolling in a paginated EPUB does nothing (no wheel handler; only keys turn pages).
 - **Still unverified:** the first crash (`.relocated` handled in `ReaderController`, a SIGBUS inside
   Observation) has not recurred but was never explained; click targets of links/markers feel small.
 - **Stubs owed (Linux `mac-typecheck.py`):** `NSAppearance.currentDrawing()` /
