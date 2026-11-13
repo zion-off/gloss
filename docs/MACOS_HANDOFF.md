@@ -90,6 +90,16 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
   out sideways (rotation isn't applied); check, and use `PDFPage.rotation` if so.
 - `scripts/run-mac.sh` — builds `build/gloss.app` (ad hoc signed) and opens it; `--no-open`, `--release`.
 
+### `Sources/GlossMac/WindowCommands.swift` (milestone 11)
+
+- The Go menu: back/forward (⌘[/⌘]), acting on the notes pane when the editor has focus, else the
+  reader. Check that focus routing is right: click into the reader, ⌘[ goes back a book; click into
+  the notes, ⌘[ goes back a page.
+- "link to passage" (⌘K) and "add to notes" in the Format area after the text formatting items.
+  Both apply through the editor's coordinator (one undo step). Enabled state comes from the models:
+  ⌘K disabled with the hint as its tooltip ("now select a passage in the book", …).
+- Two windows: the commands act on the key window's models (`focusedSceneValue`).
+
 ### `Sources/GlossEditor/` (milestone 10)
 
 - `NotesEditorTheme.swift` — system fonts and colours only; check light/dark, Increase Contrast
