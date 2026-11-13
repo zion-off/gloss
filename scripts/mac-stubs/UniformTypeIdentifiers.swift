@@ -1,0 +1,23 @@
+// Stand-in for UniformTypeIdentifiers, for scripts/mac-typecheck.py (D-099). Declarations
+// copied from Apple's documentation JSON (documentation/uniformtypeidentifiers/...).
+
+import Foundation
+
+/// uniformtypeidentifiers/uttype — macOS 11.0+
+public struct UTType: Hashable, Sendable {
+    public init?(filenameExtension: String) {}
+    public init?(_ identifier: String) {}
+    public var identifier: String { "" }
+    public var preferredFilenameExtension: String? { nil }
+    public func conforms(to type: UTType) -> Bool { false }
+    /// uniformtypeidentifiers/uttype-swift.struct/epub — `org.idpf.epub-container`
+    public static var epub: UTType { fatalError() }
+    /// uniformtypeidentifiers/uttype-swift.struct/pdf — `com.adobe.pdf`
+    public static var pdf: UTType { fatalError() }
+    public static var fileURL: UTType { fatalError() }
+    public static var folder: UTType { fatalError() }
+    public static var plainText: UTType { fatalError() }
+    public static var html: UTType { fatalError() }
+    public static var zip: UTType { fatalError() }
+    public static var data: UTType { fatalError() }
+}

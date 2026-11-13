@@ -54,6 +54,10 @@ distribution, packaging, signing or update work.
 - Verify third-party API details against current docs or source, not memory.
   Apple APIs: `docs/MAC_API_NOTES.md` (exact declarations, availability and actor isolation,
   verified against Apple's documentation JSON); anything marked UNVERIFIED goes in the handoff.
+- Mac code must pass `scripts/mac-typecheck.py` (in `check.sh`), which compiles the Mac modules
+  against the stub frameworks in `scripts/mac-stubs/` (D-099). When Mac code needs an API the stubs
+  lack, verify it in Apple's documentation JSON first, then add it to `docs/MAC_API_NOTES.md` and to
+  the stub with its docs path. Never add a stub member just to make code compile.
 - Keep dependencies minimal; justify each one in `docs/DECISIONS.md`.
 - Keep `docs/ARCHITECTURE.md` current when the design changes.
 
@@ -97,6 +101,7 @@ swift build                      # all Linux targets (Mac targets compile to emp
 swift test                       # all Swift tests
 (cd web && pnpm test)            # typecheck + bridge tests under Node
 (cd web && pnpm build)           # regenerate the web view's .js from web/src
+scripts/mac-typecheck.py         # the Mac modules against stub Apple frameworks (D-099)
 scripts/check.sh                 # everything above, used before every commit
 ```
 

@@ -292,4 +292,16 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
 - **D-098 The reader shows one popover at a time**: a marker's notes, then a clicked highlight, then
   the selection's commands (`ReaderController.popover`). Dismissing the selection's popover clears
   the selection in the engine too.
+- **D-099 The Mac modules are type-checked on Linux against stub Apple frameworks**
+  (`scripts/mac-typecheck.py`, part of `check.sh`). Three reviews running found Mac code that could
+  not compile (half-applied edits, a missing member, `guard let` on a name that didn't exist, a
+  missing `try await`, an API that doesn't exist), and `mac-visibility.py` sees only type
+  visibility. `scripts/mac-stubs/` declares just the slice of AppKit, SwiftUI, WebKit, PDFKit and
+  UniformTypeIdentifiers gloss uses, each member copied from Apple's documentation JSON; the
+  sources compile line for line with `#if os(macOS)` switched on. It proves names, labels, types,
+  `try`/`await` and Swift 6 isolation against the stubs; not behaviour, and only as far as the stubs
+  are faithful, so a member goes into a stub only after its docs page is checked.
+- **D-100 Non-isolated Apple protocols are satisfied with `nonisolated` methods plus
+  `MainActor.assumeIsolated`**, never isolated conformances (`@MainActor Protocol`): those need
+  Swift 6.2 and the package declares tools 6.1. PDFKit and TextKit 2 call them on the main thread.
 

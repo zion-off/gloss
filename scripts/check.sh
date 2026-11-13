@@ -21,6 +21,7 @@ fi
 grep -E "^✔ Test run with" "$log" | awk '{tests += $5; suites += $8} END {printf "✔ %d swift tests in %d suites\n", tests, suites}'
 
 python3 scripts/mac-visibility.py || exit 1
+python3 scripts/mac-typecheck.py || exit 1
 
 if [ -x scripts/cli-smoke.sh ]; then
   scripts/cli-smoke.sh || exit 1

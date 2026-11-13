@@ -62,7 +62,8 @@ clients that wire concrete implementations at their composition roots:
 
 Every macOS-only source file is wrapped in `#if os(macOS)`. The targets stay in the package on
 Linux (where they compile to empty modules), so the package always resolves and the Linux
-compiler still parses the Mac code.
+compiler still parses the Mac code. `scripts/mac-typecheck.py` then type-checks their bodies for
+real against stub Apple frameworks (`scripts/mac-stubs/`, copied from Apple's docs; D-099).
 
 The web half of the EPUB engine is TypeScript in `web/src/` (`bridge/*.ts`, pure and tested
 under Node in `web/test/`; `glue.ts`, the WKWebView wiring, unverified on Linux). `pnpm build`
