@@ -19,7 +19,9 @@ What it proves: our own code is consistent across modules (names, labels, types,
 and calls the Apple APIs as declared in the stubs. What it can't: behaviour, and anything the
 stubs get wrong — a stub is only as good as the documentation it was copied from.
 
-Run `swift build` first (scripts/check.sh does). Exit status 1 on any error.
+Run `swift build` first (scripts/check.sh does). Another build directory (a `--scratch-path`
+build, as scripts/verify-commits.sh makes) is named with GLOSS_BUILD_DIR=<scratch>/debug. Exit
+status 1 on any error.
 """
 from __future__ import annotations
 
@@ -32,7 +34,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-BUILD = ROOT / ".build" / "debug"
+BUILD = Path(os.environ.get("GLOSS_BUILD_DIR", ROOT / ".build" / "debug"))
+CHECKOUTS = BUILD.parent / "checkouts"  # next to `debug` in .build and in any scratch path
 # One scratch directory per checkout, so a worktree's run never clobbers the main one's.
 OUT = Path(os.environ.get("TMPDIR", "/tmp")) / f"gloss-mac-typecheck-{hashlib.sha1(str(ROOT).encode()).hexdigest()[:8]}"
 STUBS = ROOT / "scripts" / "mac-stubs"
@@ -51,11 +54,11 @@ EXECUTABLES = {"GlossMac"}
 
 # C modules the portable Swift modules were built against.
 MODULE_MAPS = [
-    "Sources/CZlib/module.modulemap",
-    ".build/checkouts/GRDB.swift/Sources/GRDBSQLite/module.modulemap",
-    ".build/checkouts/swift-crypto/Sources/CXKCPShims/include/module.modulemap",
-    ".build/checkouts/swift-crypto/Sources/CXKCP/include/module.modulemap",
-    ".build/checkouts/swift-crypto/Sources/CCryptoBoringSSL/include/module.modulemap",
+    ROOT / "Sources/CZlib/module.modulemap",
+    CHECKOUTS / "GRDB.swift/Sources/GRDBSQLite/module.modulemap",
+    CHECKOUTS / "swift-crypto/Sources/CXKCPShims/include/module.modulemap",
+    CHECKOUTS / "swift-crypto/Sources/CXKCP/include/module.modulemap",
+    CHECKOUTS / "swift-crypto/Sources/CCryptoBoringSSL/include/module.modulemap",
 ]
 
 SELECTOR_SHIM = """
@@ -119,7 +122,7 @@ def main() -> int:
     # Our modules first: `.build/debug` also holds the empty Linux builds of the Mac targets.
     common = ["swiftc", "-swift-version", "6", "-parse-as-library", "-I", str(OUT / "modules"), "-I", str(BUILD)]
     for map_ in MODULE_MAPS:
-        common += ["-Xcc", f"-fmodule-map-file={ROOT / map_}"]
+        common += ["-Xcc", f"-fmodule-map-file={map_}"]
 
     for stub in STUB_MODULES:
         source = STUBS / f"{stub}.swift"
