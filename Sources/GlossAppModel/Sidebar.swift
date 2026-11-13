@@ -77,12 +77,31 @@ public struct PageOutlineNode: Hashable, Identifiable, Sendable {
     }
 }
 
-/// The open book's part of the source list: its highlights in reading order and its notes
-/// pages as a tree (the contents come from the reader, which reads them from the book).
+/// Which books the source list's book section is about: the reader's (its contents and
+/// highlights) and the notes pane's (its pages). They differ after following a cross-book link
+/// (D-102).
+public struct BookSidebarSubjects: Hashable, Sendable {
+    public var reader: DocumentID?
+    public var notes: DocumentID?
+
+    public init(reader: DocumentID?, notes: DocumentID?) {
+        self.reader = reader
+        self.notes = notes ?? reader
+    }
+}
+
+/// The open book's part of the source list: the reader's book's highlights in reading order and
+/// the notes pane's book's pages as a tree (the contents come from the reader, which reads them
+/// from the book).
 @MainActor @Observable public final class BookSidebarModel {
+    /// The reader's book.
     public private(set) var documentID: DocumentID?
     public private(set) var highlights: [Highlight] = []
+    /// The book whose pages `pages` lists (the notes pane's).
+    public private(set) var notesDocumentID: DocumentID?
     public private(set) var pages: [PageOutlineNode] = []
+    /// The notes' book's title when it isn't the reader's book (the notes section names it).
+    public private(set) var notesTitle: String?
 
     private let services: GlossServices
     /// Bumped by every load; only the newest may publish (a slow read for the previous book must
@@ -93,32 +112,46 @@ public struct PageOutlineNode: Hashable, Identifiable, Sendable {
         self.services = services
     }
 
-    /// Shows a book's highlights and pages, or nothing.
+    /// Shows one book's highlights and pages, or nothing.
     public func load(_ documentID: DocumentID?) async {
+        await load(BookSidebarSubjects(reader: documentID, notes: nil))
+    }
+
+    /// Shows the reader's book's highlights and the notes' book's pages.
+    public func load(_ subjects: BookSidebarSubjects) async {
         generation += 1
         let mine = generation
-        guard let documentID else {
-            self.documentID = nil
+        guard let reader = subjects.reader else {
+            documentID = nil
+            notesDocumentID = nil
             highlights = []
             pages = []
+            notesTitle = nil
             return
         }
-        let found = try? await services.highlights.highlights(in: documentID)
-        let tree = try? await services.pages.tree(of: documentID)
+        let notes = subjects.notes ?? reader
+        let found = try? await services.highlights.highlights(in: reader)
+        let tree = try? await services.pages.tree(of: notes)
+        let title = notes == reader ? nil : try? await services.library.document(notes)?.title
         guard mine == generation else { return }
-        if self.documentID != documentID {
-            self.documentID = documentID
+        if documentID != reader {
+            documentID = reader
             highlights = []
+        }
+        if notesDocumentID != notes {
+            notesDocumentID = notes
             pages = []
+            notesTitle = nil
         }
         // A failed read keeps what is shown.
         if let found { highlights = Self.readingOrder(found) }
         if let tree { pages = [PageOutlineNode(tree.root)] }
+        if notes == reader { notesTitle = nil } else if let title { notesTitle = title }
     }
 
-    /// Reloads the shown book (after edits here or elsewhere).
+    /// Reloads what is shown (after edits here or elsewhere).
     public func refresh() async {
-        await load(documentID)
+        await load(BookSidebarSubjects(reader: documentID, notes: notesDocumentID))
     }
 
     /// Book order: by where the passage sits, then by when it was made.

@@ -49,20 +49,22 @@ struct WorkspaceModelTests {
         #expect(workspace.pendingNoteReveal == nil)
     }
 
-    @Test("opening a page from another book brings the book along")
+    @Test("a jump to another book's page brings the book along; going back moves only the notes")
     func openPageAcrossBooks() async throws {
         let lib = TestLibrary()
-        let (a, _) = try await lib.book("A")
+        let (a, aRoot) = try await lib.book("A")
         let (b, bRoot) = try await lib.book("B")
         let page = try await lib.services.pages.createSubpage(under: bRoot.id, title: "deep")
         let workspace = WorkspaceModel(services: lib.services)
         try await workspace.openDocument(a.id)
-        try await workspace.openPage(page.id)
+        try await workspace.openPage(page.id, bringingBook: true)
         #expect(workspace.document?.id == b.id)
         #expect(workspace.page?.id == page.id)
+        // The book came along without visiting its main page in the notes' history.
         try await workspace.goBackInNotes()
-        #expect(workspace.page?.id == bRoot.id)
-        _ = a
+        #expect(workspace.page?.id == aRoot.id)
+        #expect(workspace.document?.id == b.id)
+        _ = bRoot
     }
 
     @Test("passages focus the reader and keep a pending passage for the engine")

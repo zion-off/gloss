@@ -89,10 +89,15 @@ import GlossNotes
     /// The open book's table of contents, as the sidebar nests it.
     public var contents: [ContentsNode] { ContentsNode.nodes(from: reader.toc) }
 
+    /// The books the source list's book section shows: the reader's and the notes pane's.
+    public var bookSidebarSubjects: BookSidebarSubjects {
+        BookSidebarSubjects(reader: workspace.document?.id, notes: workspace.page?.documentID)
+    }
+
     /// Loads the sidebar's section for the open book (the window calls this whenever
-    /// `workspace.document` changes).
+    /// `bookSidebarSubjects` changes).
     public func showBookSidebar() async {
-        await bookSidebar.load(workspace.document?.id)
+        await bookSidebar.load(bookSidebarSubjects)
         dropDanglingSelection()
     }
 
@@ -132,6 +137,7 @@ import GlossNotes
             if !workspace.layout.showsReader { workspace.layout = .split }
             await reader.go(to: highlight.passage.locator, flash: true)
         case .page(let id):
+            // The outline is the notes pane's book: picking a page moves only the notes (D-102).
             do { try await workspace.openPage(id) } catch { return }
             if !workspace.layout.showsNotes { workspace.layout = .split }
         }
@@ -194,20 +200,33 @@ import GlossNotes
         return nil
     }
 
-    /// Applies a `gloss://` link; returns false when the destination is gone.
+    /// Follows a `gloss://` link clicked in the notes. It moves the pane it points into (D-102): a
+    /// passage or a book swaps the reader, a page the notes. The other pane stays put, so a link
+    /// into another book keeps your notes beside it (brief 15).
     @discardableResult
     public func follow(_ link: GlossLink) async -> RouteOutcome {
+        await go(to: link, bringingOtherPane: false)
+    }
+
+    /// Opens a `gloss://` link from outside the panes (another app, `gloss open`, open quickly):
+    /// the place it names, with its book or its notes alongside.
+    @discardableResult
+    public func open(_ link: GlossLink) async -> RouteOutcome {
+        await go(to: link, bringingOtherPane: true)
+    }
+
+    private func go(to link: GlossLink, bringingOtherPane bring: Bool) async -> RouteOutcome {
         let outcome = await router.route(link)
         switch outcome {
         case .routed(.document(let id)):
-            try? await workspace.openDocument(id)
-            workspace.layout = workspace.layout.showsReader ? workspace.layout : .split
+            if bring { try? await workspace.openDocument(id) } else { try? await workspace.showBook(id) }
+            if !workspace.layout.showsReader { workspace.layout = .split }
         case .routed(.page(let pageID, _)):
-            try? await workspace.openPage(pageID)
-            workspace.layout = workspace.layout.showsNotes ? workspace.layout : .split
+            try? await workspace.openPage(pageID, bringingBook: bring)
+            if !workspace.layout.showsNotes { workspace.layout = .split }
         case .routed(.passage(let targetID, _)):
-            try? await workspace.openPassage(targetID)
-            workspace.layout = workspace.layout.showsReader ? workspace.layout : .split
+            try? await workspace.openPassage(targetID, bringingNotes: bring)
+            if !workspace.layout.showsReader { workspace.layout = .split }
         case .inTrash, .missing:
             break
         }

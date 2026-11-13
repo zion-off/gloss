@@ -312,3 +312,15 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   `MainActor.assumeIsolated`**, never isolated conformances (`@MainActor Protocol`): those need
   Swift 6.2 and the package declares tools 6.1. PDFKit and TextKit 2 call them on the main thread.
 
+- **D-102 Each pane moves on its own; a link changes the pane it points into** (brief 15: "following
+  a cross-book link swaps the book pane", each pane with its own back and forward). A passage or book
+  link in the notes swaps the reader; a page link, subpage row, breadcrumb, the outline or a marker
+  click swaps the notes; each pane's back/forward moves only that pane. So the panes can show
+  different books, which is what lets ⌘K make a cross-book link and lets a cross-book marker open its
+  note without pulling the reader off the passage. Choosing a book (library, open quickly) still
+  shows it with its notes, and a jump from outside the panes (a `gloss://` URL from another app or
+  `gloss open`) brings the other pane along (`AppModel.open`, `bringingBook:`/`bringingNotes:`). A pane
+  never sits empty beside a book. The source list's book section is the reader's book (contents,
+  highlights); its notes outline is the notes pane's book, headed with that book's title when the two
+  differ. Before this, every navigation dragged the other pane along, so the two always showed one
+  book.

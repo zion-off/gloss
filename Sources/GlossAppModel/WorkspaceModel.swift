@@ -71,28 +71,36 @@ public struct ReaderFocus: Hashable, Sendable {
         self.persistLayoutSetting = persistLayoutSetting
     }
 
-    // MARK: Opening
+    // MARK: Opening (D-102: each pane moves on its own)
 
-    /// Opens a book (reader pane) and shows its root notes page (notes pane).
+    /// Chooses a book (the library, open quickly): the reader shows it, at `locator` or where it
+    /// was left, and the notes show its main page unless they already show one of its pages.
     public func openDocument(_ id: DocumentID, locator: Locator? = nil) async throws {
-        guard let document = try await services.library.document(id), document.trash == nil else {
-            throw GlossError.notFound("that book")
-        }
         let switched = self.document?.id != id
-        self.document = document
-        try await services.library.markOpened(id)
-        if page?.documentID != id {
-            page = try await services.pages.rootPage(of: id)
-            if let page { notesHistory.visit(page.id) }
-        }
-        readerHistory.visit(ReaderFocus(documentID: id, locator: locator))
-        readerFocus = readerHistory.current
-        pendingPassage = nil
+        try await showInReader(id, locator: locator)
+        if page?.documentID != id { try await showMainPage(of: id) }
         // Opening a book shows it; a selection in the previous book's section means nothing here.
         if switched || !sidebar.showsBook { sidebar = page.map { .page($0.id) } ?? .book }
     }
 
-    /// Opens a notes page at a range (from a marker click), revealing the panel if hidden.
+    /// Shows a book in the reader pane alone (a `gloss://book/…` link in the notes, reader
+    /// back/forward). The notes stay on their page, even in another book; they only get the
+    /// book's main page when they show nothing.
+    public func showBook(_ id: DocumentID, locator: Locator? = nil) async throws {
+        let switched = document?.id != id
+        try await showInReader(id, locator: locator)
+        if page == nil { try await showMainPage(of: id) }
+        guard switched else { return }
+        // A contents entry or highlight of the previous book means nothing now; a notes page still
+        // does (the notes didn't move).
+        switch sidebar {
+        case .page, .book: break
+        case .library, .trash, .contents, .highlight: sidebar = page.map { .page($0.id) } ?? .book
+        }
+    }
+
+    /// Opens a notes page at a range (a marker click), revealing the notes pane if hidden. The
+    /// reader stays on its book, which may be another one (a cross-book link's marker).
     public func openPage(_ id: PageID, revealing range: Range<Int>?) async throws {
         try await openPage(id)
         pendingNoteReveal = range
@@ -104,28 +112,37 @@ public struct ReaderFocus: Hashable, Sendable {
         pendingNoteReveal = nil
     }
 
-    /// Opens a notes page; its book follows when it lives in another document. A reveal meant
-    /// for the page shown before is dropped (only `openPage(_:revealing:)` sets one).
-    public func openPage(_ id: PageID) async throws {
+    /// Opens a notes page in the notes pane (a page link, subpage row, breadcrumb, the source
+    /// list's outline, notes back/forward). The reader stays where it is, even on another book,
+    /// unless `bringingBook` (a jump from outside the panes: open quickly, a `gloss://` URL from
+    /// another app) or no book is open at all. A reveal meant for the page shown before is
+    /// dropped (only `openPage(_:revealing:)` sets one).
+    public func openPage(_ id: PageID, bringingBook: Bool = false) async throws {
         pendingNoteReveal = nil
         guard let page = try await services.pages.page(id), page.trash == nil else {
             throw GlossError.notFound("that page")
         }
-        if page.documentID != document?.id {
-            try await openDocument(page.documentID)
+        if document == nil || (bringingBook && page.documentID != document?.id) {
+            try await showInReader(page.documentID, locator: nil)
         }
         self.page = page
         notesHistory.visit(id)
         sidebar = .page(id)
     }
 
-    /// Opens a book at a passage (from a `gloss://passage/…` link or a marker click).
-    public func openPassage(_ id: LinkTargetID) async throws {
+    /// Opens a book at a passage in the reader pane (a passage link in the notes). The notes stay
+    /// on their page, even in another book (that is how a cross-book link is followed, brief 15),
+    /// unless `bringingNotes` (a jump from outside the panes) or they show nothing.
+    public func openPassage(_ id: LinkTargetID, bringingNotes: Bool = false) async throws {
         guard let target = try await services.links.linkTarget(id),
               let document = try await services.library.document(target.documentID), document.trash == nil else {
             throw GlossError.notFound("that passage")
         }
-        try await openDocument(document.id, locator: target.passage.locator)
+        if bringingNotes {
+            try await openDocument(document.id, locator: target.passage.locator)
+        } else {
+            try await showBook(document.id, locator: target.passage.locator)
+        }
         pendingPassage = id
     }
 
@@ -135,17 +152,36 @@ public struct ReaderFocus: Hashable, Sendable {
         page = try await services.pages.rootPage(of: document.id)
     }
 
-    // MARK: History
+    /// The reader pane alone: shows a book and records it in the reader's history (a no-op for
+    /// the entry back/forward just moved to).
+    private func showInReader(_ id: DocumentID, locator: Locator?) async throws {
+        guard let document = try await services.library.document(id), document.trash == nil else {
+            throw GlossError.notFound("that book")
+        }
+        self.document = document
+        try await services.library.markOpened(id)
+        readerHistory.visit(ReaderFocus(documentID: id, locator: locator))
+        readerFocus = readerHistory.current
+        pendingPassage = nil
+    }
+
+    /// The notes pane alone: shows a book's main page and records it in the notes' history.
+    private func showMainPage(of id: DocumentID) async throws {
+        page = try await services.pages.rootPage(of: id)
+        if let page { notesHistory.visit(page.id) }
+    }
+
+    // MARK: History (each pane its own, brief 15)
 
     public func goBackInReader() async throws {
         guard let previous = readerHistory.goBack() else { return }
-        try await openDocument(previous.documentID, locator: previous.locator)
+        try await showBook(previous.documentID, locator: previous.locator)
         readerHistory.replaceCurrent(with: previous)
     }
 
     public func goForwardInReader() async throws {
         guard let next = readerHistory.goForward() else { return }
-        try await openDocument(next.documentID, locator: next.locator)
+        try await showBook(next.documentID, locator: next.locator)
         readerHistory.replaceCurrent(with: next)
     }
 
