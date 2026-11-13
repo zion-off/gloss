@@ -113,6 +113,9 @@ import GlossNotes
         self.page = page
         text = page.body
         selection = 0..<0
+        // `document` must follow `text` before the first suspension below: the view installs the
+        // new text while this call awaits, and AppKit's selection callback reads `document`.
+        reparse()
         slashMenu = nil
         dismissedSlashAt = nil
         saveState = .saved
@@ -136,6 +139,7 @@ import GlossNotes
         if fresh.body != text {
             text = fresh.body
             selection = clamp(selection)
+            reparse()  // same reason as in `load`: the view hears the text before the next await ends
         }
         page = fresh
         // The title may have changed too (a rename, a details edit): keep the crumbs honest.

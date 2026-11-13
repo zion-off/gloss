@@ -13,6 +13,9 @@ public struct SlashTrigger: Hashable, Sendable {
     /// followed by letters, digits or `-`. Never inside code.
     public static func detect(in document: MarkdownDocument, caret: Int) -> SlashTrigger? {
         let text = document.text
+        // A caret from a newer text than this parse (the view reports before the model has
+        // caught up) means there is nothing to find yet, not a crash.
+        guard caret >= 0, caret <= text.units.count else { return nil }
         var start = caret
         while start > 0 {
             let unit = text.units[start - 1]

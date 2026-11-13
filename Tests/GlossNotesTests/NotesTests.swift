@@ -51,6 +51,14 @@ struct SlashCommandTests {
         return SlashTrigger.detect(in: MarkdownParser.standard.parse(text), caret: caret)
     }
 
+    @Test("a caret past the end of the text finds nothing instead of trapping")
+    func caretBeyondTheText() {
+        let doc = MarkdownParser.standard.parse("ab")
+        #expect(SlashTrigger.detect(in: doc, caret: 3) == nil)
+        #expect(SlashTrigger.detect(in: doc, caret: 500) == nil)
+        #expect(SlashTrigger.detect(in: MarkdownParser.standard.parse(""), caret: 1) == nil)
+    }
+
     @Test("triggers start at a line start or after a space and stay out of code")
     func detection() {
         #expect(trigger("/pa|")?.query == "pa")

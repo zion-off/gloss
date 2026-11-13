@@ -36,6 +36,25 @@ struct NotesEditorModelTests {
         #expect(model.saveState == .saved)
     }
 
+    @Test("a selection reported while a longer page loads never meets the old page's parse")
+    func selectionDuringLoad() async throws {
+        let lib = TestLibrary()
+        let (_, root) = try await lib.book()
+        let long = try await lib.services.pages.createSubpage(under: root.id, title: "long")
+        try await lib.services.pages.updateBody(long.id, to: String(repeating: "word ", count: 40))
+        let model = editor(lib)
+        try await model.load(root)
+        let longPage = try await lib.services.pages.page(long.id)!
+        let loading = Task { try await model.load(longPage) }
+        // The editor hears the new text as soon as the model has it, before `load` finishes
+        // (SwiftUI renders in between) and AppKit reports the caret — here, the end of it.
+        var yields = 0
+        while model.text != longPage.body, yields < 1000 { await Task.yield(); yields += 1 }
+        model.selectionDidChange(longPage.body.utf16.count..<longPage.body.utf16.count)
+        try await loading.value
+        #expect(model.document.text.units.count == longPage.body.utf16.count)
+    }
+
     @Test("typing restyles, reveals syntax at the cursor and autosaves")
     func typing() async throws {
         let lib = TestLibrary()
