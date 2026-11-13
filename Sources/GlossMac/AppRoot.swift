@@ -6,6 +6,7 @@ import GlossPDF
 import GlossReaderBridge
 import GlossReaderEPUB
 import GlossReaderKit
+import GlossReaderPDF
 import GlossStore
 
 /// Why the app couldn't start.
@@ -46,6 +47,7 @@ struct CompositionFailure: Error {
         self.appearance = appearance
         self.engines = ReadingEngineRegistry([
             EPUBReadingEngine(readerDirectory: readerDirectory, library: services.library) { appearance.current },
+            PDFReadingEngine(library: services.library) { appearance.current },
         ])
     }
 

@@ -90,6 +90,27 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
   out sideways (rotation isn't applied); check, and use `PDFPage.rotation` if so.
 - `scripts/run-mac.sh` — builds `build/gloss.app` (ad hoc signed) and opens it; `--no-open`, `--release`.
 
+### `Sources/GlossReaderPDF/` (milestone 11)
+
+- `PDFReaderSession.swift` — one object is session, driver and overlay provider (no bridge).
+  - Open a PDF from the sidebar: it renders, the position saves, reopening returns to the page.
+  - Select text: the selection popover (highlight colours, add to notes) anchors to the first line.
+  - Highlights fill in their colours, markers underline; clicking either opens its popover; clicks
+    outside them select text normally (the overlay's `hitTest` returns nil there).
+  - ⌘K over a book selection + a notes selection links them; the marker appears on the PDF page.
+  - The flash outline on a passage jump appears and fades after 1.5 s.
+  - Links inside the PDF open in the browser, never in the reader.
+  - `.PDFViewPageChanged` / `.PDFViewSelectionChanged` — the Swift spelling of the two notification
+    names is the importer's; the docs JSON only has the ObjC extern. If they don't compile, the fix
+    is the spelling on this line.
+  - The overlay view's coordinate mapping (page-space rects via `pdfView.convert(_:from:)` inside
+    `draw(_:)`, and `hitTest`/`mouseDown` converting view → page) is the standard pattern but
+    unverifiable here; verify markers land on the right text at different zoom levels.
+  - `PDFOutline` (`outlineRoot`, `child(at:)`, `destination.page`) for the TOC is not in the verified
+    notes; the PDF TOC may come out empty — fine for now, the sidebar TOC is milestone 12.
+- `PDFReadingEngine.swift` — registration only; PDFs now open with an engine (the "can't show this
+  kind" placeholder should be gone).
+
 ### `Sources/GlossMac/WindowCommands.swift` (milestone 11)
 
 - The Go menu: back/forward (⌘[/⌘]), acting on the notes pane when the editor has focus, else the
