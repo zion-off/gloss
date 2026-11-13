@@ -146,15 +146,9 @@ public struct MainWindow: View {
     /// it. The reader's session lives in `readerHost`, so showing the library (or another layout)
     /// and coming back keeps the book where it was.
     @ViewBuilder private var book: some View {
-        Group {
-            switch app.workspace.layout {
-            case .readerOnly: readerCard
-            case .notesOnly: notesPane
-            case .split: ReaderNotesSplit { readerCard } notes: { notesPane }
-            }
-        }
-        // One big sheet of paper: the book is laid on it, inset, and the notes are written on it.
-        .background(Color(nsColor: .textBackgroundColor))
+        ReaderNotesLayout(layout: app.workspace.layout) { readerCard } notes: { notesPane }
+            // One big sheet of paper: the book is laid on it, inset, and the notes are written on it.
+            .background(Color(nsColor: .textBackgroundColor))
     }
 
     private var readerCard: some View {
@@ -414,13 +408,19 @@ extension View {
 /// The reader card on the left, the notes on the right, with a grab area between them that you
 /// can drag. A plain SwiftUI layout rather than an inspector or `HSplitView`: both cut the window's
 /// toolbar in two, and both draw a divider where the sheet should be seamless.
-private struct ReaderNotesSplit<Reader: View, Notes: View>: View {
+///
+/// One stack for all three layouts, so changing layout animates: the reader card keeps its place
+/// between "reader and notes" and "reader only" (no reload, no flash) while the notes slide and
+/// fade in or out.
+private struct ReaderNotesLayout<Reader: View, Notes: View>: View {
+    let layout: SplitLayout
     @AppStorage("notes.width") private var storedWidth = 380.0
     @State private var dragStart: Double?
     private let reader: Reader
     private let notes: Notes
 
-    init(@ViewBuilder reader: () -> Reader, @ViewBuilder notes: () -> Notes) {
+    init(layout: SplitLayout, @ViewBuilder reader: () -> Reader, @ViewBuilder notes: () -> Notes) {
+        self.layout = layout
         self.reader = reader()
         self.notes = notes()
     }
@@ -433,15 +433,24 @@ private struct ReaderNotesSplit<Reader: View, Notes: View>: View {
             let widest = max(Self.minNotes, proxy.size.width - Self.minReader)
             let width = min(max(storedWidth, Self.minNotes), widest)
             HStack(spacing: 0) {
-                reader
-                divider(current: width, widest: widest)
-                notes.frame(width: width)
+                if layout.showsReader {
+                    reader.transition(.opacity)
+                }
+                if layout == .split {
+                    grabArea(current: width, widest: widest)
+                }
+                if layout.showsNotes {
+                    notes
+                        .frame(width: layout == .split ? width : nil)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
             }
+            .animation(.smooth(duration: 0.28), value: layout)
         }
     }
 
-    private func divider(current: Double, widest: Double) -> some View {
-        // No line: the sheet is one surface. Only the pointer tells you the gap can be dragged.
+    /// No line: the sheet is one surface. Only the pointer tells you the gap can be dragged.
+    private func grabArea(current: Double, widest: Double) -> some View {
         Color.clear
             .frame(width: 9)
             .contentShape(Rectangle())
