@@ -660,3 +660,7 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   as a key equivalent whatever has focus. Back (toolbar, ⌘[, Go menu) already checks the search
   before the book's history and before "back to the library" (D-159), so the book returns as it
   was: same layout, reader session (kept in `readerHost`) and notes page.
+- **D-163 The library's sort menu is one level.** A `Picker` inside a `Menu` renders as a submenu
+  on macOS ("sort by" › options); `.pickerStyle(.inline)` (macOS 11) lists the orders directly in
+  the menu with a checkmark on the current one, under a small "sort by" header. No other Menu in
+  the app nests a picker.

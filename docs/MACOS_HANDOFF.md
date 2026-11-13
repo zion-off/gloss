@@ -330,6 +330,9 @@ gloss link "<epub title>" --text "a second thought" --quote "<a phrase that appe
   there too; check the import completes and the grid updates when you go back to it. Import 8
   books at once: the ring fills in 8 steps, VoiceOver reads "importing, 3 of 8" on it and "added 8
   items to your library" at the end; a duplicate or broken file still gets the alert.
+- **Sort menu is flat (D-163), unverified:** the toolbar's sort button opens one menu listing
+  recent, title, author, date added directly (maybe under a small "sort by" header), the current
+  one checked; choosing one re-sorts the grid, the checkmark follows, and it survives a relaunch.
 - Two windows: import from one; the other's grid follows at once (windows in one process hear
   each other's writes, review 7 — trashing, restores, details edits and opens included).
 ### `Sources/GlossUI/SearchPane.swift` + `MainWindow.swift` (milestone 12)

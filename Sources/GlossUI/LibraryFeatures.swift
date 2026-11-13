@@ -150,6 +150,9 @@ struct LibrarySortMenu: View {
                     Text(verbatim: librarySortTitles[sort] ?? sort.rawValue).tag(sort)
                 }
             }
+            // Flat in the menu, the current order checked (Photos' and Books' sort menus): a
+            // picker in a menu is otherwise a submenu, one level deeper for nothing (D-163).
+            .pickerStyle(.inline)
         } label: {
             Label("sort", systemImage: "arrow.up.arrow.down")
         }
