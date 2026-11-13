@@ -10,10 +10,12 @@ extension AppModel {
     /// in the portable model.
     public func registerTrashUndo(_ entry: TrashEntry, undoManager: UndoManager?) {
         guard let undoManager else { return }
-        undoManager.setActionName("move to trash")
         undoManager.registerUndo(withTarget: self) { [entry] app in
             Task { await app.undoTrash(entry) }
         }
+        // Named after registering: setActionName attaches to the most recent registration, so
+        // the earlier order renamed the previous action and left this one a bare "Undo" (review 7).
+        undoManager.setActionName("move to trash")
     }
 
     /// Moves a page to the trash and registers ⌘Z. For menus and commands.
