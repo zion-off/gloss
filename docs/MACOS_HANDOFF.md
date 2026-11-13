@@ -17,11 +17,15 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
 
 1. **EPUB opens from the database in the web view.** Written in milestone 9: import a book with
    `gloss import`, run `scripts/run-mac.sh`, pick it in the sidebar.
-   - **Book scripts never run.** Import an EPUB whose chapter has an inline `<script>`, an
-     `onload="…"` attribute and an external `<script src>` that each `fetch` a `gloss-reader://app/book/…`
-     URL and post a message: nothing may execute. Then disable the glue's sanitizer (`guardScripts` in
-     `web/src/glue.ts`) and check again: the page CSP alone must still stop them (WebKit inheriting the
-     policy into `blob:` documents is the unverified assumption; docs/READER_BRIDGE.md "Book scripts").
+   - **Book scripts never run.** Import an EPUB whose chapters cover every vector: an inline
+     `<script>` and an `onload="…"` attribute, an external `<script src>`, a `<template>` holding
+     both, an SVG with a script and a `<set attributeName="onbegin">`, and — the vectors review 4
+     added — one chapter whose media type is `application/xml` (and an `<iframe src>` pointing at
+     another `application/xml` item) containing an XHTML-namespace script; each `fetch`es a
+     `gloss-reader://app/book/…` URL and posts a message: nothing may execute. Then disable the
+     glue's sanitizer (`guardScripts` in `web/src/glue.ts`) and check again: the page CSP alone must
+     still stop them (WebKit inheriting the policy into `blob:` documents is the unverified
+     assumption; docs/READER_BRIDGE.md "Book scripts").
    - **Switching books in place:** open book A, then B from the library, then A again quickly; the reader
      always ends on the last one asked for, and A's position is never saved onto B.
 2. **Passage links resolve in both directions** (notes → book and book marker → note). _(not written yet)_

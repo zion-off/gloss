@@ -80,6 +80,55 @@ test('HTML documents are cleaned too', () => {
 })
 
 test('only markup types are cleaned', () => {
-    for (const type of ['application/xhtml+xml', 'text/html', 'image/svg+xml']) assert.equal(isMarkupType(type), true)
-    for (const type of ['text/css', 'image/png', 'application/javascript', undefined, 3]) assert.equal(isMarkupType(type), false)
+    for (const type of ['application/xhtml+xml', 'text/html', 'image/svg+xml', 'application/xml',
+        'text/xml', 'application/rss+xml', 'application/atom+xml', 'text/xsl']) {
+        assert.equal(isMarkupType(type), true, type)
+    }
+    for (const type of ['text/css', 'image/png', 'image/jpeg', 'font/woff2', 'audio/mp3',
+        'application/epub+zip', 'application/javascript', 'text/plain', undefined, 3] as const) {
+        assert.equal(isMarkupType(type), false, String(type))
+    }
+})
+
+test('xml-stylesheet instructions go; xsl types are cleaned', () => {
+    const result = clean('<?xml-stylesheet href="evil.xsl"?><root><set attributeName="onbegin" to="x"/></root>',
+        'application/xml')
+    assert.doesNotMatch(result.markup, /xml-stylesheet|onbegin/i)
+    assert.equal(isMarkupType('text/xsl'), true)
+})
+
+test('generic XML types are documents too: scripts and handlers go', () => {
+    // An `application/xml` spine item or iframe target is parsed like XHTML (review 4).
+    for (const type of ['application/xml', 'text/xml', 'application/rss+xml']) {
+        const result = clean(
+            '<root xmlns:h="http://www.w3.org/1999/xhtml">'
+            + '<h:img src="blob:x" onload="alert(1)"/>'
+            + "<h:script>fetch('gloss-reader://app/book/1')</h:script>"
+            + '<plain note="stays"/></root>', type)
+        assert.equal(result.removed, 2, type)
+        assert.doesNotMatch(result.markup, /script|onload/i, type)
+        assert.match(result.markup, /plain/, type)
+        // XML in, XML out: the round trip is well-formed.
+        const doc = parser.parseFromString(result.markup, 'application/xml')
+        assert.equal(doc.getElementsByTagName('parsererror').length, 0, type)
+    }
+})
+
+test('template content is cleaned, nested included', () => {
+    // `querySelectorAll('*')` never descends into template content (review 4).
+    const result = clean(xhtml(
+        '<template><img src="x" onerror="alert(1)"><script>fetch(1)</script>'
+        + '<template><a href="javascript:x()">t</a></template></template>'))
+    assert.equal(result.removed, 3)
+    assert.doesNotMatch(result.markup, /onerror|script|javascript/i)
+})
+
+test('SMIL that writes event handlers goes; ordinary animations stay', () => {
+    const result = clean(xhtml(
+        '<svg xmlns="http://www.w3.org/2000/svg">'
+        + '<set attributeName="onbegin" to="alert(1)"/>'
+        + '<set attributeName="xlink:href" to="javascript:x()"/>'
+        + '<animate attributeName="opacity" from="0" to="1"/></svg>'))
+    assert.equal(result.removed, 2)
+    assert.match(result.markup, /<animate attributeName="opacity"/)
 })

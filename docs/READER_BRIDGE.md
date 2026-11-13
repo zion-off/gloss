@@ -96,9 +96,11 @@ never run (they could `fetch` other books from the scheme handler). Three layers
 1. The page CSP (`ReaderPagePolicy`), which `blob:` documents should inherit (CSP3). Unverified in
    WebKit: `docs/MACOS_HANDOFF.md`.
 2. The glue vetoes every script resource foliate's loader asks about (`transformTarget` `load` event).
-3. The glue strips script from every XHTML, HTML and SVG document before it becomes a blob
-   (`bridge/sanitize.ts`, `transformTarget` `data` event): `<script>`, `on*` attributes, `javascript:`
-   URLs, `srcdoc`, `<base>`, meta refreshes and SVG animations that rewrite links.
+3. The glue strips script from every document-ish resource before it becomes a blob
+   (`bridge/sanitize.ts`, `transformTarget` `data` event) — anything with a media type containing
+   `xml`, `html` or `xsl` (review 4: generic XML is parsed by the same machinery as XHTML): `<script>`,
+   `on*` attributes, `javascript:` URLs, `srcdoc`, `<base>`, meta refreshes, `xml-stylesheet`
+   instructions, SVG animations that rewrite links or event handlers, and template content.
 
 EPUB 3 `<object>`/`<embed>` content stays blocked (`object-src` falls back to `default-src 'none'`):
 embedded objects are rare in books and plugins are the wrong thing to let a book start.

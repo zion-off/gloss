@@ -587,6 +587,89 @@ nonisolated func navigationSubtitle(_ subtitleKey: LocalizedStringResource) -> s
 
 ---
 
+# Milestone 10 additions — the TextKit 2 editor (verified 2026-11-13, same method)
+
+### Text view and delegate
+```swift
+weak var delegate: (any NSTextViewDelegate)? { get set }                  // NSTextView
+@MainActor optional func textDidChange(_ notification: Notification)      // NSTextDelegate, 10.10+
+@MainActor optional func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool
+@MainActor optional func textViewDidChangeSelection(_ notification: Notification)
+@MainActor optional func textView(_ textView: NSTextView, clickedOnLink link: Any, at charIndex: Int) -> Bool
+var typingAttributes: [NSAttributedString.Key : Any] { get set }        // resets on selection change
+var allowsUndo: Bool { get set }
+var isRichText: Bool { get set }
+var usesFindBar: Bool { get set }                                         // 10.7+
+var isAutomaticQuoteSubstitutionEnabled: Bool { get set }                 // 10.5+
+var isAutomaticDashSubstitutionEnabled: Bool { get set }                  // 10.6+
+var isAutomaticTextReplacementEnabled: Bool { get set }                   // 10.6+
+var textContainerInset: NSSize { get set }
+func replaceCharacters(in range: NSRange, with string: String)           // NSText; NO undo unless shouldChangeText wraps it
+func shouldChangeText(in affectedCharRange: NSRange, replacementString: String?) -> Bool   // call super first when overridden
+func didChangeText()
+func firstRect(forCharacterRange range: NSRange, actualRange: NSRangePointer?) -> NSRect   // screen coordinates
+```
+- `NSTextView.insertText(_:)` (10.0) is deprecated 10.11; typed input goes through
+  `NSTextInputClient.insertText(_:replacementRange:)`, which is not for programmatic edits — use
+  the text storage (`replaceCharacters` inside `shouldChangeText`/`didChangeText`).
+- **UNVERIFIED:** whether `NSTextView.scrollableTextView()` (10.14+) creates a TextKit 2 view — its
+  doc page has no discussion. Build the view with `NSTextView(usingTextLayoutManager: true)` instead.
+
+### Text storage and layout
+```swift
+func setAttributes(_ attrs: [NSAttributedString.Key : Any]?, range: NSRange)   // NSMutableAttributedString
+func addAttributes(_ attrs: [NSAttributedString.Key : Any] = [:], range: NSRange)
+func beginEditing() / func endEditing()          // layout fix-up happens at endEditing
+weak var delegate: (any NSTextLayoutManagerDelegate)? { get set }             // NSTextLayoutManager, 12.0+
+func invalidateLayout(for range: NSTextRange)                                   // 12.0+
+func ensureLayout(for range: NSTextRange) / func ensureLayout(for bounds: CGRect)
+func textLayoutFragment(for location: any NSTextLocation) -> NSTextLayoutFragment?
+func textLayoutFragment(for position: CGPoint) -> NSTextLayoutFragment?
+var documentRange: NSTextRange { get }         // NSTextElementProvider (NSTextContentStorage implements it)
+func offset(from: any NSTextLocation, to: any NSTextLocation) -> Int            // NSTextContentStorage, non-optional
+func location(_ location: any NSTextLocation, offsetBy offset: Int) -> (any NSTextLocation)?
+init?(location: any NSTextLocation, end endLocation: (any NSTextLocation)?)    // NSTextRange, failable
+weak var textElement: NSTextElement? { get }     // NSTextLayoutFragment
+var rangeInElement: NSTextRange { get }
+var elementRange: NSTextRange? { get set }      // NSTextElement
+var attributedString: NSAttributedString { get } // NSTextParagraph
+var state: NSTextLayoutFragment.State { get }    // .none, .estimatedUsageBounds, .calculatedUsageBounds, .layoutAvailable
+func convert(_ rect: NSRect, from view: NSView?) -> NSRect   // nil view = window base coordinates
+func convertFromScreen(_ rect: NSRect) -> NSRect             // NSWindow, 10.7+
+```
+
+### Fonts, colours, attributes
+```swift
+class func preferredFont(forTextStyle style: NSFont.TextStyle, options: [NSFont.TextStyleOptionKey : Any] = [:]) -> NSFont   // 11.0+
+static let body: NSFont.TextStyle / .title1 / .title2 / .title3 / .headline                  // struct, 11.0+
+class func monospacedSystemFont(ofSize fontSize: CGFloat, weight: NSFont.Weight) -> NSFont    // 10.15+
+class func systemFont(ofSize fontSize: CGFloat, weight: NSFont.Weight) -> NSFont              // 10.11+
+func withSymbolicTraits(_ symbolicTraits: NSFontDescriptor.SymbolicTraits) -> NSFontDescriptor   // NON-optional
+init?(descriptor fontDescriptor: NSFontDescriptor, size fontSize: CGFloat)                    // failable
+class var labelColor: NSColor { get } / secondaryLabelColor / tertiaryLabelColor / linkColor // 10.10+
+class var controlAccentColor: NSColor { get }                                                // 10.14+
+static var single: NSUnderlineStyle { get } / static var patternDot: NSUnderlineStyle { get } // OptionSet, rawValue Int
+var headIndent: CGFloat { get set } / firstLineHeadIndent / paragraphSpacingBefore           // NSMutableParagraphStyle
+static let foregroundColor / font / strikethroughStyle / underlineStyle / paragraphStyle / link: NSAttributedString.Key
+```
+- `NSUnderlineStyle` combines pattern and style with union (`[.single, .patternDot]`).
+- Attribute values on macOS: `.font` → `NSFont`, `.foregroundColor` → `NSColor`, underline/strikethrough
+  styles → `NSNumber` wrapping `NSUnderlineStyle`, `.link` → `NSURL` (or `NSString`).
+
+### Commands and focus
+```swift
+@attached(accessor) @attached(peer, names: prefixed(__Key_)) macro Entry()   // FocusedValues: 10.15+ for @Entry, 11.0+ for FocusedValues
+nonisolated func focusedSceneValue<T>(_ keyPath: WritableKeyPath<FocusedValues, T?>, _ value: T) -> some View  // 12.0+
+nonisolated func focusedSceneValue<T>(_ keyPath: WritableKeyPath<FocusedValues, T?>, _ value: T?) -> some View // 13.0+
+static let textFormatting: CommandGroupPlacement                                // exists on macOS, 11.0+
+nonisolated init(after group: CommandGroupPlacement, @ContentBuilder addition: () -> Content)
+func performKeyEquivalent(with event: NSEvent) -> Bool                          // NSResponder, default false
+func keyDown(with event: NSEvent)                                               // NSResponder
+```
+- `@Entry` FocusedValues must be Optional (the default is always nil).
+
+---
+
 ## Verified vs UNVERIFIED
 
 - **61 documented entries total; 57 fully verified** from the Apple docs JSON (exact Swift
