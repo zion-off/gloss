@@ -105,11 +105,12 @@ struct IndependentPanesTests {
         let lib = TestLibrary()
         let (app, a, aRoot, b, _, target) = try await twoBooks(lib)
         await app.follow(.passage(target.id))  // reader: B, notes: A
-        let hit = SearchModel.Selection.bookText(a.id, locator: Locator(scheme: FakeFormat.scheme, value: "hit"), matchText: "whale")
+        // A hit in the book the reader already left for — the case that used to drag the notes.
+        let hit = SearchModel.Selection.bookText(b.id, locator: Locator(scheme: FakeFormat.scheme, value: "hit"), matchText: "whale")
         await app.reveal(hit)
-        #expect(app.workspace.document?.id == a.id)
+        #expect(app.workspace.document?.id == b.id)
         #expect(app.workspace.page?.id == aRoot.id)  // the notes stay on A's page
-        _ = b
+        _ = a
     }
 
     @Test("a jump from outside the panes brings the other pane along")
