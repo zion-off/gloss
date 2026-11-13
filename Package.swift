@@ -33,6 +33,7 @@ let package = Package(
             .product(name: "Crypto", package: "swift-crypto"),
         ]),
         .target(name: "GlossPDF", dependencies: ["GlossCore", "GlossArchive"]),
+        .target(name: "GlossReaderPDFSupport", dependencies: ["GlossCore", "GlossPDF", "GlossReaderBridge"]),
         .target(name: "GlossAppModel", dependencies: ["GlossCore", "GlossNotes", "GlossReaderBridge"]),
         .target(name: "GlossTerminal"),
         .target(name: "GlossMemoryStore", dependencies: ["GlossCore"]),
@@ -65,6 +66,7 @@ let package = Package(
         .testTarget(name: "GlossCLITests", dependencies: ["GlossCLI", "GlossTestSupport", "GlossEPUB"]),
         .testTarget(name: "GlossArchiveTests", dependencies: ["GlossArchive", "GlossTestSupport"]),
         .testTarget(name: "GlossPDFTests", dependencies: ["GlossPDF", "GlossTestSupport", "GlossArchive"]),
+        .testTarget(name: "GlossReaderPDFSupportTests", dependencies: ["GlossReaderPDFSupport", "GlossTestSupport"]),
         .testTarget(name: "GlossCoreTests", dependencies: ["GlossCore", "GlossMemoryStore", "GlossTestSupport"]),
         .testTarget(name: "GlossStoreTests", dependencies: [
             "GlossStore", "GlossTestSupport",

@@ -47,11 +47,22 @@ public struct ReaderAnnotations: Hashable, Sendable {
         public var id: HighlightID
         public var locator: Locator
         public var color: HighlightColor
+
+        public init(id: HighlightID, locator: Locator, color: HighlightColor) {
+            self.id = id
+            self.locator = locator
+            self.color = color
+        }
     }
 
     public struct LinkMark: Hashable, Sendable {
         public var id: LinkTargetID
         public var locator: Locator
+
+        public init(id: LinkTargetID, locator: Locator) {
+            self.id = id
+            self.locator = locator
+        }
     }
 
     public var highlights: [HighlightMark]

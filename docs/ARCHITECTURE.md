@@ -48,6 +48,7 @@ clients that wire concrete implementations at their composition roots:
 | `GlossExport` | all | GlossCore, GlossMarkdown | exporters (markdown, html) |
 | `GlossNotes` | all | GlossCore, GlossMarkdown | notes-editor behaviour: styling roles, format commands, slash menu, subpage blocks, link gestures |
 | `GlossReaderBridge` | all | GlossCore, GlossEPUB, swift-crypto | the engine-neutral reader boundary (`ReaderDriving`, `ReaderEngineEvent`, `ReaderAnnotations`), the foliate bridge (messages, `EPUBBridgeDriver`), appearance → CSS, progress text, `gloss-reader://` routing and the reader page CSP |
+| `GlossReaderPDFSupport` | all | GlossCore, GlossPDF, GlossReaderBridge | the PDF engine's logic that needs no PDFKit: go-to targets, page positions and progress text, annotations per page and hit-testing, selection → passage |
 | `GlossAppModel` | all | GlossCore, GlossNotes, GlossReaderBridge | app view state (Observation): library, workspace, navigation, search, trash, import, `ReaderController`, `LinkingCoordinator`, `NotesEditorModel` |
 | `GlossTerminal` | all | — | terminal styling: colors, tables, trees, progress |
 | `GlossCLI` | all | ArgumentParser + the Linux modules above | CLI commands and output |
