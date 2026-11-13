@@ -27,12 +27,16 @@ for bundle in "$bin"/*.bundle; do
   [ -e "$bundle" ] && cp -R "$bundle" "$app/Contents/Resources/"
 done
 
+# The app icon (scripts/app-icon: the .icns plus its svg sources).
+cp scripts/app-icon/gloss.icns "$app/Contents/Resources/gloss.icns"
+
 cat > "$app/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key><string>gloss</string>
+    <key>CFBundleIconFile</key><string>gloss</string>
     <key>CFBundleIdentifier</key><string>dev.gloss.app</string>
     <key>CFBundleName</key><string>gloss</string>
     <key>CFBundleDisplayName</key><string>gloss</string>

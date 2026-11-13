@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>gloss icon concept: 12-highlighter-retro-small</title>
+  <!-- macOS icon grid: 824x824 continuous-corner tile (r 185.4) centred on a 1024 canvas, transparent surround. -->
+  <defs>
+    <path id="tile-shape" d="M383.41,100.00 L640.59,100.00 C722.19,100.00 763.00,100.00 806.92,113.89 C854.88,131.34 892.66,169.12 910.11,217.08 C924.00,261.00 924.00,301.81 924.00,383.41 L924.00,640.59 C924.00,722.19 924.00,763.00 910.11,806.92 C892.66,854.88 854.88,892.66 806.92,910.11 C763.00,924.00 722.19,924.00 640.59,924.00 L383.41,924.00 C301.81,924.00 261.00,924.00 217.08,910.11 C169.12,892.66 131.34,854.88 113.89,806.92 C100.00,763.00 100.00,722.19 100.00,640.59 L100.00,383.41 C100.00,301.81 100.00,261.00 113.89,217.08 C131.34,169.12 169.12,131.34 217.08,113.89 C261.00,100.00 301.81,100.00 383.41,100.00 Z"/>
+    <clipPath id="tile-clip"><use href="#tile-shape"/></clipPath>
+    <filter id="tile-shadow" x="-10%" y="-10%" width="120%" height="125%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2"/><feOffset dy="2" result="contact"/>
+      <feComponentTransfer in="contact" result="contactA"><feFuncA type="linear" slope="0.18"/></feComponentTransfer>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="12"/><feOffset dy="12" result="drop"/>
+      <feComponentTransfer in="drop" result="dropA"><feFuncA type="linear" slope="0.30"/></feComponentTransfer>
+      <feMerge><feMergeNode in="dropA"/><feMergeNode in="contactA"/></feMerge>
+    </filter>
+    <linearGradient id="tile-rim" x1="0" y1="100" x2="0" y2="924" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.35"/>
+      <stop offset="0.35" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="0.85" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.18"/>
+    </linearGradient>
+    <linearGradient id="bg" x1="0" y1="100" x2="0" y2="924" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2A6DC0"/>
+      <stop offset="1" stop-color="#0D3F7E"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="420" cy="260" r="560" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8CC2FF" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#8CC2FF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="paper" x1="0" y1="196" x2="0" y2="828" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F7F4EC"/>
+      <stop offset="1" stop-color="#EAE5D7"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="-64" x2="0" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFF3A6"/>
+      <stop offset="0.3" stop-color="#F7D842"/>
+      <stop offset="0.75" stop-color="#E5C126"/>
+      <stop offset="1" stop-color="#B39012"/>
+    </linearGradient>
+    <linearGradient id="collar" x1="0" y1="-40" x2="0" y2="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F04050"/>
+      <stop offset="0.45" stop-color="#D40920"/>
+      <stop offset="1" stop-color="#8E0514"/>
+    </linearGradient>
+    <linearGradient id="felt" x1="0" y1="-30" x2="0" y2="30" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FBE46E"/>
+      <stop offset="1" stop-color="#D6B421"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="18"/><feOffset dy="20" result="o"/>
+      <feFlood flood-color="#04193A" flood-opacity=".55"/><feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="penShadow" x="-30%" y="-60%" width="160%" height="220%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="14"/><feOffset dx="-14" dy="22" result="o"/>
+      <feFlood flood-color="#04193A" flood-opacity=".6"/><feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <use href="#tile-shape" fill="#000" filter="url(#tile-shadow)"/>
+  <g clip-path="url(#tile-clip)">
+
+    <rect x="0" y="0" width="1024" height="1024" fill="url(#bg)"/>
+    <rect x="0" y="0" width="1024" height="1024" fill="url(#glow)"/>
+    <g transform="rotate(-7 512 512)">
+      <rect x="232" y="196" width="560" height="632" rx="30" fill="url(#paper)" filter="url(#cardShadow)"/>
+      <g stroke="#111111" stroke-width="46" stroke-linecap="round" opacity=".34">
+        <path d="M304,296 H720"/>
+        <path d="M304,576 H690"/>
+        <path d="M304,694 H540"/>
+      </g>
+      <!-- the highlight swash, chisel-cut ends -->
+      <path d="M282,384 C400,380 540,378 656,376 L642,494 C520,496 400,498 270,500 Z" fill="#F7D842" opacity=".92"/>
+      <path d="M304,438 H630" stroke="#111111" stroke-width="46" stroke-linecap="round" opacity=".3"/>
+      <!-- link mark: the passage is glossed -->
+      <circle cx="298" cy="386" r="34" fill="#D40920" stroke="#F7F4EC" stroke-width="10"/>
+      <!-- highlighter -->
+      <g transform="translate(652 438) rotate(52)" filter="url(#penShadow)">
+        <path d="M-6,-14 L46,-32 L46,32 L-6,16 Z" fill="url(#felt)"/>
+        <rect x="42" y="-42" width="52" height="84" rx="10" fill="url(#collar)"/>
+        <rect x="88" y="-66" width="700" height="132" rx="36" fill="url(#body)"/>
+        <rect x="104" y="-50" width="680" height="14" rx="7" fill="#fff" opacity=".55"/>
+        <rect x="214" y="-66" width="18" height="132" fill="#C9A414" opacity=".55"/>
+      </g>
+    </g>
+    <use href="#tile-shape" fill="none" stroke="url(#tile-rim)" stroke-width="5"/>
+  </g>
+</svg>
