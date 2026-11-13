@@ -215,6 +215,11 @@ struct AppModelTrashTests {
     }
 }
 
+// Serialized: every test here drives the Settings window's model, whose saves post
+// `glossSettingsChanged` to every AppModel in the process (by design — the app has one
+// Settings window). Concurrent tests would hear each other's posts land on their own
+// books, so the exact-order assertions below need this suite to itself.
+@Suite(.serialized)
 @MainActor
 struct AppSettingsModelTests {
     @Test("settings load with defaults, persist every change in the library, and announce it")
@@ -330,6 +335,43 @@ struct AppSettingsModelTests {
         #expect(driver.appliedAppearances.last?.colors.background == "#1c1c1e")
         #expect(app.trash.items.first?.expiresAt == nil)  // "kept until you empty the trash"
         #expect(app.trash.items.first?.expiresAt == nil)  // "kept until you empty the trash"
+    }
+
+    @Test("two saves apply in the order they were saved")
+    func savesApplyInOrder() async throws {
+        let clock = ManualTimeSource()
+        let base = InMemoryLibraryStore(origin: "test", time: clock)
+        let flaky = FlakyLibraryStore(base)
+        let blobs = InMemoryBlobStore()
+        let services = GlossServices(store: flaky, blobs: blobs, formats: FormatRegistry([FakeFormat()]),
+                                     ids: SequentialIDGenerator(), time: clock)
+        let outcome = try await services.imports.importData(FakeFormat.file(title: "The Fall"), filename: "a.fake")
+        let app = AppModel(services: services)
+        let driver = FakeDriver()
+        app.reader.attach(driver)
+        await app.reader.openShowing(outcome.document, on: driver)
+
+        let settings = AppSettingsModel(services: services, sleep: { _ in })
+        await settings.load()
+        var night = ReaderSettings(); night.theme = .night
+        var light = ReaderSettings(); light.theme = .light
+        flaky.parkNextRead = true  // the first reaction's trash reload parks mid-read
+        settings.reader = night
+        await settings.flushSave()
+        settings.reader = light
+        await settings.flushSave()
+        while flaky.parkedReads < 1 { await Task.yield() }  // the first reaction is parked
+        // Give an unchained second reaction every chance to run past the parked first one:
+        // if it can, it applies its (newer) settings while the older reaction still waits.
+        for _ in 0..<200 { await Task.yield() }
+        flaky.releaseParkedRead()
+        await app.flushSettingsChanges()
+        // Chained, the saves land in order: night first, light last. Unchained, the newer
+        // reaction finishes while the older is parked and the stale night theme lands last.
+        let styler = AppearanceStyler()
+        #expect(driver.appliedAppearances.map(\.colors.background)
+                == [styler.appearance(for: night).colors.background,
+                    styler.appearance(for: light).colors.background])
     }
 }
 
