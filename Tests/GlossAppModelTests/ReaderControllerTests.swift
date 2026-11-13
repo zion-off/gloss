@@ -306,7 +306,10 @@ struct ReaderControllerTests {
         await controller.refreshAnnotations()
         #expect(driver.calls.count == 1)  // only the open
         await controller.handle(.opened(toc: [], openID: driver.lastOpenID))
-        #expect(driver.calls.last == .go(passage, flash: true))
+        #expect(driver.calls.contains(.go(passage, flash: true)))
+        // The queued search reveal lands after the queued go (D-139): both were asked for
+        // while the book opened, both arrive once it has.
+        #expect(driver.calls.last == .reveal(passage, "t"))
     }
 
     @Test("attaching the engine that is already attached changes nothing")

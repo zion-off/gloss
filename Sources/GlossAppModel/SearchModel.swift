@@ -23,6 +23,11 @@ import GlossCore
         public var hit: SearchHit
         public var section: String
 
+        public init(hit: SearchHit, section: String) {
+            self.hit = hit
+            self.section = section
+        }
+
         public var selection: Selection {
             switch hit.destination {
             case .page(let page, let document, let match): return .page(page, document, match: match)
@@ -102,5 +107,17 @@ import GlossCore
         searchTask?.cancel()
         results = []
         isSearching = false
+    }
+
+    /// Whether the field holds a query worth showing results for.
+    public var hasQuery: Bool {
+        !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// A result was chosen (or the user gave up): clear the field, the results and any search
+    /// still in flight, so the detail column returns to where the hit goes.
+    public func dismiss() {
+        query = ""  // the didSet clears the results
+        cancel()
     }
 }

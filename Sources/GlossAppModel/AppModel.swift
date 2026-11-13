@@ -234,6 +234,42 @@ import GlossNotes
         }
         return outcome
     }
+
+    /// Where a quick-switcher choice goes (brief 30).
+    public func open(_ item: QuickSwitcherModel.Item) async {
+        switch item.kind {
+        case .document:
+            try? await workspace.openDocument(item.documentID)
+            workspace.layout = workspace.layout.showsReader ? workspace.layout : .split
+        case .page:
+            guard let pageID = item.pageID else { return }
+            // A switcher pick is a jump from outside the panes: the page's book comes along (D-102).
+            try? await workspace.openPage(pageID, bringingBook: true)
+            workspace.layout = workspace.layout.showsNotes ? workspace.layout : .split
+        }
+    }
+
+    /// Where a chosen search hit goes (brief 31): the page with the match revealed, the passage
+    /// in the book, or the book itself.
+    public func reveal(_ selection: SearchModel.Selection) async {
+        switch selection {
+        case .page(let pageID, _, let match):
+            try? await workspace.openPage(pageID, revealing: match)
+        case .bookText(let documentID, let locator, let matchText):
+            if reader.document?.id == documentID {
+                workspace.layout = workspace.layout.showsReader ? workspace.layout : .split
+                await reader.reveal(searchHit: locator, text: matchText)
+            } else {
+                // Another book (or none): open it at the hit's locator and flash it — the
+                // precise find-near-locator reveal only applies to the book already showing.
+                try? await workspace.openDocument(documentID, locator: locator)
+                workspace.layout = workspace.layout.showsReader ? workspace.layout : .split
+            }
+        case .document(let documentID):
+            try? await workspace.openDocument(documentID)
+            workspace.layout = workspace.layout.showsReader ? workspace.layout : .split
+        }
+    }
 }
 
 /// A feed that never reports changes (when the store has no journal).

@@ -326,6 +326,10 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
 - **D-138 The quick switcher debounces typing and owns its keyboard selection.** The sheet is
   presentation only; `QuickSwitcherModel` gained the debounced query, the selected row and
   `settle()`, Linux-tested like `SearchModel`.
+- **D-139 A search reveal waits for the book like a passage jump.** `ReaderController.reveal`
+  queues while the open book isn't showing and lands after `.opened` (the existing
+  pendingFocus pattern), so choosing a hit right after opening a book is never dropped.
+
 - **D-110 The library's covers are one Apple Books-style grid** (`LibraryGrid`, replacing the
   placeholder list): `LazyVGrid` of adaptive columns, each cell a cover with the kind badge
   (bottom-trailing, the format's own word via `FormatRegistry.badge`), a thin progress bar only

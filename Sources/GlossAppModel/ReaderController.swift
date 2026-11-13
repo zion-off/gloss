@@ -91,6 +91,9 @@ import GlossReaderBridge
     private weak var driver: (any ReaderDriving)?
     private var pendingOpen: (document: Document, locator: Locator?)?
     private var pendingFocus: Locator?
+    /// A search hit to reveal once the open book is on screen — for the book it was asked in,
+    /// so opening another book in between drops it instead of mislanding.
+    private var pendingSearchReveal: (documentID: DocumentID, locator: Locator?, text: String)?
     private var positionTask: Task<Void, Never>?
     /// Bumped by every `open`/`close` call, so one that was overtaken while it waited stops.
     private var openRequests = 0
@@ -125,6 +128,7 @@ import GlossReaderBridge
         errorMessage = nil
         pendingOpen = nil
         pendingFocus = nil
+        pendingSearchReveal = nil
         stopShowingBook()
         toc = []
         location = nil
@@ -182,6 +186,13 @@ import GlossReaderBridge
                 pendingFocus = nil
                 await go(to: focus, flash: true)
             }
+            if let search = pendingSearchReveal {
+                pendingSearchReveal = nil
+                // Only for the book that opened; a reveal asked in an earlier book is stale.
+                if search.documentID == document?.id {
+                    await reveal(searchHit: search.locator, text: search.text)
+                }
+            }
         case .openFailed(let message, let openID):
             // Only the open in flight counts; a failure of an open a newer one replaced
             // must not cancel it (review 4).
@@ -237,7 +248,13 @@ import GlossReaderBridge
     }
 
     public func reveal(searchHit locator: Locator?, text: String) async {
-        guard isShowingBook else { return }
+        guard let document else { return }
+        guard isShowingBook else {
+            // The book is still opening: land on the hit once it shows (like `go(to:flash:)`).
+            pendingSearchReveal = (document.id, locator, text)
+            return
+        }
+        pendingSearchReveal = nil
         do { try await driver?.reveal(searchHit: locator, text: text) } catch { errorMessage = Self.describe(error) }
     }
 
