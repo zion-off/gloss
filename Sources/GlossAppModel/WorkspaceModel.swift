@@ -88,8 +88,10 @@ public struct ReaderFocus: Hashable, Sendable {
         pendingNoteReveal = nil
     }
 
-    /// Opens a notes page; its book follows when it lives in another document.
+    /// Opens a notes page; its book follows when it lives in another document. A reveal meant
+    /// for the page shown before is dropped (only `openPage(_:revealing:)` sets one).
     public func openPage(_ id: PageID) async throws {
+        pendingNoteReveal = nil
         guard let page = try await services.pages.page(id), page.trash == nil else {
             throw GlossError.notFound("that page")
         }

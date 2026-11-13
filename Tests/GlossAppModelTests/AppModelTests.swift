@@ -37,6 +37,18 @@ struct WorkspaceModelTests {
         #expect(workspace.document?.id == b.id)
     }
 
+    @Test("a note reveal is dropped when another page opens before the editor took it")
+    func staleNoteReveal() async throws {
+        let lib = TestLibrary()
+        let (_, root) = try await lib.book()
+        let other = try await lib.services.pages.createSubpage(under: root.id, title: "other")
+        let workspace = WorkspaceModel(services: lib.services, persistLayoutSetting: false)
+        try await workspace.openPage(root.id, revealing: 3..<9)
+        #expect(workspace.pendingNoteReveal == 3..<9)
+        try await workspace.openPage(other.id)
+        #expect(workspace.pendingNoteReveal == nil)
+    }
+
     @Test("opening a page from another book brings the book along")
     func openPageAcrossBooks() async throws {
         let lib = TestLibrary()
