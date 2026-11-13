@@ -323,6 +323,14 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   highlights); its notes outline is the notes pane's book, headed with that book's title when the two
   differ. Before this, every navigation dragged the other pane along, so the two always showed one
   book.
+- **D-132 Every URL from outside goes through one portable door, `AppModel.open(url:)`.** The
+  classifier (`IncomingURLClassifier`: gloss link / registered file / other) and the routing are
+  testable on Linux, and pane-independent navigation (brief 15) can switch the one call inside.
+  Failures land in one copy helper (`UnopenableLinkCopy`), ready for main's `RouteOutcome.problem`.
+- **D-135 Finder double-clicks are imports, duplicates open the existing copy.** A file URL
+  arriving through `onOpenURL` is classified by the registered formats' extensions and goes
+  through the one import entry point, `LibraryModel.importFiles`; `lastDuplicates` records what
+  was already in the library so the existing copy is still opened.
 - **D-138 The quick switcher debounces typing and owns its keyboard selection.** The sheet is
   presentation only; `QuickSwitcherModel` gained the debounced query, the selected row and
   `settle()`, Linux-tested like `SearchModel`.

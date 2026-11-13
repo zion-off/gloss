@@ -30,6 +30,9 @@ public enum LibrarySettings {
     public private(set) var lastImport: ImportSummary?
     /// Documents added by the most recent import (for the "just added" reveal).
     public private(set) var lastImportedIDs: [DocumentID] = []
+    /// Documents the most recent import found already in the library, in arrival order —
+    /// a duplicate still has a destination (open the existing copy).
+    public var lastDuplicates: [Document] { lastImport?.duplicates ?? [] }
 
     private let services: GlossServices
     private let shelves: [LibraryShelf]

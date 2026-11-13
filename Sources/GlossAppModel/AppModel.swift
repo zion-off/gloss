@@ -24,6 +24,8 @@ import GlossNotes
     public var linking: LinkingCoordinator { LinkingCoordinator(services: services, reader: reader) }
     public var changeMonitor: ExternalChangeMonitor?
 
+    /// Why the last URL from outside couldn't be opened; the window shows it in a small alert.
+    public private(set) var externalURLMessage: String?
     public init(services: GlossServices) {
         self.services = services
         self.workspace = WorkspaceModel(services: services)
@@ -233,6 +235,44 @@ import GlossNotes
             break
         }
         return outcome
+    }
+
+    // MARK: The one doors for choices made outside a pane
+
+    /// The one door every URL from outside goes through (brief 16: other apps, `gloss open`,
+    /// Finder double-clicks). Classifies, routes, and — when it can't open something — leaves
+    /// the reason in `externalURLMessage` for the window's alert.
+    @discardableResult
+    public func open(url: URL) async -> ExternalOpenOutcome {
+        let outcome = await handle(url: url)
+        externalURLMessage = UnopenableLinkCopy.message(for: outcome)
+        return outcome
+    }
+
+    /// The alert's dismiss.
+    public func dismissExternalURLMessage() {
+        externalURLMessage = nil
+    }
+
+    private func handle(url: URL) async -> ExternalOpenOutcome {
+        switch IncomingURLClassifier.classify(url, supportedExtensions: services.formats.supportedExtensions) {
+        case .gloss(let link):
+            switch await open(link) {
+            case .routed(let route): return .routed(route)
+            case .inTrash(let title): return .inTrash(title)
+            case .missing: return .missing
+            }
+        case .supportedFile(let file):
+            let imported = await library.importFiles(at: [file])
+            // A duplicate is not a failure: the existing copy is the destination.
+            guard let document = imported.first ?? library.lastDuplicates.first else {
+                return .refused("couldn't add \(file.lastPathComponent) — is it a book gloss can read?")
+            }
+            try? await workspace.openDocument(document.id)
+            return .opened(document)
+        case .other(let url):
+            return .refused("gloss can't do anything with \(url.lastPathComponent)")
+        }
     }
 
     /// Where a quick-switcher choice goes (brief 30).
