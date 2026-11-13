@@ -325,6 +325,11 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
   `restored “x” and 2 more` when a cascade pulled its containers back too. The sidebar badge
   follows every trash, restore, purge and empty — also from the cli: run `gloss trash empty`
   in a terminal while the window is open.
+- A restore that brought nothing back (the entry purged meanwhile) shows the problem capsule —
+  `couldn't put it back — it may have gone for good` — in preference to the "restored" note,
+  in the same material capsule and with the same 12pt bottom gap as it. Purging the entry or
+  emptying the trash clears it. Check both capsules: padding, light, dark, Increase Contrast
+  and Reduce Transparency.
 - "delete for good…" (context menu) and "empty trash" (toolbar) confirm first, Apple-style and
   lowercase; the empty one names how many things go.
 - The undo toast: right-click a notes page that isn't the book's main page, or the book row in

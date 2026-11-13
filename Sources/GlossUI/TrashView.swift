@@ -32,13 +32,15 @@ struct TrashView: View {
         }
         .overlay(alignment: .bottom) {
             if let problem = trash.restoreProblem {
-                // A restore that brought nothing back says so (review 7).
+                // A restore that brought nothing back says so (review 7), and goes when the
+                // situation is over (review 8) — floating like its sibling below.
                 Text(verbatim: problem)
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+                    .padding(.bottom, 12)
             } else if let message = trash.lastRestoredMessage {
                 Text(verbatim: message)
                     .font(.callout)
