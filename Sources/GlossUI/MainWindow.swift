@@ -45,8 +45,14 @@ public struct MainWindow: View {
         _backup = State(initialValue: BackupCommands(services: services))
     }
 
+    @State private var columnVisibility = NavigationSplitViewVisibility.all
+
+    private var showsBook: Bool {
+        if case .book = app.workspace.detail { true } else { false }
+    }
+
     public var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             SourceList(app: app)
                 .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 360)
         } detail: {
@@ -55,6 +61,12 @@ public struct MainWindow: View {
                 // a plain background view never asks for it, so it stayed in the field.
                 .contentShape(Rectangle())
                 .simultaneousGesture(TapGesture().onEnded { NSApp.keyWindow?.makeFirstResponder(nil) })
+        }
+        // A book gets the whole window: the sidebar steps aside when one opens and returns for the
+        // library and the trash, where it is the way around. Opening it by hand inside a book sticks
+        // until the next change of place.
+        .onChange(of: showsBook, initial: true) { _, isBook in
+            withAnimation { columnVisibility = isBook ? .detailOnly : .all }
         }
         .navigationTitle(title)
         .hidingSystemTitle()
