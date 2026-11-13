@@ -127,8 +127,8 @@ struct SlashCommandTests {
 struct FormatBarTests {
     @Test("items are in the specified order with Apple Notes' shortcuts")
     func items() {
-        #expect(FormatBar.items.map(\.id) == ["bold", "italic", "heading", "list", "quote", "code", "link"])
-        #expect(FormatBar.items.map(\.shortcutLabel) == ["⌘B", "⌘I", "⇧⌘H", "⇧⌘7", "⌘'", "⇧⌘M", "⇧⌘K"])
+        #expect(FormatBar.items.map(\.id) == ["bold", "italic", "list", "quote", "code", "link"])
+        #expect(FormatBar.items.map(\.shortcutLabel) == ["⌘B", "⌘I", "⇧⌘7", "⌘'", "⇧⌘M", "⇧⌘K"])
     }
 
     @Test("no format shortcut takes a system, standard-menu or gloss-reserved shortcut")
@@ -141,17 +141,7 @@ struct FormatBarTests {
     @Test("active items reflect the selection")
     func active() {
         let doc = MarkdownParser.standard.parse("## **bold** words")
-        #expect(FormatBar.activeItems(in: doc, selection: 5..<7) == ["bold", "heading"])
-    }
-
-    @Test("the heading button cycles 1, 2, 3, off")
-    func cycle() {
-        var text = "title"
-        for expected in ["# title", "## title", "### title", "title"] {
-            let doc = MarkdownParser.standard.parse(text)
-            text = CycleHeading().edit(doc, selection: 0..<0)!.apply(to: text)
-            #expect(text == expected)
-        }
+        #expect(FormatBar.activeItems(in: doc, selection: 5..<7) == ["bold"])
     }
 }
 
