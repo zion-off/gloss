@@ -12,10 +12,13 @@ import type {
     OverlayerDrawFunction,
 } from 'foliate/overlayer.js'
 import type {
+    Book,
     Content,
+    LoadResourceDetail,
     RelocateDetail,
     Renderer,
     ResolvedTarget,
+    ResourceDataDetail,
     View,
 } from 'foliate/view.js'
 import * as protocol from './bridge/protocol.ts'
@@ -25,6 +28,7 @@ import * as progress from './bridge/progress.ts'
 import * as appearance from './bridge/appearance.ts'
 import * as toc from './bridge/toc.ts'
 import * as search from './bridge/search.ts'
+import * as sanitize from './bridge/sanitize.ts'
 
 const view = document.querySelector('foliate-view') as View | null
 if (!view) throw new Error('gloss: <foliate-view> element is missing')
@@ -277,6 +281,29 @@ const closeBook = (): void => {
     }
 }
 
+// Defence in depth for the page CSP (see bridge/sanitize.ts): skip script resources and
+// strip script from every document before foliate turns it into a blob: URL.
+const guardScripts = (book: Book): void => {
+    const target = book.transformTarget
+    if (!target) return
+    target.addEventListener('load', e => {
+        const detail = eventDetail<LoadResourceDetail>(e)
+        if (detail.isScript) detail.allow = false
+    })
+    target.addEventListener('data', e => {
+        const detail = eventDetail<ResourceDataDetail>(e)
+        const type = detail.type
+        if (!sanitize.isMarkupType(type)) return
+        detail.data = Promise.resolve(detail.data).then(async (data: unknown) => {
+            const markup = typeof data === 'string' ? data
+                : data instanceof Blob ? await data.text()
+                : null
+            if (markup === null) throw new Error(`unexpected ${type} data for ${detail.name}`)
+            return sanitize.sanitizeMarkup(markup, type, new DOMParser(), new XMLSerializer()).markup
+        })
+    })
+}
+
 // -- command handlers ---------------------------------------------------------
 
 const requireRenderer = (): Renderer => {
@@ -295,6 +322,7 @@ const commands: { [K in protocol.CommandType]: (payload: protocol.CommandPayload
         const blob = await res.blob()
         const file = new File([blob], 'book.epub', { type: 'application/epub+zip' })
         const book = await makeBook(file)
+        guardScripts(book)
         needsClose = true
         await view.open(book)
         opened = true

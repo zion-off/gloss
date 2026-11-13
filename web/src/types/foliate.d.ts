@@ -44,7 +44,21 @@ declare module 'foliate/view.js' {
         size: number
         cfi?: string
     }
+    /** the `load` event detail of `book.transformTarget`: set `allow` to false to skip a resource */
+    export interface LoadResourceDetail {
+        type: string
+        isScript: boolean
+        allow: boolean | Promise<boolean>
+    }
+    /** the `data` event detail of `book.transformTarget`: replace `data` to transform a resource */
+    export interface ResourceDataDetail {
+        readonly name: string
+        type: string
+        data: unknown
+    }
     export interface Book {
+        /** EPUB only: fires `load` and `data` events while resources load */
+        transformTarget?: EventTarget
         toc?: FoliateTocItem[]
         sections: BookSection[]
         dir?: string

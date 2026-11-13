@@ -88,6 +88,21 @@ Events carry no book identity, so opens are numbered (review 3):
   listeners (the debounced selection) check the generation they were created in. So every event after
   `opened` belongs to the new book.
 
+## Book scripts
+
+Book sections become `blob:` documents in foliate's `allow-scripts` iframes, so scripts in a book must
+never run (they could `fetch` other books from the scheme handler). Three layers:
+
+1. The page CSP (`ReaderPagePolicy`), which `blob:` documents should inherit (CSP3). Unverified in
+   WebKit: `docs/MACOS_HANDOFF.md`.
+2. The glue vetoes every script resource foliate's loader asks about (`transformTarget` `load` event).
+3. The glue strips script from every XHTML, HTML and SVG document before it becomes a blob
+   (`bridge/sanitize.ts`, `transformTarget` `data` event): `<script>`, `on*` attributes, `javascript:`
+   URLs, `srcdoc`, `<base>`, meta refreshes and SVG animations that rewrite links.
+
+EPUB 3 `<object>`/`<embed>` content stays blocked (`object-src` falls back to `default-src 'none'`):
+embedded objects are rare in books and plugins are the wrong thing to let a book start.
+
 ## Behaviour notes
 
 - Keyboard: ←/→, PageUp/PageDown and Space turn pages inside the web view (respecting `direction`).

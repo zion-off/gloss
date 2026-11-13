@@ -16,6 +16,11 @@ scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (d
 ## Verify first (riskiest parts)
 
 1. **EPUB opens from the database in the web view.** _(not written yet)_
+   - **Book scripts never run.** Import an EPUB whose chapter has an inline `<script>`, an
+     `onload="…"` attribute and an external `<script src>` that each `fetch` a `gloss-reader://app/book/…`
+     URL and post a message: nothing may execute. Then disable the glue's sanitizer (`guardScripts` in
+     `web/src/glue.ts`) and check again: the page CSP alone must still stop them (WebKit inheriting the
+     policy into `blob:` documents is the unverified assumption; docs/READER_BRIDGE.md "Book scripts").
    - **Switching books in place:** open book A, then B from the library, then A again quickly; the reader
      always ends on the last one asked for, and A's position is never saved onto B.
 2. **Passage links resolve in both directions** (notes → book and book marker → note). _(not written yet)_

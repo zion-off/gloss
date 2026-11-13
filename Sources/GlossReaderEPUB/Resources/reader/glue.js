@@ -15,6 +15,7 @@ import * as progress from './bridge/progress.js';
 import * as appearance from './bridge/appearance.js';
 import * as toc from './bridge/toc.js';
 import * as search from './bridge/search.js';
+import * as sanitize from './bridge/sanitize.js';
 const view = document.querySelector('foliate-view');
 if (!view)
     throw new Error('gloss: <foliate-view> element is missing');
@@ -237,6 +238,32 @@ const closeBook = () => {
         }
     }
 };
+// Defence in depth for the page CSP (see bridge/sanitize.ts): skip script resources and
+// strip script from every document before foliate turns it into a blob: URL.
+const guardScripts = (book) => {
+    const target = book.transformTarget;
+    if (!target)
+        return;
+    target.addEventListener('load', e => {
+        const detail = eventDetail(e);
+        if (detail.isScript)
+            detail.allow = false;
+    });
+    target.addEventListener('data', e => {
+        const detail = eventDetail(e);
+        const type = detail.type;
+        if (!sanitize.isMarkupType(type))
+            return;
+        detail.data = Promise.resolve(detail.data).then(async (data) => {
+            const markup = typeof data === 'string' ? data
+                : data instanceof Blob ? await data.text()
+                    : null;
+            if (markup === null)
+                throw new Error(`unexpected ${type} data for ${detail.name}`);
+            return sanitize.sanitizeMarkup(markup, type, new DOMParser(), new XMLSerializer()).markup;
+        });
+    });
+};
 // -- command handlers ---------------------------------------------------------
 const requireRenderer = () => {
     // after `close`, foliate leaves `renderer` pointing at the destroyed element
@@ -254,6 +281,7 @@ const commands = {
         const blob = await res.blob();
         const file = new File([blob], 'book.epub', { type: 'application/epub+zip' });
         const book = await makeBook(file);
+        guardScripts(book);
         needsClose = true;
         await view.open(book);
         opened = true;
