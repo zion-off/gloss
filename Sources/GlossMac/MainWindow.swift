@@ -52,12 +52,20 @@ struct MainWindow: View {
                 app.workspace.consumeNoteReveal()
             }
         }
-        .alert("couldn't save this page", isPresented: Binding(get: { unsavedFailure != nil },
-                                                                set: { if !$0 { unsavedFailure = nil } })) {
-            Button("keep editing") { Task { await keepEditing() } }
+        .alert("this page has unsaved changes", isPresented: Binding(get: { unsavedFailure != nil },
+                                                                        set: { if !$0 { unsavedFailure = nil } })) {
+            // Cancel role so Escape means "keep editing" too: the natural way out of a
+            // refuse-to-switch alert (review 5).
+            Button("keep editing", role: .cancel) { Task { await keepEditing() } }
             Button("discard and switch", role: .destructive) { Task { await switchDiscarding() } }
         } message: {
-            Text(verbatim: unsavedFailure ?? "")
+            Text(verbatim: "the last save failed (\(unsavedFailure ?? "something went wrong")). switching pages would drop what you typed.")
+        }
+        .onDisappear {
+            // The window is going away: nothing will fire the debounced save or the position
+            // write anymore. Flush both so up to half a second of typing isn't lost (review 5).
+            Task { await app.notes.flushSave() }
+            Task { await app.reader.flushPosition() }
         }
     }
 
