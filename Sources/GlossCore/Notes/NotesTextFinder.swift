@@ -36,7 +36,10 @@ public enum NotesTextFinder {
 
     static func match(at range: Range<Int>, in document: MarkdownDocument) -> NotesTextMatch? {
         let text = document.text
-        guard WrapInLink.canWrap(document, selection: range),
+        // Offsets must not split a surrogate pair (an emoji): the edit would destroy it.
+        func splits(_ offset: Int) -> Bool { offset < text.length && UTF16.isTrailSurrogate(text.units[offset]) }
+        guard range.lowerBound >= 0, range.upperBound <= text.length, !splits(range.lowerBound), !splits(range.upperBound),
+              WrapInLink.canWrap(document, selection: range),
               !text[range].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
         // canWrap also accepts any selection inside a link's label (it re-points that link).
         let link = document.allInlines.first {

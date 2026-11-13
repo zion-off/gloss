@@ -112,9 +112,10 @@ public struct BookText: Sendable {
                 let end = FoldedText(through, whitespace: .collapsed, ignoringCase: query.ignoringCase).units
                 guard !start.isEmpty, !end.isEmpty else { return [] }
                 // Both lists are sorted and the first acceptable end only moves forward: one pass.
-                let ends = folded.occurrences(of: end)
+                // Each end is whole words on its own ("end" is not in "legend").
+                let ends = folded.occurrences(of: end).filter { folded.isWholeWords($0..<($0 + end.count)) }
                 var next = 0
-                return folded.occurrences(of: start).compactMap { s in
+                return folded.occurrences(of: start).filter { folded.isWholeWords($0..<($0 + start.count)) }.compactMap { s in
                     let earliest = max(s, s + start.count - end.count)
                     while next < ends.count, ends[next] < earliest { next += 1 }
                     return next < ends.count ? s..<(ends[next] + end.count) : nil

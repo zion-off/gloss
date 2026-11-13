@@ -140,6 +140,12 @@ struct PassageFinderTests {
         let long = try text.candidates(for: BookTextQuery(.span(from: "Call me", through: "the whale.")))
         #expect(long.first?.passage.quote == "Call me Ishmael. Some years ago, never mind how long, the whale.")
         #expect(try text.candidates(for: BookTextQuery(.span(from: "Chapter 3", through: "Ishmael"))).isEmpty)
+        // Each end is whole words on its own: "end" is not inside "legend", "the" not in "theory".
+        let legend = BookText(documentID: DocumentID(GlossID(high: 1, low: 1)), chunks: [
+            TextChunk(locator: Locator(scheme: FakeFormat.scheme, value: "section-0"), label: nil, text: "the legend of theory and the end"),
+        ], locating: FakeFormat())
+        #expect(try legend.candidates(for: BookTextQuery(.span(from: "the", through: "end"))).map(\.passage.quote)
+                == ["the legend of theory and the end", "the end"])
     }
 
     @Test("refs and offsets address exact text, and say when they point nowhere")
@@ -193,6 +199,9 @@ struct NotesTextFinderTests {
         #expect(NotesTextFinder.match(at: 0..<3, in: "the whale")?.text == "the")
         #expect(NotesTextFinder.match(at: 2..<12, in: "a\nb c d e f") == nil)
         #expect(NotesTextFinder.match(at: 0..<99, in: "short") == nil)
+        // An offset inside an emoji's surrogate pair is refused, never spliced.
+        #expect(NotesTextFinder.match(at: 1..<6, in: "😀 the whale") == nil)
+        #expect(NotesTextFinder.match(at: 3..<6, in: "😀 the whale")?.text == "the")
     }
 }
 
