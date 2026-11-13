@@ -49,6 +49,9 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
         observers.append(NotificationCenter.default.addObserver(forName: .PDFViewSelectionChanged, object: pdfView, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.selectionChanged() }
         })
+        // PDFKit has no page to load, so the session can take commands at once. The controller
+        // holds every `open` back until it hears this (the EPUB page says it from script).
+        inbox.post(.ready)
     }
 
     func invalidate() async {

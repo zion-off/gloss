@@ -6,6 +6,11 @@ import GlossReaderBridge
 /// One engine's live reader: the view it draws in and the commands it takes. The EPUB engine
 /// keeps one session for every EPUB (books switch in place, D-080); the pane makes a new session
 /// only when the kind of document changes.
+///
+/// Every session must post `.ready` once it can take commands: `ReaderController` holds back
+/// `open` until it hears it, and `attach` forgets an earlier one. The EPUB session's `ready`
+/// comes from the page; an engine with nothing to load posts it as soon as it is built. Without
+/// it a book never opens and the pane stays blank.
 @MainActor
 public protocol ReaderSession: AnyObject {
     var view: NSView { get }
