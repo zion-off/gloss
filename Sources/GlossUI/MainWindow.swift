@@ -71,6 +71,7 @@ public struct MainWindow: View {
             }
         }
         .navigationTitle(title)
+        .background(HideWindowTitle())
         .toolbar { toolbar }
         .glossSearch(model: app.search)
         .libraryFeatures(app: app)  // the drop zone, ⇧⌘A, the import alert, the details sheet, the sort menu
@@ -159,14 +160,22 @@ public struct MainWindow: View {
                     .help("forward (⌘])")
             }
         }
-        ToolbarItem {
-            Picker("layout", selection: Binding(get: { commands.layout }, set: { commands.layout = $0 })) {
-                Label("reader and notes", systemImage: "rectangle.split.2x1").tag(SplitLayout.split)
-                Label("reader only", systemImage: "book").tag(SplitLayout.readerOnly)
-                Label("notes only", systemImage: "note.text").tag(SplitLayout.notesOnly)
+        // The title follows the chevrons (Finder, Safari): the system puts its own title first, so it
+        // is hidden (HideWindowTitle) and drawn here.
+        ToolbarItem(placement: .navigation) {
+            Text(verbatim: title).font(.headline).lineLimit(1)
+        }
+        // Only while the book is on screen: on the library or the trash there is no reader to lay out.
+        if case .book = app.workspace.detail {
+            ToolbarItem {
+                Picker("layout", selection: Binding(get: { commands.layout }, set: { commands.layout = $0 })) {
+                    Label("reader and notes", systemImage: "rectangle.split.2x1").tag(SplitLayout.split)
+                    Label("reader only", systemImage: "book").tag(SplitLayout.readerOnly)
+                    Label("notes only", systemImage: "note.text").tag(SplitLayout.notesOnly)
+                }
+                .pickerStyle(.segmented)
+                .help("layout (⌥⌘1, ⌥⌘2, ⌥⌘3)")
             }
-            .pickerStyle(.segmented)
-            .help("layout (⌥⌘1, ⌥⌘2, ⌥⌘3)")
         }
     }
 
@@ -220,10 +229,17 @@ struct NotesPane: View {
     let commands: WindowCommands
     /// Why the last link clicked in the notes went nowhere (shown in an alert).
     @State private var linkProblem: RouteProblem?
+    /// The title field: what is typed, the page it belongs to and what it started as (a commit
+    /// writes only a real change, and to the page it was typed for, not the one shown by then).
+    @State private var titleDraft = ""
+    @State private var titleOwner: PageID?
+    @State private var titleBaseline = ""
+    @FocusState private var titleFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
             breadcrumbs
+            titleField
             NotesEditor(model: app.notes, reveal: reveal,
                         onOpenGlossLink: { link in linkProblem = await app.follow(link).problem },
                         onOpenWebLink: { url in _ = NSWorkspace.shared.open(url) },
@@ -244,6 +260,14 @@ struct NotesPane: View {
                 }
         }
         .task(id: app.workspace.page?.id) { await loadPage() }
+        .onChange(of: app.notes.page?.id, initial: true) { _, _ in
+            commitTitle()  // for the page that was showing, before the field changes hands
+            resetTitle()
+            focusTitleIfNew()
+        }
+        .onChange(of: app.notes.page?.title) { _, _ in
+            if !titleFocused { resetTitle() }  // renamed elsewhere (another window, the cli)
+        }
         .alert(Text(verbatim: linkProblem?.title ?? ""),
                isPresented: Binding(get: { linkProblem != nil }, set: { if !$0 { linkProblem = nil } })) {
             Button("ok", role: .cancel) {}
@@ -257,22 +281,65 @@ struct NotesPane: View {
         return nil
     }
 
-    private var breadcrumbs: some View {
-        HStack(spacing: 4) {
-            ForEach(Array(app.notes.breadcrumbs.dropLast().enumerated()), id: \.offset) { _, page in
-                Button(page.title) { Task { try? await app.workspace.openPage(page.id) } }
+    /// The way up: the pages above this one. The page itself is the title field's job.
+    @ViewBuilder private var breadcrumbs: some View {
+        let ancestors = app.notes.breadcrumbs.dropLast()
+        if !ancestors.isEmpty {
+            HStack(spacing: 4) {
+                ForEach(Array(ancestors.enumerated()), id: \.offset) { index, page in
+                    if index > 0 { Text(verbatim: "›").foregroundStyle(.tertiary) }
+                    Button(page.title.isEmpty ? PageService.untitled : page.title) {
+                        Task { try? await app.workspace.openPage(page.id) }
+                    }
                     .buttonStyle(.link)
                     .foregroundStyle(.secondary)
+                }
                 Text(verbatim: "›").foregroundStyle(.tertiary)
             }
-            if let page = app.notes.breadcrumbs.last {
-                Text(verbatim: page.title).foregroundStyle(.secondary)
-            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(.bar)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(.bar)
+    }
+
+    /// The page's own title, above its body (brief 21). Return or leaving the field saves it.
+    private var titleField: some View {
+        TextField("untitled", text: $titleDraft)
+            .textFieldStyle(.plain)
+            .font(.title.bold())
+            .focused($titleFocused)
+            .onSubmit { commitTitle() }
+            .onChange(of: titleFocused) { _, focused in if !focused { commitTitle() } }
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 4)
+    }
+
+    private func shownTitle(_ page: Page?) -> String {
+        guard let title = page?.title, title != PageService.untitled else { return "" }
+        return title
+    }
+
+    private func resetTitle() {
+        titleOwner = app.notes.page?.id
+        titleDraft = shownTitle(app.notes.page)
+        titleBaseline = titleDraft
+    }
+
+    private func commitTitle() {
+        guard let owner = titleOwner else { return }
+        let text = titleDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text != titleBaseline else { return }
+        titleBaseline = text
+        Task { await app.notes.rename(owner, to: text) }
+    }
+
+    /// A page just made with `/page` is empty and unnamed: the next thing to type is its name.
+    private func focusTitleIfNew() {
+        guard let page = app.notes.page, page.parentID != nil, page.body.isEmpty,
+              page.title == PageService.untitled || page.title.isEmpty else { return }
+        Task { @MainActor in titleFocused = true }
     }
 
     private func loadPage() async {
@@ -282,6 +349,20 @@ struct NotesPane: View {
         } catch let NotesEditorModel.EditorError.unsavedChanges(reason) {
             unsavedFailure = reason
         } catch {}
+    }
+}
+
+/// Hides the window's visible title text (the window keeps its title for the Window menu and
+/// accessibility): the toolbar draws it after back and forward instead.
+private struct HideWindowTitle: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { TitleHidingView() }
+    func updateNSView(_ view: NSView, context: Context) {}
+
+    private final class TitleHidingView: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            window?.titleVisibility = .hidden
+        }
     }
 }
 #endif

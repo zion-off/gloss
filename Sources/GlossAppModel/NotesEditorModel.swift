@@ -124,6 +124,15 @@ import GlossNotes
         await refreshContext()
     }
 
+    /// Renames a page from the title field. An empty title shows as "untitled" everywhere. The
+    /// body in the editor is untouched (it may hold unsaved text); only the title is refreshed.
+    public func rename(_ id: PageID, to title: String) async {
+        guard let renamed = try? await services.pages.rename(id, to: title) else { return }
+        guard id == page?.id else { return }
+        page?.title = renamed.title
+        if !breadcrumbs.isEmpty { breadcrumbs[breadcrumbs.count - 1].title = renamed.title }
+    }
+
     /// Picks up a change made elsewhere (the CLI, another window). Unsaved local edits win: they
     /// are saved over it, the way a second save from another app would be. After a failed save
     /// the change is the cue to try again (the page may be back from the trash).

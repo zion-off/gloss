@@ -29,7 +29,9 @@ struct SourceList: View {
                     .badge(app.trash.items.count)
                     .tag(SidebarSelection.trash)
             }
-            if let document = app.workspace.document {
+            // The book's own sections belong to the book: on the library or the trash they
+            // would point at something the window isn't showing.
+            if case .book = app.workspace.detail, let document = app.workspace.document {
                 Section("reading") {
                     Label(document.title, systemImage: app.library.symbol(of: document.kind))
                         .lineLimit(2)
