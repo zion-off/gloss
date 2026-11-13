@@ -280,4 +280,16 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
 - **D-094 Overlay anchors cross the AppKit → SwiftUI coordinate boundary once**, in
   `OverlayGeometry` (GlossAppModel, Linux-tested): flip, clamp, above/below. The Mac layer only
   converts `NSRect` at the boundary.
+- **D-095 The layout switches with ⌥⌘1/2/3, Preview-style** ("reader and notes", "reader only",
+  "notes only" in the View menu, mirrored by a segmented toolbar control). No system or Edit-menu
+  shortcut uses them; Preview uses the same ⌥⌘-number family for its sidebar modes.
+- **D-096 The book shows a marker's notes on click, not hover.** Hovering in the web view would need
+  a continuous pointer event over the bridge; Books shows notes on tap. Hover previews live where the
+  pointer already is: on passage links in the notes. `ReaderController.hover(over:)` stays as the
+  content source, now shared with the marker-choice popover's snippets.
+- **D-097 The reader's engine session belongs to the window, not the pane**, so hiding the reader
+  (notes only) and showing it again re-hosts the same view instead of reloading the book.
+- **D-098 The reader shows one popover at a time**: a marker's notes, then a clicked highlight, then
+  the selection's commands (`ReaderController.popover`). Dismissing the selection's popover clears
+  the selection in the engine too.
 
