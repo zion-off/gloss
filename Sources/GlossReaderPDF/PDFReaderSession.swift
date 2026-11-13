@@ -49,7 +49,8 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
     }
 
     func invalidate() async {
-        NotificationCenter.default.removeObservers(observers)
+        // There is no plural removeObservers (review 6): one call per observer token.
+        for observer in observers { NotificationCenter.default.removeObserver(observer) }
         observers = []
         pdfView.delegate = nil
         pdfView.pageOverlayViewProvider = nil
@@ -70,8 +71,8 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
         pageCount = pdf.pageCount
         pdfView.document = pdf
         inbox.post(.opened(toc: Self.toc(of: pdf), openID: openID))
-        if let position, let target = try? PDFReaderTarget(position) {
-            go(to: position, flash: false)
+        if let position, (try? PDFReaderTarget(position)) != nil {
+            try await go(to: position, flash: false)
         } else if pdfView.currentPage == nil, let first = pdf.page(at: 0) {
             pdfView.go(to: first)
         }
@@ -87,7 +88,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
 
     func go(to locator: Locator, flash: Bool) async throws {
         let target = try PDFReaderTarget(locator)
-        guard let pdf, let page = pdf.page(at: min(target.pageIndex, max(pageCount - 1, 0))) else { return }
+        guard let pdf = document, let page = pdf.page(at: min(target.pageIndex, max(pageCount - 1, 0))) else { return }
         switch target {
         case .page(let index):
             if let current = pdfView.currentPage, pdf.index(for: current) != index { pdfView.go(to: page) }
@@ -115,7 +116,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
 
     func reveal(searchHit locator: Locator?, text: String) async throws {
         if let locator { try await go(to: locator, flash: true) }
-        guard let pdf, let hit = pdf.findString(text).first, let page = hit.pages.first else { return }
+        guard let pdf = document, let hit = pdf.findString(text).first, let page = hit.pages.first else { return }
         pdfView.go(to: hit)
         flashRect(on: page, rect: PDFPageRect(x: hit.bounds(for: page).minX, y: hit.bounds(for: page).minY,
                                               width: hit.bounds(for: page).width, height: hit.bounds(for: page).height))
@@ -130,7 +131,16 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
 
     // MARK: PDFPageOverlayViewProvider
 
-    func pdfView(_ view: PDFView, overlayViewFor page: PDFPage) -> NSView? {
+    /// PDFKit's protocol isn't main-actor isolated, but it asks for overlays while laying out
+    /// the view, on the main thread; `assumeIsolated` states that (and traps if it's ever wrong).
+    nonisolated func pdfView(_ view: PDFView, overlayViewFor page: PDFPage) -> NSView? {
+        // `PDFPage` isn't Sendable; it's PDFKit's own object, handed over on the main thread
+        // that the assertion below checks, so moving it to the main actor races with nothing.
+        nonisolated(unsafe) let page = page
+        return MainActor.assumeIsolated { overlay(for: page, in: view) }
+    }
+
+    private func overlay(for page: PDFPage, in view: PDFView) -> NSView? {
         guard let pdf = document else { return nil }
         let marks = annotations.marks(on: pdf.index(for: page))
         guard !marks.isEmpty else { return nil }
@@ -143,7 +153,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
     // MARK: Events
 
     private func pageChanged() {
-        guard let pdf, document != nil else { return }
+        guard let pdf = document else { return }
         let index = pdfView.currentPage.map { pdf.index(for: $0) } ?? 0
         let location = PDFReaderPositions.location(page: index, pageCount: pageCount,
                                                    pageLabel: pdf.page(at: index)?.label)
@@ -151,7 +161,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
     }
 
     private func selectionChanged() {
-        guard document != nil, let pdf else { return }
+        guard let pdf = document else { return }
         guard let selection = pdfView.currentSelection,
               let text = selection.string, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             inbox.post(.selectionCleared)
@@ -203,7 +213,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
     // MARK: Drawing help
 
     private func flashRect(target: PDFReaderTarget) {
-        guard let pdf, let page = pdf.page(at: target.pageIndex) else { return }
+        guard let pdf = document, let page = pdf.page(at: target.pageIndex) else { return }
         let rect: PDFPageRect
         if case .passage(let passage) = target, let span = passage.pages.first,
            let first = span.rects.compactMap(PDFPageRect.init).first {
@@ -239,8 +249,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
             while let child = outline.child(at: index) {
                 if let label = child.label, let destination = child.destination {
                     result.append(ReaderTocEntry(label: label,
-                                                 target: Locator(scheme: PDFLocators.pageScheme,
-                                                                 value: String(destination.page.map { pdf.index(for: $0) } ?? 0))))
+                                                 target: PDFReaderPositions.locator(page: destination.page.map { pdf.index(for: $0) } ?? 0)))
                 }
                 result.append(contentsOf: entries(child, limit: limit - 1))
                 index += 1
