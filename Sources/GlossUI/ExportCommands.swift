@@ -155,11 +155,11 @@ public struct GlossExportCommands: Commands {
     public var body: some Commands {
         CommandGroup(after: .newItem) {
             Button("export book's notes…") { actions?.exportBookNotes() }
-                .disabled(actions?.canExportBook != true)
+                .disabled(actions?.canExportBook != true || actions?.isBusy == true)
             Button("export this page…") { actions?.exportPage(includeSubpages: false) }
-                .disabled(actions?.canExportPage != true)
+                .disabled(actions?.canExportPage != true || actions?.isBusy == true)
             Button("export page and subpages…") { actions?.exportPage(includeSubpages: true) }
-                .disabled(actions?.canExportPage != true)
+                .disabled(actions?.canExportPage != true || actions?.isBusy == true)
         }
         CommandGroup(replacing: .printItem) {
             Button("print notes…") { actions?.printPage() }
