@@ -18,6 +18,8 @@ swift build                 # Linux + Mac targets
 swift test                  # Linux-testable suites (run on macOS too)
 (cd web && pnpm install --frozen-lockfile && pnpm test)
 scripts/run-mac.sh          # builds GlossMac and wraps it in build/gloss.app (dev only)
+scripts/check.sh            # works here too; it skips the stub type-check on a Mac
+                            # (the real build already type-checks the Mac targets)
 ```
 
 ## Verify first (riskiest parts)
