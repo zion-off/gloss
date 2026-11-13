@@ -305,6 +305,22 @@ case menu       // macOS 10.11+
 case hudWindow  // macOS 10.14+
 ```
 
+### `NSResponder.scrollWheel(with:)` + `NSEvent` scroll members — macOS 10.7+
+```swift
+func scrollWheel(with event: NSEvent)                 // NSResponder (appkit/nsresponder/scrollwheel(with:))
+var phase: NSEvent.Phase { get }                       // macOS 10.7+
+var momentumPhase: NSEvent.Phase { get }               // macOS 10.7+
+var hasPreciseScrollingDeltas: Bool { get }            // macOS 10.7+
+var scrollingDeltaX: CGFloat { get }                   // macOS 10.7+
+var scrollingDeltaY: CGFloat { get }                   // macOS 10.7+
+var timestamp: TimeInterval { get }
+struct Phase: OptionSet, Sendable                      // began, stationary, changed, ended, cancelled, mayBegin
+```
+- Used by `ReaderWebView` (EPUB, paginated flow) to take trackpad gestures before WebKit. Behaviour
+  assumed, not stated on these pages: a trackpad gesture is `mayBegin`/`began` → `changed`… →
+  `ended` (or `cancelled`), then momentum events with an empty `phase` and a non-empty
+  `momentumPhase`; a line-based mouse wheel has neither phase and imprecise deltas.
+
 ### `NSWindow.StyleMask.nonactivatingPanel` / `NSWindow.addChildWindow(_:ordered:)`
 ```swift
 static var nonactivatingPanel: NSWindow.StyleMask { get }

@@ -30,6 +30,7 @@ import * as toc from './bridge/toc.ts'
 import * as search from './bridge/search.ts'
 import * as sanitize from './bridge/sanitize.ts'
 import * as queue from './bridge/queue.ts'
+import * as swipe from './bridge/swipe.ts'
 
 const view = document.querySelector('foliate-view') as View | null
 if (!view) throw new Error('gloss: <foliate-view> element is missing')
@@ -234,15 +235,39 @@ view.addEventListener('load', e => {
 const turn = (forward: boolean): Promise<void> =>
     forward ? view.goRight() : view.goLeft()
 
+// Down/up mean the reading order (next/previous), whatever the book's direction.
+const turnInOrder = (forward: boolean): Promise<void> =>
+    forward ? view.next() : view.prev()
+
 const onKeyDown = (e: KeyboardEvent): void => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return
+    const paginated = !view.renderer?.scrolled
     switch (e.key) {
-        case 'ArrowRight': case 'PageDown': case ' ':
+        case 'ArrowRight':
             e.preventDefault()
             void turn(true)
             break
-        case 'ArrowLeft': case 'PageUp':
+        case 'ArrowLeft':
             e.preventDefault()
             void turn(false)
+            break
+        case 'PageDown':
+            e.preventDefault()
+            void turnInOrder(true)
+            break
+        case 'PageUp':
+            e.preventDefault()
+            void turnInOrder(false)
+            break
+        case ' ':
+            e.preventDefault()
+            void turnInOrder(!e.shiftKey)
+            break
+        case 'ArrowDown': case 'ArrowUp':
+            // scrolled flow keeps the native line scroll
+            if (!paginated) break
+            e.preventDefault()
+            void turnInOrder(e.key === 'ArrowDown')
             break
     }
 }
@@ -254,9 +279,110 @@ view.addEventListener('load', e => {
     doc.addEventListener('wheel', onWheel, { passive: false })
 })
 
-// Paginated flow has no scrollbar to move (its container is `overflow: hidden`), so a swipe or
-// wheel turns one page, like Books. A gesture is the run of events with no 200 ms gap, so the
-// trackpad's momentum tail never turns a second page. Scrolled flow scrolls natively.
+// -- trackpad and wheel -------------------------------------------------------
+
+// In paginated flow Swift takes every trackpad and wheel event before WebKit sees it
+// (`ReaderWebView.scrollWheel`) and calls `glossReader.swipe` with its phase, so the page can
+// follow the fingers and settle on lift like Books, and the momentum after a lift (never
+// forwarded) can't turn another page. Scrolled flow scrolls natively.
+
+const SNAP_MS = 300                 // foliate's snap and page-turn animation
+const SETTLE_TIMEOUT_MS = 1500      // a section load after a snap rarely takes longer
+const WHEEL_NOTCH_INTERVAL_MS = 250 // a fast wheel spin turns pages at about the animation's pace
+let swipes = swipe.makeSwipeTracker()
+let draggable = false               // decided when a gesture begins
+let settling = false                // a snap is animating or loading the next section
+let settleUntil = 0
+let lastNotch = -Infinity
+const pendingSwipes: (() => void)[] = []
+let flushScheduled = false
+
+// The page can follow the fingers: a reflowable book, paginated, past its first relocate (before
+// that foliate's `scrollBy` has no bounds to clamp to).
+const canDrag = (): boolean => {
+    const r = view.renderer
+    return typeof r?.scrollBy === 'function' && typeof r.snap === 'function'
+        && !r.scrolled && !view.isFixedLayout && view.lastLocation != null
+}
+
+// After a snap: settled once its animation is over and foliate isn't resting on a section's
+// blank edge page (it loads the neighbouring section from there). A gesture that starts before
+// then waits, so its deltas aren't overwritten by the animation or clamped to the page the snap
+// left.
+const isSettled = (): boolean => {
+    if (!settling) return true
+    const now = performance.now()
+    if (now < settleUntil) return false
+    const r = view.renderer
+    const onEdge = r?.page !== undefined && r.pages !== undefined
+        && (r.page <= 0 || r.page >= r.pages - 1)
+    if (onEdge && now <= settleUntil + SETTLE_TIMEOUT_MS) return false
+    settling = false
+    return true
+}
+
+const flushSwipes = (): void => {
+    flushScheduled = false
+    while (pendingSwipes.length > 0 && isSettled()) pendingSwipes.shift()?.()
+    if (pendingSwipes.length > 0) {
+        flushScheduled = true
+        requestAnimationFrame(flushSwipes)
+    }
+}
+
+const applySwipe = (action: swipe.SwipeAction): void => {
+    const r = view.renderer
+    switch (action.kind) {
+        case 'drag':
+            r?.scrollBy?.(action.delta, action.delta)
+            break
+        case 'settle':
+            r?.snap?.(action.velocity, action.velocity)
+            settling = true
+            settleUntil = performance.now() + (r?.hasAttribute('animated') ? SNAP_MS : 0)
+            break
+        case 'turn':
+            void (action.axis === 'x' ? turn(action.forward) : turnInOrder(action.forward))
+            break
+    }
+}
+
+const handleSwipe = (phase: swipe.SwipePhase | 'wheel', dx: number, dy: number, time: number): void => {
+    if (!opened) return
+    if (phase === 'wheel') {
+        // a mouse wheel: each notch turns a page, at most one per interval
+        if (time - lastNotch < WHEEL_NOTCH_INTERVAL_MS || (dx === 0 && dy === 0)) return
+        lastNotch = time
+        void (Math.abs(dx) > Math.abs(dy) ? turn(dx > 0) : turnInOrder(dy > 0))
+        return
+    }
+    if (phase === 'begin') draggable = canDrag()
+    try {
+        for (const action of swipes.feed(phase, dx, dy, time, draggable)) applySwipe(action)
+    } catch (error) {
+        console.warn('gloss: swipe failed', error)
+    }
+}
+
+const SWIPE_PHASES: readonly unknown[] = ['begin', 'change', 'end', 'cancel', 'wheel']
+
+const receiveSwipe = (phase: unknown, dx: unknown, dy: unknown, time: unknown): void => {
+    if (!SWIPE_PHASES.includes(phase) || typeof dx !== 'number' || typeof dy !== 'number'
+        || typeof time !== 'number') return
+    pendingSwipes.push(() => handleSwipe(phase as swipe.SwipePhase | 'wheel', dx, dy, time))
+    if (!flushScheduled) flushSwipes()
+}
+
+const resetSwipes = (): void => {
+    swipes = swipe.makeSwipeTracker()
+    pendingSwipes.length = 0
+    settling = false
+}
+
+// Wheel events reach the page in scrolled flow (native scrolling; ignored here) and when Swift's
+// idea of the flow differs from the renderer's (a fixed-layout book ignores the flow setting).
+// There a gesture is the run of events with no 200 ms gap and turns one page, so a trackpad's
+// momentum tail never turns a second one.
 const WHEEL_TURN_DISTANCE = 40
 const WHEEL_GESTURE_GAP_MS = 200
 let wheelDistance = 0
@@ -272,15 +398,24 @@ const onWheel = (e: WheelEvent): void => {
     }
     wheelLastStamp = e.timeStamp
     if (wheelTurned) return
-    wheelDistance += Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY
+    const horizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY)
+    wheelDistance += horizontal ? e.deltaX : e.deltaY
     if (Math.abs(wheelDistance) >= WHEEL_TURN_DISTANCE) {
         wheelTurned = true
-        void turn(wheelDistance > 0)
+        void (horizontal ? turn(wheelDistance > 0) : turnInOrder(wheelDistance > 0))
     }
 }
 document.addEventListener('wheel', onWheel, { passive: false })
 
 // -- appearance -------------------------------------------------------------
+
+// Page turns and snaps slide (foliate's `animated` attribute, 300 ms ease-out), unless the user
+// asked for reduced motion: then they cut, like Books.
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
+const applyMotion = (): void => {
+    view.renderer?.toggleAttribute('animated', !reducedMotion.matches)
+}
+reducedMotion.addEventListener('change', applyMotion)
 
 const applyAppearance = (payload: protocol.Appearance): void => {
     colors = payload.colors
@@ -288,6 +423,7 @@ const applyAppearance = (payload: protocol.Appearance): void => {
         if (op.op === 'attr') view.renderer?.setAttribute(op.name, op.value)
         else view.renderer?.setStyles?.(op.css)
     }
+    applyMotion()
 }
 
 // -- book lifecycle ------------------------------------------------------------
@@ -300,6 +436,7 @@ const closeBook = (): void => {
     opened = false
     drawn = []
     hadSelection = false
+    resetSwipes()
     if (needsClose) {
         needsClose = false
         try {
@@ -504,6 +641,9 @@ window.glossReader = {
                 error, type, type === 'open' ? (payload as protocol.OpenPayload).openID : null))
         return null
     },
+    // Called by Swift via evaluateJavaScript for every trackpad or wheel event of a paginated
+    // book, in order and off the command queue (a drag can't wait behind a search).
+    swipe: receiveSwipe,
 }
 
 postEvent('ready', {})

@@ -29,7 +29,7 @@ final class EPUBReaderSession: NSObject, ReaderSession, WKNavigationDelegate {
         let messages = ScriptMessageProxy()
         let contentController = configuration.userContentController
         contentController.add(messages, contentWorld: .page, name: Self.messageHandlerName)
-        let webView = WKWebView(frame: .zero, configuration: configuration)
+        let webView = ReaderWebView(frame: .zero, configuration: configuration)
 
         self.webView = webView
         self.messages = messages
@@ -47,6 +47,7 @@ final class EPUBReaderSession: NSObject, ReaderSession, WKNavigationDelegate {
         messages.session = self
         webView.navigationDelegate = self
         webView.allowsBackForwardNavigationGestures = false
+        webView.forwardsScrolling = { [weak self] in self?.bridge.appearance.flow == .paginated }
         if let background = Self.color(appearance.colors.background) {
             webView.underPageBackgroundColor = background
         }
@@ -100,6 +101,45 @@ final class EPUBReaderSession: NSObject, ReaderSession, WKNavigationDelegate {
     static func color(_ css: String) -> NSColor? {
         guard let color = CSSColor(hex: css) else { return nil }
         return NSColor(srgbRed: CGFloat(color.red), green: CGFloat(color.green), blue: CGFloat(color.blue), alpha: CGFloat(color.alpha))
+    }
+}
+
+/// The reader's web view. In paginated flow the page has nothing to scroll, so trackpad and wheel
+/// events become the glue's (`glossReader.swipe`) before WebKit sees them: a trackpad gesture with
+/// its phase, so the page follows the fingers and settles on lift like Books, a mouse wheel notch
+/// as `wheel`. The momentum after a lift is swallowed: it would turn another page. Scrolled flow,
+/// and precise events without a phase, keep WebKit's own scrolling.
+@MainActor
+final class ReaderWebView: WKWebView {
+    var forwardsScrolling: @MainActor () -> Bool = { false }
+
+    override func scrollWheel(with event: NSEvent) {
+        guard forwardsScrolling() else {
+            super.scrollWheel(with: event)
+            return
+        }
+        if !event.momentumPhase.isEmpty { return }
+        let phase: String
+        if !event.hasPreciseScrollingDeltas {
+            phase = "wheel"
+        } else if event.phase.contains(.began) || event.phase.contains(.mayBegin) {
+            phase = "begin"
+        } else if event.phase.contains(.changed) {
+            phase = "change"
+        } else if event.phase.contains(.ended) {
+            phase = "end"
+        } else if event.phase.contains(.cancelled) {
+            phase = "cancel"
+        } else if event.phase.isEmpty {
+            super.scrollWheel(with: event)
+            return
+        } else {
+            return // stationary: resting fingers move nothing
+        }
+        // DOM sign convention: positive scrolls right/down (scrollingDelta is the content's motion).
+        let script = "window.glossReader?.swipe('\(phase)', \(Double(-event.scrollingDeltaX)), "
+            + "\(Double(-event.scrollingDeltaY)), \(event.timestamp * 1000))"
+        evaluateJavaScript(script, completionHandler: nil)
     }
 }
 

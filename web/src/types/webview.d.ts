@@ -9,5 +9,9 @@ interface Window {
             gloss?: { postMessage(json: string): void }
         }
     }
-    glossReader?: { receive(envelope: unknown): Promise<unknown> }
+    glossReader?: {
+        receive(envelope: unknown): Promise<unknown>
+        /** a trackpad or wheel event of a paginated book, from `ReaderWebView.scrollWheel` */
+        swipe(phase: unknown, dx: unknown, dy: unknown, time: unknown): void
+    }
 }

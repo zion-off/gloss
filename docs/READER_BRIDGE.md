@@ -15,6 +15,10 @@ protocol. Both sides implement it and are tested against the same fixtures:
   arguments: ["command": <ReaderCommand.encodedString()>], contentWorld: .page)` — the envelope travels as JSON text
   for the same reason as events. `receive` validates the envelope and returns `null` (or a small reply
   object where noted). Invalid commands reject with an `Error` whose message starts with `bridge:`.
+- **Swift → JS (scroll input, D-142):** in paginated flow `ReaderWebView` calls
+  `window.glossReader.swipe(phase, dx, dy, timeMs)` via `evaluateJavaScript` for every trackpad/wheel
+  event (`begin`/`change`/`end`/`cancel`/`wheel`, DOM-style deltas). Not an envelope and off the command
+  queue: it's input at 120 Hz, checked for shape and dropped when malformed.
 - **JS → Swift (events):** `window.webkit.messageHandlers.gloss.postMessage(JSON.stringify(envelope))`. Events
   travel as JSON text so Swift decodes exactly what the glue validated, without WebKit's object bridging
   (`EPUBBridgeDriver.engineEvent(fromMessageBody:)` refuses anything that isn't a string).

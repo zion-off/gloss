@@ -7,7 +7,7 @@ import GlossEPUB
 @MainActor
 public final class EPUBBridgeDriver: ReaderDriving, ReflowableAppearanceApplying {
     private let send: @MainActor (ReaderCommand) async throws -> Void
-    private(set) var appearance: ReaderAppearance
+    public private(set) var appearance: ReaderAppearance
 
     public init(appearance: ReaderAppearance, send: @escaping @MainActor (ReaderCommand) async throws -> Void) {
         self.appearance = appearance

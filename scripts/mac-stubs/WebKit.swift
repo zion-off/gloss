@@ -116,5 +116,7 @@ public enum WKNavigationActionPolicy: Int, Sendable { case cancel, allow, downlo
     open func printOperation(with printInfo: NSPrintInfo) -> NSPrintOperation { NSPrintOperation(view: self, printInfo: printInfo) }
     /// webkit/wkwebview/callasyncjavascript(_:arguments:in:contentworld:) — async, macOS 12.0+
     @discardableResult @MainActor @preconcurrency open func callAsyncJavaScript(_ functionBody: String, arguments: [String: Any] = [:], in frame: WKFrameInfo? = nil, contentWorld: WKContentWorld) async throws -> Any? { nil }
+    /// webkit/wkwebview/evaluatejavascript(_:completionhandler:) (macOS 10.10+)
+    open func evaluateJavaScript(_ javaScriptString: String, completionHandler: (@MainActor @Sendable (Any?, (any Error)?) -> Void)? = nil) {}
     @discardableResult @MainActor @preconcurrency open func evaluateJavaScript(_ javaScript: String, in frame: WKFrameInfo? = nil, contentWorld: WKContentWorld) async throws -> Any? { nil }
 }

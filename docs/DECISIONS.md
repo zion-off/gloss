@@ -461,3 +461,10 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
 - **D-139 A search reveal waits for the book like a passage jump.** `ReaderController.reveal`
   queues while the open book isn't showing and lands after `.opened` (the existing
   pendingFocus pattern), so choosing a hit right after opening a book is never dropped.
+- **D-142 Paginated EPUBs take trackpad gestures natively and drag the page.** `ReaderWebView`
+  overrides `scrollWheel` in paginated flow and forwards each event with its `NSEvent` phase to
+  `glossReader.swipe`; momentum is swallowed. A horizontal gesture drives foliate's own touch path
+  (`scrollBy` while the fingers move, `snap` with the lift velocity), vertical ones and mouse notches
+  turn one page; the paginator gets `animated` (unless reduce motion). Reason: DOM wheel events carry
+  no phase, so the page can't tell a lift from momentum or one swipe from the next — that is why a
+  page-per-gesture wheel handler felt wrong. Gesture logic lives in `web/src/bridge/swipe.ts` (tested).

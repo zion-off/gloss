@@ -44,7 +44,8 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
   back (`WorkspaceModel.goHome`/`returnToBook`). Layout changes animate. The sheet layout (reader card
   left, notes on the same paper right), the title field above the body, hidden markdown syntax (D-141)
   and hover/click on subpage rows were redone from feedback and await a re-check.
-- **Open:** trackpad scrolling in a paginated EPUB does nothing (no wheel handler; only keys turn pages).
+- **Open → reworked (unverified, D-142):** paginated EPUB scrolling. A wheel handler alone felt wrong;
+  now the page follows a horizontal swipe and turns slide (checks under `EPUBReaderSession.swift`).
 - **Still unverified:** the first crash (`.relocated` handled in `ReaderController`, a SIGBUS inside
   Observation) has not recurred but was never explained; click targets of links/markers feel small.
 - **Stubs owed (Linux `mac-typecheck.py`):** `NSAppearance.currentDrawing()` /
@@ -132,6 +133,19 @@ corepack 0.31 cannot run pnpm 12 until `npm i -g corepack@latest`).
     comes back where it was.
   - `underPageBackgroundColor` matches the theme when scrolling past the edges (sepia by default).
   - In debug builds the page is inspectable in Safari's Develop menu.
+  - **Page turning feels like Books (D-142), paginated flow, a long reflowable book:**
+    1. Two-finger swipe left slowly: the page follows the fingers. Lift under halfway: it slides back;
+       past halfway: it slides on. A short quick flick turns one page; the momentum after it never
+       turns a second one, and flicking again straight away turns the next page.
+    2. Swipe at the last page of a chapter: a blank page slides in, then the next chapter appears at
+       its start (backwards: the previous chapter at its end). At the very first/last page nothing moves.
+    3. Two-finger vertical swipe: one page per swipe (down = next). A mouse wheel: one page per notch.
+    4. Arrow keys, Page Up/Down, Space and Shift-Space turn with a ~300 ms slide; ↑/↓ turn too. With
+       System Settings › Accessibility › Display › Reduce motion on, turns cut instead of sliding.
+    5. Scrolled flow: trackpad and wheel scroll natively with momentum, ↑/↓ scroll by lines.
+    6. An RTL book: swiping and ←/→ move visually (← goes forward); Space/↓ still go forward.
+    7. Tune if needed: `TURN_DISTANCE`/`LATCH_DISTANCE` in `web/src/bridge/swipe.ts`, the lift-velocity
+       push is foliate's `snap` (velocity in px/ms × page width).
 - `EPUBReadingEngine.swift` — `ReaderBundle.directory()` finds `reader/` both in `build/gloss.app` and
   when running the bare executable (`swift run GlossMac`).
 

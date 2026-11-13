@@ -54,6 +54,8 @@ extension NotificationCenter {
     open func mouseMoved(with event: NSEvent) {}
     open func mouseExited(with event: NSEvent) {}
     open func keyDown(with event: NSEvent) {}
+    /// appkit/nsresponder/scrollwheel(with:)
+    open func scrollWheel(with event: NSEvent) {}
     @discardableResult open func performKeyEquivalent(with event: NSEvent) -> Bool { false }
     @discardableResult open func becomeFirstResponder() -> Bool { true }
     @discardableResult open func resignFirstResponder() -> Bool { true }
@@ -108,6 +110,28 @@ extension NotificationCenter {
 /// appkit/nsevent — `class NSEvent` (not main-actor isolated)
 open class NSEvent: NSObject {
     open var locationInWindow: NSPoint { .zero }
+    /// appkit/nsevent/phase-swift.struct (macOS 10.7+); raw values are NSEventPhase's
+    public struct Phase: OptionSet, Sendable {
+        public let rawValue: UInt
+        public init(rawValue: UInt) { self.rawValue = rawValue }
+        public static var began: NSEvent.Phase { .init(rawValue: 0x1) }
+        public static var stationary: NSEvent.Phase { .init(rawValue: 0x2) }
+        public static var changed: NSEvent.Phase { .init(rawValue: 0x4) }
+        public static var ended: NSEvent.Phase { .init(rawValue: 0x8) }
+        public static var cancelled: NSEvent.Phase { .init(rawValue: 0x10) }
+        public static var mayBegin: NSEvent.Phase { .init(rawValue: 0x20) }
+    }
+    /// appkit/nsevent/phase-swift.property (macOS 10.7+)
+    open var phase: NSEvent.Phase { [] }
+    /// appkit/nsevent/momentumphase (macOS 10.7+)
+    open var momentumPhase: NSEvent.Phase { [] }
+    /// appkit/nsevent/hasprecisescrollingdeltas (macOS 10.7+)
+    open var hasPreciseScrollingDeltas: Bool { false }
+    /// appkit/nsevent/scrollingdeltax, appkit/nsevent/scrollingdeltay (macOS 10.7+)
+    open var scrollingDeltaX: CGFloat { 0 }
+    open var scrollingDeltaY: CGFloat { 0 }
+    /// appkit/nsevent/timestamp
+    open var timestamp: TimeInterval { 0 }
 }
 
 /// appkit/nstrackingarea

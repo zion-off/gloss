@@ -98,6 +98,10 @@ declare module 'foliate/view.js' {
         getContents(): Content[]
         next(distance?: number): Promise<void>
         prev(distance?: number): Promise<void>
+        /** paginator only: moves the page by a delta, at most one page from where it rests */
+        scrollBy?(dx: number, dy: number): void
+        /** paginator only: settles on the nearest page, pushed by a velocity in px/ms */
+        snap?(vx: number, vy: number): void
     }
     /** opens a File (EPUB, CBZ, FB2, MOBI, …) as a foliate book */
     export function makeBook(file: File): Promise<Book>
