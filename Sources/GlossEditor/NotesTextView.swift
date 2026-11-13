@@ -51,9 +51,10 @@ final class NotesTextView: NSTextView {
         return resigned
     }
 
+    /// `characterIndexForInsertion(at:)` takes view coordinates and is the documented call for
+    /// clicks; `characterIndex(for:)` wants screen coordinates and serves input methods (review 6).
     override func mouseDown(with event: NSEvent) {
-        let point = convert(event.locationInWindow, from: nil)
-        let index = characterIndex(for: point)
+        let index = characterIndexForInsertion(at: convert(event.locationInWindow, from: nil))
         if index != NSNotFound, let onTextClick, onTextClick(index) { return }
         super.mouseDown(with: event)
     }

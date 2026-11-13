@@ -163,6 +163,9 @@ struct NotesEditorModelTests {
         #expect(model.text == "- [ ] one\n  - [ ] ")
         apply(model.tabKey(shift: true), to: model)
         #expect(model.isTaskBox(at: 3))
+        // Insertion indices for clicks: just before `[` and just after `]` count, the text doesn't.
+        #expect(model.isTaskBox(at: 2) && model.isTaskBox(at: 5))
+        #expect(!model.isTaskBox(at: 1) && !model.isTaskBox(at: 7))
         apply(model.toggleTask(at: 3), to: model)
         #expect(model.text.hasPrefix("- [x] one"))
         model.textDidChange("plain", selection: 5..<5)
