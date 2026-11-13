@@ -201,3 +201,45 @@ round (see Review 8). The Mac-only fixes — the trash undo's naming, the window
 the export menu disabling — carry handoff checks instead. The reviewer also confirmed
 `UndoManager` is absent from swift-corelibs-foundation (D-127's claim) and that no stub member
 disagreed with the docs in the APIs it sampled.
+
+## Review 8 — `review-7-head..review-8-head` (review 7 fixes, milestone 13: docs pass, README, LICENSE, verify script)
+
+Independent deep review over 21 commits — the last before the repository is handed to a Mac.
+The reviewer built and ran everything on its own scratch, reverted each portable review-7 fix
+one at a time to confirm its regression test bites, checked the README's commands against the
+CLI and its licence claims against the vendored files, and re-verified the Apple APIs in the
+range. 13 findings: no critical, 3 major, 3 minor, 7 nits.
+
+| Severity | Finding | Outcome |
+|---|---|---|
+| major | the cross-window details regression test passed with the fan-out disabled — its own library reload fetched the new title, so it never depended on the other window hearing the post | fixed in `49ff27c` — the test opens the book in B and asserts B's copy of it takes the new name; verified to fail with the post disabled |
+| major | two `[mac-unverified]` review-7 fixes carried no handoff check (the window-close layout/sort flush; the busy export menus), and the close-flush commit's message claimed one | fixed in `96ccc7c` (close with ⌥⌘2 and a sort, relaunch, both hold) and `a925ad3` (all five export/print items grey out while a panel is up) |
+| major | seven hashes the review 7 table cited dangle outside history (the fix branch was rebased before landing), and would stop resolving after the handoff | fixed in `864ba32` — re-pointed at the landed commits; the rewrite recorded as P-006 |
+| minor | purge, empty and a retention change were invisible to the app's other windows (restore reported; they wrote silently) | fixed in `9344ad7` — purge and empty report their entries, retention posts a setting record; crossWindowPurge/Empty/Retention, verified to bite |
+| minor | the settings chaining had no regression test (reverting it kept the suite green) | fixed in `a06aa1b` — a parked-read ordering test, verified to fail with the chain broken; the suite serializes because its saves post process-wide by design |
+| minor | `restoreProblem` outlived its situation (survived the purge or empty that resolved it) | fixed in `9344ad7` — both clear it; regression test |
+| nit | `isBusy` quieted only the three File-menu items, not print or the notes pane's context menu | fixed in `a925ad3` [mac-unverified] |
+| nit | the api-notes footer's counts didn't add up (85+5≠89) and undercounted its own UNVERIFIED markers (ten, not five) | fixed in `9af1dde` — mechanical counts, all ten listed |
+| nit | "the Mac-only ones (#5, #15, #11)" named portable fixes | fixed in `864ba32` — the fixes are named, and the bites claim corrected |
+| nit | `AppModel.windowID` was public with no user outside the module | internal in `1f69f50` |
+| nit | `FlakyLibraryStore`'s parked read was one slot (a second park overwrote the first; an early release was dropped) | fixed in `edc58f8` — parked reads queue, releases are banked |
+| nit | the trash view's problem capsule missed the bottom padding its sibling has | fixed in `30ae5ba` [mac-unverified], with its handoff check |
+| nit | local-changes reactions replaced their task, so `flushLocalChanges` could return with an earlier reaction in flight | chained in `1a7ad9f`; the regression test is **declined** — the path has no Linux-observable ordering (every reaction re-reads current state), and the chain mirrors the settings path, which has one |
+
+Declined beyond the table: fan-out for the launch-time `purgeExpired` upkeep — no window exists
+when it runs (AppRoot builds the services before any window), each window loads fresh state
+after it, and other processes hear it through the journal.
+
+Beyond the findings, the same series made the repo land better on a Mac: `check.sh` and
+`verify-commits.sh` skip the stub type-check on Darwin (the real build type-checks there), the
+warning filter's `sed` no longer relies on GNU `\x1b`, and CLAUDE.md and the README say what
+changes when building on a Mac (`c26628f`, `1016675`).
+
+The reviewer also confirmed: the README's commands exist (checked against Sources/GlossCLI),
+its licence claims match the vendored files (foliate-js MIT with its licence in place, GRDB MIT,
+swift-crypto and swift-argument-parser Apache 2.0), `.gitignore` keeps build products out,
+`verify-commits.sh`'s symlink fix is sound, and no Apple API in the range is missing from the
+notes or the stubs. Not verifiable from the docs JSON: `setActionName` attaching to the most
+recent registration (matches Apple's Undo Architecture guidance; carries a handoff check) and
+`overlay(alignment:)` (its docs page 404s on every slug — DocC collision; the recorded
+verification stands).
