@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>gloss icon: paper layer</title>
+  <defs>
+    <linearGradient id="paper" x1="0" y1="196" x2="0" y2="828" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F7F4EC"/>
+      <stop offset="1" stop-color="#EAE5D7"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(512 512) scale(1.242718) translate(-512 -512)">
+    <g transform="rotate(-7 512 512)">
+      <rect x="232" y="196" width="560" height="632" rx="30" fill="url(#paper)"/>
+      <g stroke="#111111" stroke-width="26" stroke-linecap="round" opacity=".26">
+        <path d="M300,292 H724"/>
+        <path d="M300,364 H700"/>
+        <path d="M300,508 H724"/>
+        <path d="M300,580 H600"/>
+        <path d="M300,652 H520"/>
+        <path d="M300,724 H460"/>
+      </g>
+      <path d="M282,402 C400,398 540,396 652,394 L640,476 C520,478 400,480 272,482 Z" fill="#F7D842" opacity=".92"/>
+      <path d="M300,436 H640" stroke="#111111" stroke-width="26" stroke-linecap="round" opacity=".3"/>
+    </g>
+  </g>
+</svg>
