@@ -23,7 +23,9 @@ hop between the two. Think footnotes, except you write them yourself.
 - **a library** of covers with reading progress, a "recently read" shelf, filters and sorting.
   Drop files in, or double-click one in Finder.
 - **search** that knows where you are: this book's text, this book's notes, all notes, or the whole
-  library. Open quickly (⇧⌘O) jumps to any book or page.
+  library. ⌘F opens it, ⌘G steps through the matches (softly highlighted in the book and the
+  notes), and inside a book the results sit in the sidebar so the page stays put. Open quickly
+  (⇧⌘O) jumps to any book or page.
 - **trash** with undo, for books and pages. You pick how long things stay (7, 30 or 90 days, or forever).
 - **export** a book's notes as markdown or html, or print them. "back up library…" makes a copy.
 - **automatic backup**: switch on "back up automatically" in settings and gloss keeps one file,
