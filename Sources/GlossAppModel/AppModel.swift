@@ -380,8 +380,9 @@ import GlossReaderBridge
             workspace.sidebar = selection
             await trash.reload()
         case .book:
-            guard workspace.document != nil else { return }
-            workspace.sidebar = selection
+            // No sidebar row selects the book itself: `.book` is only the state of an open book
+            // with nothing in it selected, which the workspace sets.
+            return
         case .contents(let id):
             guard workspace.document != nil, let node = ContentsNode.find(id, in: contents) else { return }
             workspace.sidebar = selection

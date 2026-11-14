@@ -4,7 +4,7 @@ import GlossCore
 import GlossReaderKit
 
 /// The window's source list, sectioned like Mail or Music: the library's shelves and the
-/// trash, then the open book with its contents, highlights and notes pages. A click goes through
+/// trash, then, while a book is open, its contents, highlights and notes pages. A click goes through
 /// `AppModel.select`, which decides what the detail column shows.
 struct SourceList: View {
     let app: AppModel
@@ -33,20 +33,9 @@ struct SourceList: View {
                     .tag(SidebarSelection.trash)
             }
             // The book's own sections belong to the book: on the library or the trash they
-            // would point at something the window isn't showing.
-            if case .book = app.workspace.detail, let document = app.workspace.document {
-                Section("reading") {
-                    Label(document.title, systemImage: app.library.symbol(of: document.kind))
-                        .lineLimit(2)
-                        .tag(SidebarSelection.book)
-                        // brief 37: details are reachable while reading too, Books' Get Info spot.
-                        .contextMenu {
-                            Button("edit details…") { app.presentation.detailsDocument = document.id }
-                            Button("move to trash", role: .destructive) {
-                                app.trashBook(document, undoManager: undoManager)
-                            }
-                        }
-                }
+            // would point at something the window isn't showing. No row for the book itself: it
+            // is what the window already shows, so picking it did nothing.
+            if case .book = app.workspace.detail {
                 contents
                 highlights
                 notes
@@ -141,8 +130,9 @@ struct SourceList: View {
     /// rows, not expandable outline rows, so every row keeps the library's alignment.
     static func indent(_ depth: Int) -> CGFloat { CGFloat(depth) * 14 }
 
-    /// Edit › Delete (and the delete key) removes the selection: a highlight, a notes page, or
-    /// the open book. A page that can't go to the trash says so in a toast.
+    /// Edit › Delete (and the delete key) removes the selection: a highlight or a notes page. A
+    /// page that can't go to the trash says so in a toast. A book with nothing selected in it has
+    /// no row, so delete does nothing then (it must not trash the open book unseen).
     private func deleteSelection() {
         switch app.workspace.sidebar {
         case .highlight(let id):
@@ -150,11 +140,7 @@ struct SourceList: View {
             app.reader.removeHighlight(highlight, undo: undoManager)
         case .page(let id):
             app.trashPage(id, undoManager: undoManager)
-        case .book:
-            if let document = app.workspace.document {
-                app.trashBook(document, undoManager: undoManager)
-            }
-        case .library, .trash, .contents:
+        case .library, .trash, .contents, .book:
             break
         }
     }

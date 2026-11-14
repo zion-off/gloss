@@ -35,7 +35,7 @@ struct SidebarTests {
         #expect(app.workspace.searchContext == .split(book.id))
     }
 
-    @Test("picking a shelf shows the grid filtered and keeps the book open; picking the book returns")
+    @Test("picking a shelf shows the grid filtered and keeps the book open")
     func shelves() async throws {
         let lib = TestLibrary()
         let (app, _, book, _) = try await openApp(lib)
@@ -47,17 +47,12 @@ struct SidebarTests {
         #expect(app.workspace.searchContext == .home)
         await app.select(.trash)
         #expect(app.workspace.detail == .trash)
-        await app.select(.book)
-        #expect(app.workspace.detail == .book)
-        #expect(app.workspace.searchContext == .split(book.id))
     }
 
-    @Test("the book can't be picked when none is open")
+    @Test("a highlight can't be picked when no book is open")
     func noBook() async throws {
         let lib = TestLibrary()
         let app = AppModel(services: lib.services)
-        await app.select(.book)
-        #expect(app.workspace.sidebar == .library(nil))
         await app.select(.highlight(HighlightID(GlossID(high: 9, low: 9))))
         #expect(app.workspace.sidebar == .library(nil))
     }
