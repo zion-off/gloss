@@ -129,13 +129,19 @@ final class NotesTextView: NSTextView {
         return (NSPoint(x: container.x + frame.minX + band.table.originX, y: bandTop - CGFloat(band.table.layout.lineTops[band.line])), bandTop)
     }
 
-    /// A drawn table's top-left in this view, if its first line is laid out (it is when on screen).
+    /// A drawn table's top-left in this view, from whichever of its lines is laid out: a table
+    /// taller than the viewport may have its first lines scrolled out of the layout, and any laid
+    /// out line pins the origin just as well.
     func origin(of table: RenderedTable) -> NSPoint? {
         guard let manager = textLayoutManager, let content = textContentStorage, let first = table.lines.first,
-              let location = content.location(content.documentRange.location, offsetBy: first.lowerBound),
-              let fragment = manager.textLayoutFragment(for: location) as? TableGridFragment,
-              fragment.state == .layoutAvailable, let band = fragment.band, band.table.ordinal == table.ordinal else { return nil }
-        return placement(of: fragment, band).origin
+              let start = content.location(content.documentRange.location, offsetBy: first.lowerBound) else { return nil }
+        for line in table.lines {
+            guard let location = content.location(start, offsetBy: line.lowerBound - first.lowerBound),
+                  let fragment = manager.textLayoutFragment(for: location) as? TableGridFragment,
+                  fragment.state == .layoutAvailable, let band = fragment.band, band.table.ordinal == table.ordinal else { continue }
+            return placement(of: fragment, band).origin
+        }
+        return nil
     }
 
     // MARK: Cursor zones
@@ -145,7 +151,12 @@ final class NotesTextView: NSTextView {
     /// lets cursor rects nest but not partly overlap, and the zones tile the grid. As cursor rects
     /// they are rebuilt with everything else after an edit or a scroll, so the cursor never flickers
     /// back to the I-beam until the next move.
+    private var isResettingCursorRects = false
+
     override func resetCursorRects() {
+        guard !isResettingCursorRects else { return }  // the ensureLayout below must not re-enter
+        isResettingCursorRects = true
+        defer { isResettingCursorRects = false }
         super.resetCursorRects()
         guard let tables = tableStore?.all, !tables.isEmpty, let manager = textLayoutManager else { return }
         let visible = visibleRect
