@@ -26,4 +26,34 @@ assemble_app "$bin" "$app" 0.1 1
 
 sign_app "$app" - >/dev/null 2>&1 || echo "(ad hoc signing failed; the app still runs locally)"
 echo "built $app"
-if [ "$open_app" = 1 ]; then open "$app"; fi
+if [ "$open_app" = 1 ]; then
+  # `open` on an app that is already running only brings the old process forward, so you would keep
+  # testing the previous build. Ask this bundle's running copy (and only this path, never an
+  # installed gloss.app) to quit the normal way, wait for it, then open the new one.
+  here="$(cd "$app" && pwd -P)"
+  quit_running() {
+    osascript -l JavaScript - "$here" >/dev/null 2>&1 <<'JS' || true
+function run(argv) {
+  ObjC.import('AppKit');
+  const apps = $.NSRunningApplication.runningApplicationsWithBundleIdentifier('dev.gloss.app');
+  for (let i = 0; i < apps.count; i++) {
+    const a = apps.objectAtIndex(i);
+    if (ObjC.unwrap(a.bundleURL.path) === argv[0]) a.terminate();
+  }
+}
+JS
+  }
+  if pgrep -qf "$here/Contents/MacOS/gloss"; then
+    echo "quitting the running gloss..."
+    quit_running
+    for _ in $(seq 1 40); do
+      pgrep -qf "$here/Contents/MacOS/gloss" || break
+      sleep 0.25
+    done
+    if pgrep -qf "$here/Contents/MacOS/gloss"; then
+      echo "gloss is still running (a save dialog, maybe?): quit it yourself, then run: open $app"
+      exit 0
+    fi
+  fi
+  open "$app"
+fi
