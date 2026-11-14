@@ -1,4 +1,3 @@
-#if os(macOS)
 import Foundation
 import GlossCore
 import GlossReaderBridge
@@ -20,4 +19,3 @@ public struct PDFReadingEngine: ReadingEngine {
         PDFReaderSession(library: library, appearance: appearance(), deliver: deliver)
     }
 }
-#endif

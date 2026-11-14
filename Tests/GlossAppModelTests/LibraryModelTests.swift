@@ -160,7 +160,7 @@ struct ImportSummaryTests {
         #expect(model.lastImportedIDs.isEmpty)
     }
 
-    @Test("a mixed import says finished, not failed (review 7)")
+    @Test("a mixed import says finished, not failed")
     func mixedImportTitle() {
         var summary = ImportSummary()
         let book = Document(id: DocumentID(GlossID(high: 1, low: 1)), kind: DocumentKind("fake"),

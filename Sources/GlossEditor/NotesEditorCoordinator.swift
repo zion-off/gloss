@@ -1,4 +1,3 @@
-#if os(macOS)
 import AppKit
 import GlossAppModel
 import GlossCore
@@ -447,4 +446,3 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     }
 
 }
-#endif

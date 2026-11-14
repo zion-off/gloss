@@ -1,4 +1,3 @@
-#if os(macOS)
 import SwiftUI
 import GlossAppModel
 import GlossCore
@@ -142,4 +141,3 @@ extension FocusedValues {
     /// The key window's commands.
     @Entry public var windowCommands: WindowCommands?
 }
-#endif

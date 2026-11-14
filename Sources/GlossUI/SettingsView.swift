@@ -1,4 +1,3 @@
-#if os(macOS)
 import AppKit
 import Foundation
 import SwiftUI
@@ -175,4 +174,3 @@ private struct ReadingSample: View {
                                       blue: CGFloat(color.blue), alpha: CGFloat(color.alpha)))
     }
 }
-#endif

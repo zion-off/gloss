@@ -259,7 +259,7 @@ struct AppSettingsModelTests {
         #expect(try await lib.services.settings.value(TrashSettings.retentionDays) == nil)
     }
 
-    @Test("a failed save announces nothing and says so (review 7)")
+    @Test("a failed save announces nothing and says so")
     func failedSaveIsHonest() async throws {
         let clock = ManualTimeSource()
         let base = InMemoryLibraryStore(origin: "test", time: clock)

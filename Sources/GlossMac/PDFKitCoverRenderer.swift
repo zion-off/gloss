@@ -1,4 +1,3 @@
-#if os(macOS)
 import AppKit
 import PDFKit
 import GlossCore
@@ -21,4 +20,3 @@ struct PDFKitCoverRenderer: CoverExtracting {
         return CoverImage(data: png, mimeType: "image/png")
     }
 }
-#endif

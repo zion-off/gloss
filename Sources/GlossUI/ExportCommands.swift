@@ -1,4 +1,3 @@
-#if os(macOS)
 import AppKit
 import SwiftUI
 import WebKit
@@ -198,4 +197,3 @@ extension View {
         }
     }
 }
-#endif

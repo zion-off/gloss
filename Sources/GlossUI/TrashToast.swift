@@ -1,4 +1,3 @@
-#if os(macOS)
 import AppKit
 import SwiftUI
 import GlossAppModel
@@ -78,4 +77,3 @@ struct TrashToastOverlay: View {
                              userInfo: [.announcement: message])
     }
 }
-#endif

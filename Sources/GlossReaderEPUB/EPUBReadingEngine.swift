@@ -1,4 +1,3 @@
-#if os(macOS)
 import Foundation
 import GlossCore
 import GlossReaderBridge
@@ -40,4 +39,3 @@ public enum ReaderBundle {
         return Bundle.module.url(forResource: "reader", withExtension: nil)
     }
 }
-#endif

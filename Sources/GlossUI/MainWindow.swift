@@ -1,4 +1,3 @@
-#if os(macOS)
 import AppKit
 import SwiftUI
 import GlossAppModel
@@ -518,4 +517,3 @@ private struct ReaderNotesLayout<Reader: View, Notes: View>: View {
                 .onEnded { _ in dragStart = nil })
     }
 }
-#endif

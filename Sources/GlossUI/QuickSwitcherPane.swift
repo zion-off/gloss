@@ -1,4 +1,3 @@
-#if os(macOS)
 import SwiftUI
 import GlossAppModel
 import GlossCore
@@ -116,4 +115,3 @@ extension View {
         }
     }
 }
-#endif

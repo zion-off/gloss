@@ -1,4 +1,3 @@
-#if os(macOS)
 import SwiftUI
 import GlossCore
 import GlossAppModel
@@ -110,4 +109,3 @@ struct ReaderHostView: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSView, context: Context) {}
 }
-#endif

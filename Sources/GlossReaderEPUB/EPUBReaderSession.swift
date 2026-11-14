@@ -1,4 +1,3 @@
-#if os(macOS)
 import AppKit
 import WebKit
 import GlossReaderBridge
@@ -162,4 +161,3 @@ private final class ScriptMessageProxy: NSObject, WKScriptMessageHandler {
         session?.receive(message)
     }
 }
-#endif

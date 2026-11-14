@@ -1,4 +1,3 @@
-#if os(macOS)
 import AppKit
 import GlossCore
 import GlossReaderBridge
@@ -42,4 +41,3 @@ public struct ReadingEngineRegistry {
         engines.first { $0.kinds.contains(kind) }
     }
 }
-#endif

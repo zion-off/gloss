@@ -1,4 +1,3 @@
-#if os(macOS)
 import SwiftUI
 import GlossCore
 import GlossAppModel
@@ -116,4 +115,3 @@ struct ReaderPopoverContent: View {
         }
     }
 }
-#endif

@@ -1,4 +1,3 @@
-#if os(macOS)
 import SwiftUI
 import GlossAppModel
 
@@ -19,4 +18,3 @@ extension View {
         }
     }
 }
-#endif

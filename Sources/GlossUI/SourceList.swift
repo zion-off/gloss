@@ -1,4 +1,3 @@
-#if os(macOS)
 import SwiftUI
 import GlossAppModel
 import GlossCore
@@ -186,4 +185,3 @@ private struct HighlightRow: View {
         .accessibilityLabel(Text(verbatim: "\(highlight.color.rawValue) highlight: \(highlight.passage.quote)"))
     }
 }
-#endif

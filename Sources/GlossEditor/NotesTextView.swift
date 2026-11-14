@@ -1,4 +1,3 @@
-#if os(macOS)
 import AppKit
 import GlossAppModel
 import GlossMarkdown
@@ -127,4 +126,3 @@ private final class RowHoverBlock: NSView {
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
-#endif

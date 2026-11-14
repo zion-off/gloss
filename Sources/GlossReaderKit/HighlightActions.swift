@@ -1,4 +1,3 @@
-#if os(macOS)
 import Foundation
 import SwiftUI
 import GlossCore
@@ -31,4 +30,3 @@ extension ReaderController {
         }
     }
 }
-#endif

@@ -1,4 +1,3 @@
-#if os(macOS)
 import SwiftUI
 import GlossAppModel
 import GlossCore
@@ -114,4 +113,3 @@ struct TrashView: View {
         kind == .document ? "books.vertical" : "doc.text"
     }
 }
-#endif

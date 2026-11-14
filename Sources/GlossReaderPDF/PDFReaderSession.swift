@@ -1,4 +1,3 @@
-#if os(macOS)
 import AppKit
 import PDFKit
 import GlossCore
@@ -421,4 +420,3 @@ final class PDFFlashView: NSView {
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
-#endif

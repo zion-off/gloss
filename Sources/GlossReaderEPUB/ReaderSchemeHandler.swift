@@ -1,4 +1,3 @@
-#if os(macOS)
 import Foundation
 import WebKit
 import GlossReaderBridge
@@ -49,4 +48,3 @@ final class ReaderSchemeHandler: NSObject, WKURLSchemeHandler {
         entry.task.didFinish()
     }
 }
-#endif

@@ -1,4 +1,3 @@
-#if os(macOS)
 import SwiftUI
 import GlossCore
 import GlossMarkdown
@@ -80,4 +79,3 @@ public struct NotesFormatCommands: Commands {
         }
     }
 }
-#endif

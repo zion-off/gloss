@@ -459,7 +459,7 @@ struct ReviewOneAppModelTests {
         #expect(app.notes.text == "from the cli")
     }
 
-    @Test("an external change to another page doesn't refetch the editor's page (review 6)")
+    @Test("an external change to another page doesn't refetch the editor's page")
     func externalChangeScopedToPage() async throws {
         let lib = TestLibrary()
         let (book, root) = try await lib.book()

@@ -1,4 +1,3 @@
-#if os(macOS)
 import AppKit
 import SwiftUI
 import GlossAppModel
@@ -198,4 +197,3 @@ struct NotesEditorRepresentable: NSViewRepresentable {
         coordinator.dismantle()
     }
 }
-#endif

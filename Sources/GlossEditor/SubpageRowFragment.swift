@@ -1,4 +1,3 @@
-#if os(macOS)
 import AppKit
 import GlossCore
 import GlossNotes
@@ -92,4 +91,3 @@ final class SubpageRowFragment: NSTextLayoutFragment {
         }
     }
 }
-#endif

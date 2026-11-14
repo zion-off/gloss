@@ -1,4 +1,3 @@
-#if os(macOS)
 import AppKit
 import GlossNotes
 
@@ -96,4 +95,3 @@ import GlossNotes
         return NSFont(descriptor: descriptor, size: font.pointSize) ?? font
     }
 }
-#endif

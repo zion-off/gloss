@@ -1,4 +1,3 @@
-#if os(macOS)
 import Foundation
 import GlossAppModel
 import GlossCore
@@ -92,4 +91,3 @@ struct CompositionFailure: Error {
 @MainActor final class AppearanceSource {
     var current = AppearanceStyler().appearance(for: ReaderSettings())
 }
-#endif

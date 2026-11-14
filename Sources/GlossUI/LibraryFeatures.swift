@@ -1,4 +1,3 @@
-#if os(macOS)
 import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
@@ -210,4 +209,3 @@ private let librarySortTitles: [LibrarySort: String] = [
 private struct DetailsTarget: Identifiable {
     let id: DocumentID
 }
-#endif

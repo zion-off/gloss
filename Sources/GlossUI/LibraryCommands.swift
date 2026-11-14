@@ -1,4 +1,3 @@
-#if os(macOS)
 import SwiftUI
 import GlossAppModel
 
@@ -23,4 +22,3 @@ extension FocusedValues {
     /// The key window's library presentation state (its import panel and sheets).
     @Entry public var libraryPresentation: LibraryPresentationModel?
 }
-#endif

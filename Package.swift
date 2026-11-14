@@ -1,10 +1,7 @@
 // swift-tools-version: 6.1
 import PackageDescription
 
-// gloss — see docs/ARCHITECTURE.md for the module map. The app targets macOS only; the portable
-// modules also build on Linux for testing.
-// Every target builds on Linux. macOS-only targets wrap all of their sources in
-// `#if os(macOS)` so they compile to empty modules elsewhere.
+// gloss — see docs/ARCHITECTURE.md for the module map.
 
 let package = Package(
     name: "gloss",
@@ -47,7 +44,7 @@ let package = Package(
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
         ]),
         .executableTarget(name: "gloss", dependencies: ["GlossCLI", "GlossStore", "GlossEPUB", "GlossPDF", "GlossExport"]),
-        // macOS-only (every source wrapped in `#if os(macOS)`).
+        // app and reader targets (SwiftUI, AppKit, WebKit, PDFKit)
         .target(name: "GlossReaderKit", dependencies: ["GlossCore", "GlossAppModel", "GlossReaderBridge"]),
         .target(name: "GlossReaderEPUB", dependencies: ["GlossCore", "GlossReaderBridge", "GlossReaderKit"],
                 resources: [.copy("Resources/reader")]),

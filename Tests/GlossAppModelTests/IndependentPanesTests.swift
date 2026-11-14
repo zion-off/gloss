@@ -99,7 +99,7 @@ struct IndependentPanesTests {
         #expect(app.workspace.document?.id == b.id)
     }
 
-    @Test("a book-text search hit into another book moves only the reader (review 7)")
+    @Test("a book-text search hit into another book moves only the reader")
     func searchHitKeepsNotes() async throws {
         let lib = TestLibrary()
         let (app, a, aRoot, b, _, target) = try await twoBooks(lib)

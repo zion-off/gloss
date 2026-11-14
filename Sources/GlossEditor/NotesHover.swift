@@ -1,4 +1,3 @@
-#if os(macOS)
 import AppKit
 import SwiftUI
 import GlossCore
@@ -58,4 +57,3 @@ struct PassagePreviewView: View {
         .padding(12)
     }
 }
-#endif

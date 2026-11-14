@@ -1,4 +1,3 @@
-#if os(macOS)
 import SwiftUI
 import GlossAppModel
 import GlossCore
@@ -175,4 +174,3 @@ struct SearchHitRow: View {
         }
     }
 }
-#endif
