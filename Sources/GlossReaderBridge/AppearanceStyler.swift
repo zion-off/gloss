@@ -60,7 +60,29 @@ public struct AppearanceStyler: Sendable {
             layout: ReaderLayout(margin: settings.margin, gap: 0.06, maxInlineSize: settings.maxInlineSize,
                                   maxColumnCount: settings.maxColumnCount),
             colors: ReaderColors(background: palette.background, foreground: palette.foreground,
-                                 marker: palette.marker, highlights: palette.highlights))
+                                 marker: palette.marker, highlights: Self.pageHighlights(for: settings.theme)))
+    }
+
+    /// How the five highlight colours are painted on a theme's page, one row per theme. The picker's
+    /// swatches never change; on the page each colour gets a shade tuned for that paper, drawn
+    /// as is (normal blending, this alpha) over the text: soft on white rather than neon, clear of
+    /// the sepia paper's own yellow (cooler, a touch more saturated) rather than muddy, and dark
+    /// but distinct on night so its light text keeps its contrast. A new theme adds a row here.
+    public static func pageHighlights(for theme: ReaderSettings.Theme) -> ReaderColors.Highlights {
+        switch theme {
+        case .light:
+            .init(yellow: "rgba(255, 214, 10, 0.32)", green: "rgba(52, 199, 89, 0.24)",
+                  blue: "rgba(10, 132, 255, 0.2)", pink: "rgba(255, 55, 135, 0.2)",
+                  purple: "rgba(175, 82, 222, 0.2)")
+        case .sepia:
+            .init(yellow: "rgba(255, 200, 0, 0.3)", green: "rgba(40, 180, 90, 0.24)",
+                  blue: "rgba(0, 122, 255, 0.2)", pink: "rgba(240, 60, 120, 0.2)",
+                  purple: "rgba(160, 80, 220, 0.2)")
+        case .night:
+            .init(yellow: "rgba(255, 214, 10, 0.28)", green: "rgba(48, 209, 88, 0.26)",
+                  blue: "rgba(64, 156, 255, 0.3)", pink: "rgba(255, 55, 135, 0.28)",
+                  purple: "rgba(191, 90, 242, 0.3)")
+        }
     }
 
     /// "19" not "19.0" (CSS does not care, people do).
@@ -73,28 +95,18 @@ public struct AppearanceStyler: Sendable {
         let background: String
         let marker: String
         let fontFamily: String
-        let highlights: ReaderColors.Highlights
 
         static func `for`(_ theme: ReaderSettings.Theme) -> Palette {
             switch theme {
             case .light:
                 Palette(foreground: "#1d1d1f", background: "#ffffff", marker: "rgba(29, 29, 31, 0.4)",
-                        fontFamily: "-apple-system, 'Iowan Old Style', Georgia, serif",
-                        highlights: .init(yellow: "rgba(240, 199, 56, 0.35)", green: "rgba(98, 165, 122, 0.35)",
-                                          blue: "rgba(96, 138, 188, 0.35)", pink: "rgba(216, 128, 149, 0.35)",
-                                          purple: "rgba(154, 111, 181, 0.35)"))
+                        fontFamily: "-apple-system, 'Iowan Old Style', Georgia, serif")
             case .sepia:
                 Palette(foreground: "#3b2f1e", background: "#f8f1e3", marker: "rgba(59, 47, 30, 0.45)",
-                        fontFamily: "-apple-system, 'Iowan Old Style', Georgia, serif",
-                        highlights: .init(yellow: "rgba(240, 199, 56, 0.35)", green: "rgba(98, 165, 122, 0.35)",
-                                          blue: "rgba(96, 138, 188, 0.35)", pink: "rgba(216, 128, 149, 0.35)",
-                                          purple: "rgba(154, 111, 181, 0.35)"))
+                        fontFamily: "-apple-system, 'Iowan Old Style', Georgia, serif")
             case .night:
                 Palette(foreground: "#d8d8dc", background: "#1c1c1e", marker: "rgba(216, 216, 220, 0.5)",
-                        fontFamily: "-apple-system, 'Iowan Old Style', Georgia, serif",
-                        highlights: .init(yellow: "rgba(240, 199, 56, 0.45)", green: "rgba(98, 165, 122, 0.45)",
-                                          blue: "rgba(96, 138, 188, 0.45)", pink: "rgba(216, 128, 149, 0.45)",
-                                          purple: "rgba(154, 111, 181, 0.45)"))
+                        fontFamily: "-apple-system, 'Iowan Old Style', Georgia, serif")
             }
         }
     }

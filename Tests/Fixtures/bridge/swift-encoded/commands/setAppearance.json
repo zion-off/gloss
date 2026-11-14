@@ -5,11 +5,11 @@
         "background" : "#f8f1e3",
         "foreground" : "#3b2f1e",
         "highlights" : {
-          "blue" : "rgba(96, 138, 188, 0.35)",
-          "green" : "rgba(98, 165, 122, 0.35)",
-          "pink" : "rgba(216, 128, 149, 0.35)",
-          "purple" : "rgba(154, 111, 181, 0.35)",
-          "yellow" : "rgba(240, 199, 56, 0.35)"
+          "blue" : "rgba(0, 122, 255, 0.2)",
+          "green" : "rgba(40, 180, 90, 0.24)",
+          "pink" : "rgba(240, 60, 120, 0.2)",
+          "purple" : "rgba(160, 80, 220, 0.2)",
+          "yellow" : "rgba(255, 200, 0, 0.3)"
         },
         "marker" : "rgba(59, 47, 30, 0.45)"
       },

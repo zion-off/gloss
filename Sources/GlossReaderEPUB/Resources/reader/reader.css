@@ -18,6 +18,9 @@ html, body {
 }
 
 foliate-view {
+    /* A highlight's alpha is the appearance palette's own (AppearanceStyler.pageHighlights, tuned
+       per theme); foliate would otherwise scale it down to a third. */
+    --overlayer-highlight-opacity: 1;
     display: block;
     width: 100%;
     height: 100%;

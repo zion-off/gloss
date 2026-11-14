@@ -31,7 +31,11 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
     init(library: LibraryService, appearance: ReaderAppearance,
          deliver: @escaping @MainActor @Sendable (ReaderEngineEvent) async -> Void) {
         self.library = library
-        self.colors = appearance.colors
+        // A PDF's pages are white paper whatever the theme (only the space around them is
+        // themed), so its highlights take the white page's shades.
+        var colors = appearance.colors
+        colors.highlights = AppearanceStyler.pageHighlights(for: .light)
+        self.colors = colors
         self.inbox = ReaderEventInbox(deliver: deliver)
         super.init()
 
