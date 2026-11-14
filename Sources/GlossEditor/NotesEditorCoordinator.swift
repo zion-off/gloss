@@ -49,8 +49,10 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     var openPage: (@MainActor (PageID) -> Void)?
     /// The selection's rect in the editor's top-left coordinates, or nil (the format bar anchors to it).
     var selectionRectChanged: ((OverlayRect?) -> Void)?
-    /// The caret's rect in the editor's top-left coordinates, or nil (the slash menu anchors to it).
-    var caretRectChanged: ((OverlayRect?) -> Void)?
+    /// The open slash menu's slash, in the editor's top-left coordinates, or nil (the menu
+    /// anchors to it).
+    var slashAnchorChanged: ((SlashAnchor?) -> Void)?
+    private var reportedSlashAnchor: SlashAnchor?
 
     init(model: NotesEditorModel, actions: NotesEditorActions) {
         self.model = model
@@ -455,6 +457,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         Task { @MainActor [weak self] in
             self?.tableRelayoutPending = false
             self?.restyle()
+            self?.reportSelection()  // the lines wrapped anew: the overlays' anchors moved
         }
     }
 
@@ -707,21 +710,37 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
 
     // MARK: Overlays
 
-    /// Where the overlays anchor: the selection's first line and the caret, in SwiftUI's
-    /// top-left-origin coordinates of the editor's frame. Whether the scroll view is flipped is
-    /// asked, not assumed; the conversion lives in `OverlayGeometry`, Linux-tested.
+    /// Where the overlays anchor: the selection's first line, and the slash that opened the
+    /// slash menu (not the caret, which moves on as the filter is typed).
     private func reportSelection() {
-        guard let textView, let scrollView else { return }
+        guard let textView else { return }
         let selection = textView.selectedRange()
-        let screenRect = textView.firstRect(forCharacterRange: selection, actualRange: nil)
-        let windowRect = textView.window.map { $0.convertFromScreen(screenRect) } ?? screenRect
-        let inView = scrollView.convert(windowRect, from: nil)
-        let rect = OverlayGeometry.topLeft(OverlayRect(x: inView.minX, y: inView.minY, width: inView.width, height: inView.height),
-                                           inHeight: scrollView.bounds.height, flipped: scrollView.isFlipped)
         // The format bar waits for a drag selection to end, like the system's edit menus: shown
         // mid-drag it chased the pointer and could land under it.
-        selectionRectChanged?(selection.length > 0 && !textView.isSelectingWithMouse ? rect : nil)
-        caretRectChanged?(rect)
+        let showsBar = selection.length > 0 && !textView.isSelectingWithMouse
+        selectionRectChanged?(showsBar ? overlayRect(for: selection) : nil)
+        let slash = model.slashMenu?.trigger.range.lowerBound
+        let anchor = slash.flatMap { offset in
+            offset < (textView.string as NSString).length
+                ? overlayRect(for: NSRange(location: offset, length: 1)).map { SlashAnchor(offset: offset, rect: $0) } : nil
+        }
+        // Only a move re-renders: typing the filter leaves the slash where it is.
+        if anchor != reportedSlashAnchor {
+            reportedSlashAnchor = anchor
+            slashAnchorChanged?(anchor)
+        }
+    }
+
+    /// A range's first line in SwiftUI's top-left-origin coordinates of the editor's frame.
+    /// Whether the scroll view is flipped is asked, not assumed; the conversion lives in
+    /// `OverlayGeometry`, Linux-tested.
+    private func overlayRect(for range: NSRange) -> OverlayRect? {
+        guard let textView, let scrollView else { return nil }
+        let screenRect = textView.firstRect(forCharacterRange: range, actualRange: nil)
+        let windowRect = textView.window.map { $0.convertFromScreen(screenRect) } ?? screenRect
+        let inView = scrollView.convert(windowRect, from: nil)
+        return OverlayGeometry.topLeft(OverlayRect(x: inView.minX, y: inView.minY, width: inView.width, height: inView.height),
+                                       inHeight: scrollView.bounds.height, flipped: scrollView.isFlipped)
     }
 
     @objc private func boundsChanged() {
@@ -744,5 +763,11 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     static func range(_ nsRange: NSRange) -> Range<Int> {
         nsRange.location..<nsRange.location + nsRange.length
     }
+}
 
+/// Where the slash menu hangs: the slash's offset in the text (the menu it belongs to) and its
+/// rect in the editor's top-left coordinates.
+struct SlashAnchor: Equatable {
+    var offset: Int
+    var rect: OverlayRect
 }

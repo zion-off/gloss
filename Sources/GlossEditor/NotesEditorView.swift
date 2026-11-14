@@ -15,7 +15,7 @@ public struct NotesEditor: View {
 
     @State private var actions = NotesEditorActions()
     @State private var selectionRect: OverlayRect?
-    @State private var caretRect: OverlayRect?
+    @State private var slashAnchor: SlashAnchor?
 
     let onActionsReady: @MainActor (NotesEditorActions) -> Void
 
@@ -41,7 +41,7 @@ public struct NotesEditor: View {
                                      onOpenWebLink: onOpenWebLink,
                                      onOpenPage: onOpenPage,
                                      selectionRectChanged: { selectionRect = $0 },
-                                     caretRectChanged: { caretRect = $0 })
+                                     slashAnchorChanged: { slashAnchor = $0 })
                 .overlay(alignment: .topLeading) { overlays(in: geometry.size) }
         }
         .focusedSceneValue(\.notesEditorActions, actions)
@@ -67,24 +67,61 @@ public struct NotesEditor: View {
         // Fades in and out like the system's popovers; a selection that moves while the bar is
         // up moves it at once, without sliding.
         .animation(.easeOut(duration: 0.15), value: formatBarAnchor != nil)
-        if let menu = model.slashMenu, let rect = caretRect {
-            SlashMenuView(model: model, confirm: { id in Task { await actions.confirmSlash(id) } })
-                .arrowCursor()
-                .position(x: OverlayGeometry.clampCenter(rect.minX + SlashMenuView.width / 2, width: SlashMenuView.width, in: size.width),
-                          y: OverlayGeometry.belowCenter(anchor: rect, height: SlashMenuView.height))
-                .id(menu.trigger.range.lowerBound)
-                .accessibilityLabel(Text("insert menu"))
+        // Hangs from its slash and follows it as the note scrolls. Once the slash's line is out
+        // of view the menu hides until it's back; it stays open meanwhile (typing scrolls the
+        // caret back into view, Escape closes it).
+        if let menu = model.slashMenu, let anchor = slashAnchor, anchor.offset == menu.trigger.range.lowerBound,
+           anchor.rect.maxY > 0, anchor.rect.minY < size.height {
+            SlashMenuLayout(anchor: anchor.rect) {
+                SlashMenuRows(menu: menu, confirm: { _ in })
+                    .hidden()
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                SlashMenuHost(menu: SlashMenuView(menu: menu, confirm: { id in Task { await actions.confirmSlash(id) } }))
+            }
+            // A new slash is a new menu: it decides its side afresh.
+            .id(menu.trigger.range.lowerBound)
         }
     }
 }
 
-extension View {
-    /// The text view underneath asks for an I-beam over its whole area, floating controls
-    /// included; they want the arrow, set again on every move over them.
-    fileprivate func arrowCursor() -> some View {
-        onContinuousHover { phase in
-            if case .active = phase { NSCursor.arrow.set() }
-        }
+/// Places the slash menu by its slash, inside the editor: measures the rows (the hidden first
+/// subview) at the menu's width, asks `OverlayGeometry` where a menu that tall goes, and gives
+/// the menu (the second) that frame. All in one layout pass, so a menu that opens or shrinks is
+/// placed right in the frame it first draws in.
+///
+/// The side, once taken, holds until the slash or the room around it moves (the cache outlives
+/// updates; `.id` resets it per menu), so a list shrinking or growing as it's filtered doesn't
+/// jump across the line.
+private struct SlashMenuLayout: Layout {
+    let anchor: OverlayRect
+
+    struct Side {
+        var anchor: OverlayRect
+        var available: OverlayRect
+        var flipped: Bool
+    }
+
+    func makeCache(subviews: Subviews) -> Side? { nil }
+
+    func updateCache(_ cache: inout Side?, subviews: Subviews) {}
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Side?) -> CGSize {
+        proposal.replacingUnspecifiedDimensions()
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Side?) {
+        guard subviews.count == 2 else { return }
+        let rows = subviews[0].sizeThatFits(ProposedViewSize(width: SlashMenuView.width, height: nil))
+        let size = OverlaySize(width: SlashMenuView.width, height: min(rows.height, SlashMenuView.maxHeight))
+        let available = OverlayRect(x: 0, y: 0, width: bounds.width, height: bounds.height)
+        let kept = cache.flatMap { $0.anchor == anchor && $0.available == available ? $0.flipped : nil }
+        let placement = OverlayGeometry.menuPlacement(anchor: anchor, size: size, in: available, keepingFlipped: kept)
+        cache = Side(anchor: anchor, available: available, flipped: placement.flipped)
+        subviews[0].place(at: bounds.origin, proposal: .zero)
+        let frame = placement.frame
+        subviews[1].place(at: CGPoint(x: bounds.minX + frame.x, y: bounds.minY + frame.y), anchor: .topLeading,
+                          proposal: ProposedViewSize(width: frame.width, height: frame.height))
     }
 }
 
@@ -170,22 +207,45 @@ private struct FormatBarHost: NSViewRepresentable {
     let model: NotesEditorModel
     let actions: NotesEditorActions
 
-    func makeNSView(context: Context) -> FormatBarHostingView {
-        let view = FormatBarHostingView(rootView: FormatBarView(model: model, actions: actions))
+    func makeNSView(context: Context) -> FloatingHostingView<FormatBarView> {
+        let view = FloatingHostingView(rootView: FormatBarView(model: model, actions: actions))
         view.clipsToBounds = false  // the bar's shadow falls outside its frame
         return view
     }
 
-    func updateNSView(_ nsView: FormatBarHostingView, context: Context) {
+    func updateNSView(_ nsView: FloatingHostingView<FormatBarView>, context: Context) {
         nsView.rootView = FormatBarView(model: model, actions: actions)
     }
 
-    func sizeThatFits(_ proposal: ProposedViewSize, nsView: FormatBarHostingView, context: Context) -> CGSize? {
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: FloatingHostingView<FormatBarView>, context: Context) -> CGSize? {
         CGSize(width: FormatBarView.width, height: FormatBarView.height)
     }
 }
 
-private final class FormatBarHostingView: NSHostingView<FormatBarView> {
+/// Hosts the slash menu in a view of its own, for the same reasons as the format bar: the arrow
+/// over the whole menu, the I-beam back on the way out, and nothing in the text under it
+/// reacting to the pointer. Sized by its placement.
+private struct SlashMenuHost: NSViewRepresentable {
+    let menu: SlashMenuView
+
+    func makeNSView(context: Context) -> FloatingHostingView<SlashMenuView> {
+        let view = FloatingHostingView(rootView: menu)
+        view.clipsToBounds = false  // the menu's shadow falls outside its frame
+        view.sizingOptions = []  // its frame comes from the placement, not from its content
+        return view
+    }
+
+    func updateNSView(_ nsView: FloatingHostingView<SlashMenuView>, context: Context) {
+        nsView.rootView = menu
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: FloatingHostingView<SlashMenuView>, context: Context) -> CGSize? {
+        CGSize(width: SlashMenuView.width, height: proposal.height ?? SlashMenuView.maxHeight)
+    }
+}
+
+/// A floating control's own hosting view over the text: it owns the pointer where it's drawn.
+private final class FloatingHostingView<Content: View>: NSHostingView<Content> {
     private var cursorArea: NSTrackingArea?
 
     override func updateTrackingAreas() {
@@ -197,7 +257,7 @@ private final class FormatBarHostingView: NSHostingView<FormatBarView> {
         cursorArea = area
     }
 
-    /// The arrow over the whole bar, buttons and gaps alike, like any toolbar or palette.
+    /// The arrow over the whole control, buttons and gaps alike, like any toolbar, palette or menu.
     override func cursorUpdate(with event: NSEvent) {
         NSCursor.arrow.set()
     }
@@ -206,52 +266,72 @@ private final class FormatBarHostingView: NSHostingView<FormatBarView> {
     override var acceptsFirstResponder: Bool { false }
 }
 
-/// The slash menu: the model's items, the selected row highlighted, clicks run.
+/// The slash menu: its rows in a system material, scrolling past its height.
 struct SlashMenuView: View {
-    static let width: CGFloat = 260
-    static let height: CGFloat = 250
+    // Nonisolated: the layout that places the menu reads them.
+    nonisolated static let width: CGFloat = 260
+    /// The tallest it gets; a longer list scrolls.
+    nonisolated static let maxHeight: CGFloat = 250
 
-    let model: NotesEditorModel
+    let menu: NotesEditorModel.SlashMenu
     let confirm: (String?) -> Void
 
     var body: some View {
-        if let menu = model.slashMenu {
+        ScrollViewReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(Array(menu.items.enumerated()), id: \.element.id) { index, item in
-                        Button {
-                            confirm(item.id)
-                        } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: item.symbol)
-                                    .frame(width: 20)
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(verbatim: item.title)
-                                    if !item.subtitle.isEmpty {
-                                        Text(verbatim: item.subtitle)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                                Spacer(minLength: 0)
-                            }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .background(index == menu.selectedIndex ? AnyShapeStyle(Color.accentColor.opacity(0.2)) : AnyShapeStyle(Color.clear))
-                        .accessibilityLabel(Text(verbatim: "\(item.title), \(item.subtitle)"))
-                    }
-                }
-                .padding(4)
+                SlashMenuRows(menu: menu, confirm: confirm)
             }
-            .frame(width: Self.width)
-            .frame(maxHeight: Self.height)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
-            .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1) }
-            .shadow(radius: 4, y: 2)
+            // A menu cut short by the room it has keeps the row the arrow keys reach in view.
+            .onChange(of: menu.selectedIndex) { _, index in
+                if menu.items.indices.contains(index) { proxy.scrollTo(menu.items[index].id) }
+            }
         }
+        .frame(width: Self.width)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+        .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1) }
+        .shadow(radius: 4, y: 2)
+        .accessibilityLabel(Text("insert menu"))
+    }
+}
+
+/// The menu's items, the selected row highlighted, clicks run.
+struct SlashMenuRows: View {
+    let menu: NotesEditorModel.SlashMenu
+    let confirm: (String?) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(Array(menu.items.enumerated()), id: \.element.id) { index, item in
+                Button {
+                    confirm(item.id)
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: item.symbol)
+                            .frame(width: 20)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(verbatim: item.title)
+                            if !item.subtitle.isEmpty {
+                                Text(verbatim: item.subtitle)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .id(item.id)
+                .background(index == menu.selectedIndex ? AnyShapeStyle(Color.accentColor.opacity(0.2)) : AnyShapeStyle(Color.clear))
+                .accessibilityLabel(Text(verbatim: "\(item.title), \(item.subtitle)"))
+            }
+        }
+        .padding(4)
+        // Pinned: the menu's height is measured from a copy of these rows outside its own
+        // hosting view, and both must lay out alike.
+        .font(.body)
     }
 }
 
@@ -264,7 +344,7 @@ struct NotesEditorRepresentable: NSViewRepresentable {
     let onOpenWebLink: @MainActor (URL) -> Void
     let onOpenPage: @MainActor (PageID) -> Void
     let selectionRectChanged: (OverlayRect?) -> Void
-    let caretRectChanged: (OverlayRect?) -> Void
+    let slashAnchorChanged: (SlashAnchor?) -> Void
 
     func makeCoordinator() -> NotesEditorCoordinator {
         let coordinator = NotesEditorCoordinator(model: model, actions: actions)
@@ -272,7 +352,7 @@ struct NotesEditorRepresentable: NSViewRepresentable {
         coordinator.openWebLink = onOpenWebLink
         coordinator.openPage = onOpenPage
         coordinator.selectionRectChanged = selectionRectChanged
-        coordinator.caretRectChanged = caretRectChanged
+        coordinator.slashAnchorChanged = slashAnchorChanged
         return coordinator
     }
 
