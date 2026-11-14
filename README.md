@@ -13,7 +13,7 @@ hop between the two. Think footnotes, except you write them yourself.
   spacing, margins, paginated or scrolling layout.
 - **highlights** in five colours. They're drawn on top of the book, never written into your file.
 - **a notes page per book**, with live markdown styling as you type, a floating format bar, a `/`
-  menu, task lists and subpages.
+  menu, task lists and subpages, in a text size you pick in settings.
 - **tables**: type or paste a markdown pipe table, or use `/table`, and it draws as a grid when the
   caret leaves it. Hover for "+" to add a row or column; drag a divider to resize (double-click resets).
 - **links to passages**: plain markdown links with a `gloss://` address, so your notes stay plain text.
