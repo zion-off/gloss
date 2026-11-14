@@ -350,18 +350,15 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         guard let textView, let storage = textView.textStorage, NSMaxRange(range) <= storage.length else { return }
         let original = (storage.string as NSString).substring(with: range)
         textView.breakUndoCoalescing()
-        // The change APIs still run (input methods, delegates, the model hears it), but the text
-        // view registers no undo of its own: this step registers the whole thing below.
-        let allowsUndo = textView.allowsUndo
-        textView.allowsUndo = false
-        let allowed = textView.shouldChangeText(in: range, replacementString: replacement)
-        if allowed {
-            storage.replaceCharacters(in: range, with: replacement)
-            textView.didChangeText()
-        }
-        textView.allowsUndo = allowsUndo
-        guard allowed else { return }
+        // Not through `shouldChangeText`: that is where the text view registers its own undo
+        // (typing-style coalescing), and this edit carries the undo step registered below — no
+        // toggling `allowsUndo` around it, which only worked while that assumption held. The
+        // storage change plus `didChangeText` notify everything the same way (input methods, the
+        // model, restyling), so the change is seen exactly as a typed one.
+        storage.replaceCharacters(in: range, with: replacement)
+        textView.didChangeText()
         textView.setSelectedRange(selection)
+        // The scroll is a top-left origin; layout settling below the change doesn't move it.
         restoreScroll(scroll)
         let inserted = NSRange(location: range.location, length: replacement.utf16.count)
         textView.undoManager?.registerUndo(withTarget: self) { coordinator in
