@@ -12,6 +12,7 @@ import GlossUI
 @main
 struct GlossApp: App {
     @State private var root = AppRoot.load()
+    @State private var commandLineTool = CommandLineToolActions()
 
     var body: some Scene {
         WindowGroup(id: "main") {
@@ -29,7 +30,8 @@ struct GlossApp: App {
             GlossWindowCommands()
             LibraryCommands()
             GlossExportCommands()
-            GlossBackupCommands() }
+            GlossBackupCommands()
+            GlossCommandLineToolCommands(actions: commandLineTool) }
         Settings {
             switch root {
             case .success(let root):
