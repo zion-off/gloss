@@ -80,32 +80,70 @@ extension View {
 
 /// The format bar: the standard buttons, in a system material, floating over the selection.
 struct FormatBarView: View {
-    static let width: CGFloat = CGFloat(FormatBar.items.count) * 28 + 12
+    /// One button's cell: the whole cell takes the click, the hover fill sits inside it.
+    static let cell = CGSize(width: 28, height: 24)
+    static let width: CGFloat = CGFloat(FormatBar.items.count) * cell.width + 12
     static let height: CGFloat = 32
 
     let model: NotesEditorModel
     let actions: NotesEditorActions
 
     var body: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: 0) {
             ForEach(FormatBar.items) { item in
+                let isActive = model.activeFormats.contains(item.id)
                 Button {
                     actions.run(item)
                 } label: {
                     Image(systemName: item.symbol)
-                        .frame(width: 26, height: 24)
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(FormatBarButtonStyle(isActive: isActive))
                 .help(Text(verbatim: "\(item.title) (\(item.shortcutLabel))"))
-                .foregroundStyle(model.activeFormats.contains(item.id) ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color.primary))
                 .accessibilityLabel(Text(item.title))
+                .accessibilityAddTraits(isActive ? .isSelected : [])
             }
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
-        .frame(height: Self.height)
+        .frame(width: Self.width, height: Self.height)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
         .shadow(radius: 2, y: 1)
+    }
+}
+
+/// A format bar button the way toolbar buttons behave: a soft rounded fill fades in under the
+/// pointer (the subpage rows' hover colour), deepens while pressed, and the glyph takes the
+/// accent colour when the format is on.
+private struct FormatBarButtonStyle: ButtonStyle {
+    let isActive: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        Cell(configuration: configuration, isActive: isActive)
+    }
+
+    private struct Cell: View {
+        let configuration: Configuration
+        let isActive: Bool
+        @State private var isHovered = false
+
+        var body: some View {
+            configuration.label
+                .foregroundStyle(isActive ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color.primary))
+                .frame(width: FormatBarView.cell.width, height: FormatBarView.cell.height)
+                .background {
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(fill)
+                        .padding(.horizontal, 1)
+                        .animation(.easeOut(duration: 0.12), value: isHovered)
+                }
+                .contentShape(Rectangle())
+                .onHover { isHovered = $0 }
+        }
+
+        private var fill: Color {
+            if configuration.isPressed { return Color(nsColor: .tertiaryLabelColor) }
+            return isHovered ? Color(nsColor: .quaternaryLabelColor) : .clear
+        }
     }
 }
 
