@@ -132,8 +132,6 @@ public struct GlossSettingsView: View {
             }
         } header: {
             Text("backup")
-        } footer: {
-            Text("keeps one file, \(LibraryBackupNaming.automaticFileName), and replaces it each time")
         }
     }
 
