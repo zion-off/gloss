@@ -100,6 +100,8 @@ final class EPUBReaderSession: NSObject, ReaderSession, WKNavigationDelegate {
         _ = webView.reload()
     }
 
+    var pageColor: NSColor { webView.underPageBackgroundColor }
+
     private static func matchBackground(of webView: WKWebView, to appearance: ReaderAppearance) {
         if let background = color(appearance.colors.background) {
             webView.underPageBackgroundColor = background

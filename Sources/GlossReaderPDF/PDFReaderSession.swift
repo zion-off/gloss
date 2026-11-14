@@ -14,6 +14,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
                               PDFPageOverlayViewProvider {
     var view: NSView { pdfView }
     var driver: any ReaderDriving { self }
+    var pageColor: NSColor { pdfView.backgroundColor }
 
     private let pdfView = PDFView(frame: .zero)
     private let inbox: ReaderEventInbox

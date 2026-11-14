@@ -3,6 +3,35 @@ import GlossCore
 import GlossAppModel
 import GlossReaderBridge
 
+/// What the pane shows while a book opens: blank paper in the theme's page colour, so the book
+/// fades in rather than flashing in, and a small spinner if the wait gets long enough to notice
+/// (a quick open never shows one).
+private struct OpeningCover: View {
+    let color: NSColor
+    @State private var showsSpinner = false
+
+    var body: some View {
+        Color(nsColor: color)
+            .overlay {
+                if showsSpinner {
+                    ProgressView()
+                        .controlSize(.small)
+                        // A spinner that reads on the page: light on gray and night, dark on light and sepia.
+                        .environment(\.colorScheme, isDark ? .dark : .light)
+                        .accessibilityLabel("opening the book")
+                }
+            }
+            .task {
+                try? await Task.sleep(for: .milliseconds(600))
+                showsSpinner = true
+            }
+    }
+
+    private var isDark: Bool {
+        (color.usingColorSpace(.sRGB)?.brightnessComponent ?? 1) < 0.5
+    }
+}
+
 /// The reader pane: the engine for the open book's kind, drawing into the window, driven by
 /// `ReaderController`, with its popovers (selection, clicked highlight, a marker's notes). Shows
 /// a placeholder when there is no book, no engine for it yet, or the book didn't open.
@@ -28,10 +57,16 @@ public struct ReaderPane: View {
             if let session = host.session {
                 ReaderHostView(session: session)
                     .id(ObjectIdentifier(session))
+                if reader.document != nil, !reader.isShowingBook, reader.errorMessage == nil {
+                    OpeningCover(color: session.pageColor)
+                        // On at once (over the last book too), off with a short fade as the book shows.
+                        .transition(.asymmetric(insertion: .identity, removal: .opacity))
+                }
             }
             placeholder
             popoverAnchor
         }
+        .animation(.easeOut(duration: 0.2), value: reader.isShowingBook)
         .task(id: reader.document?.kind) {
             await host.prepare(for: reader.document?.kind, engines: engines, reader: reader)
         }
