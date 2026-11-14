@@ -72,6 +72,20 @@ enum SearchResultsPlacement {
     case sidebar, mainPane
 }
 
+/// The sidebar's list style in the sidebar, the inset one in the main pane (the two styles are
+/// different types, so a ternary between them doesn't compile).
+private struct ResultsListStyle: ViewModifier {
+    let placement: SearchResultsPlacement
+
+    func body(content: Content) -> some View {
+        if placement == .sidebar {
+            content.listStyle(.sidebar)
+        } else {
+            content.listStyle(.inset)
+        }
+    }
+}
+
 /// The grouped results — notes, book text, library — with the match marked in each snippet.
 /// The flat index is the session's stepping place: a click, Up/Down in the list, or ⌘G makes a
 /// row current and opens it, and the list stays so the rest can be stepped through. The current
@@ -88,7 +102,7 @@ struct SearchResults: View {
                     Section(content: { hits(of: section) }, header: { Text(verbatim: section.group.title) })
                 }
             }
-            .listStyle(placement == .sidebar ? .sidebar : .inset)
+            .modifier(ResultsListStyle(placement: placement))
             .overlay {
                 if !app.search.hasQuery {
                     // The search is open but the field is empty: say what it will look through.
