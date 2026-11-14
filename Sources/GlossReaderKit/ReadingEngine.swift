@@ -14,6 +14,9 @@ import GlossReaderBridge
 public protocol ReaderSession: AnyObject {
     var view: NSView { get }
     var driver: any ReaderDriving { get }
+    /// What the book is drawn on in the current theme (an EPUB's page, the space around a PDF's
+    /// pages): the pane shows it while a book opens, so the wait looks like blank paper.
+    var pageColor: NSColor { get }
     /// Stops delivering events and waits until the queued ones were delivered, so nothing from
     /// this session lands after the next one is attached.
     func invalidate() async
