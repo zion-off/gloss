@@ -39,10 +39,12 @@ choose open, then open again. Or clear the quarantine flag once:
 xattr -dr com.apple.quarantine /Applications/gloss.app
 ```
 
-The `gloss` command ships inside the app. To use it from the terminal, link it onto your PATH:
+The `gloss` command ships inside the app. To use it from the terminal, choose **gloss > install
+command line tool** (it links `/usr/local/bin/gloss` and asks for your password if it has to).
+Without the menu, link it yourself:
 
 ```sh
-ln -s /Applications/gloss.app/Contents/Helpers/gloss /usr/local/bin/gloss   # or ~/.local/bin/gloss
+ln -s /Applications/gloss.app/Contents/Helpers/gloss /usr/local/bin/gloss
 ```
 
 ## build and run
