@@ -78,6 +78,13 @@ import GlossNotes
             paragraph.lineBreakMode = .byClipping
             attributes[.paragraphStyle] = paragraph
         }
+        if style.block == .table {
+            // A drawn table's line: never wrapped by its hidden markdown; the coordinator gives
+            // it its band's height (`tableLineStyle`), which depends on the grid's layout.
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.lineBreakMode = .byClipping
+            attributes[.paragraphStyle] = paragraph
+        }
         if style.hidden == true { attributes[.foregroundColor] = NSColor.clear }
         if style.collapsed == true {
             // No glyph and no width, yet still characters: the caret and selection keep working,
@@ -86,6 +93,15 @@ import GlossNotes
             attributes[.font] = NSFont.systemFont(ofSize: 0.1)
         }
         return attributes
+    }
+
+    /// A drawn table line's paragraph style: exactly `height` tall (its band of the grid), never wrapping.
+    func tableLineStyle(height: CGFloat) -> NSParagraphStyle {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.minimumLineHeight = height
+        paragraph.maximumLineHeight = height
+        paragraph.lineBreakMode = .byClipping
+        return paragraph
     }
 
     /// `NSFontDescriptor.withSymbolicTraits` returns a new descriptor (not optional); the font

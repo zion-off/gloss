@@ -23,6 +23,10 @@ final class NotesTextView: NSTextView {
     private(set) var isSelectingWithMouse = false
     /// The mouse button came up after a click or drag in the text.
     var onMouseSelectionEnd: (() -> Void)?
+    /// The view got wider or narrower (drawn tables fill the width).
+    var onWidthChange: (() -> Void)?
+    /// Light, dark or Increase Contrast changed (drawn tables resolve their colours with it).
+    var onAppearanceChange: (() -> Void)?
 
     private var hoverArea: NSTrackingArea?
 
@@ -57,6 +61,40 @@ final class NotesTextView: NSTextView {
         let rect = NSRect(x: origin.x + frame.minX + local.minX, y: origin.y + frame.minY + local.minY,
                           width: local.width, height: local.height)
         return rect.contains(point) ? (row, rect) : nil
+    }
+
+    /// A drawn table under a point: by the band its line's fragment draws, like subpage rows (the
+    /// index under the point lands in hidden markdown that is laid out nothing like the grid).
+    struct TableHit {
+        let table: RenderedTable
+        /// The table's top-left in this view's coordinates.
+        let origin: NSPoint
+        /// The point, from the table's top-left.
+        let local: NSPoint
+    }
+
+    func tableHit(at point: NSPoint) -> TableHit? {
+        guard let manager = textLayoutManager else { return nil }
+        let container = textContainerOrigin
+        let inContainer = NSPoint(x: point.x - container.x, y: point.y - container.y)
+        guard let fragment = manager.textLayoutFragment(for: inContainer) as? TableGridFragment, let band = fragment.band else { return nil }
+        let frame = fragment.layoutFragmentFrame
+        let bandTop = container.y + frame.minY + band.top
+        // Not the empty last line TextKit may keep in the same fragment.
+        guard point.y >= bandTop, point.y < bandTop + CGFloat(band.table.layout.lineHeights[band.line]) else { return nil }
+        let origin = NSPoint(x: container.x + frame.minX + band.table.originX, y: bandTop - CGFloat(band.table.layout.lineTops[band.line]))
+        return TableHit(table: band.table, origin: origin, local: NSPoint(x: point.x - origin.x, y: point.y - origin.y))
+    }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        let widthChanged = newSize.width != frame.width
+        super.setFrameSize(newSize)
+        if widthChanged { onWidthChange?() }
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        onAppearanceChange?()
     }
 
     override func updateTrackingAreas() {
