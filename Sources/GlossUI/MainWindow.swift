@@ -29,7 +29,9 @@ public struct MainWindow: View {
     ///   (reading settings, routine upkeep); every window calls it, the root runs it once.
     /// - Parameter export: the root's export model; nil leaves the File menu's export and
     ///   print items disabled rather than broken (tests and slices that don't export).
+    /// - Parameter backupActivity: shared with automatic backup, which waits for a manual one.
     public init(services: GlossServices, engines: ReadingEngineRegistry, export: ExportModel? = nil,
+                backupActivity: BackupActivity = BackupActivity(),
                 prepare: @escaping @MainActor () async -> Void) {
         self.engines = engines
         self.prepare = prepare
@@ -41,7 +43,7 @@ public struct MainWindow: View {
         _app = State(initialValue: app)
         _commands = State(initialValue: commands)
         _exportActions = State(initialValue: exportActions)
-        _backup = State(initialValue: BackupCommands(services: services))
+        _backup = State(initialValue: BackupCommands(services: services, activity: backupActivity))
     }
 
     @State private var columnVisibility = NavigationSplitViewVisibility.all

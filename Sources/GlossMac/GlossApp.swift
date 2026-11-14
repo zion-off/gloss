@@ -19,6 +19,7 @@ struct GlossApp: App {
             switch root {
             case .success(let root):
                 MainWindow(services: root.services, engines: root.engines, export: root.export,
+                           backupActivity: root.backupActivity,
                            prepare: { await root.prepare() })
             case .failure(let failure):
                 ContentUnavailableView("gloss couldn't open your library", systemImage: "exclamationmark.triangle",
@@ -35,7 +36,7 @@ struct GlossApp: App {
         Settings {
             switch root {
             case .success(let root):
-                GlossSettingsView(model: root.settingsModel)
+                GlossSettingsView(model: root.settingsModel, backup: root.automaticBackup)
             case .failure(let failure):
                 ContentUnavailableView("gloss couldn't open your library", systemImage: "exclamationmark.triangle",
                                        description: Text(verbatim: failure.message))

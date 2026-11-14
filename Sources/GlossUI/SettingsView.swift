@@ -12,9 +12,11 @@ import GlossReaderBridge
 /// books take them once, when the window closes.
 public struct GlossSettingsView: View {
     @Bindable var model: AppSettingsModel
+    let backup: AutomaticBackupModel
 
-    public init(model: AppSettingsModel) {
+    public init(model: AppSettingsModel, backup: AutomaticBackupModel) {
         _model = Bindable(wrappedValue: model)
+        self.backup = backup
     }
 
     public var body: some View {
@@ -61,6 +63,7 @@ public struct GlossSettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            backupSection
         }
         .formStyle(.grouped)
         .frame(width: 480)
@@ -68,6 +71,73 @@ public struct GlossSettingsView: View {
         .task { await model.load() }
         // Closing the window is when open books change: store what's pending, then announce it.
         .onDisappear { Task { await model.flushSave() } }
+    }
+
+    /// One toggle, the one-line state under it, the folder, and "back up now".
+    private var backupSection: some View {
+        Section {
+            Toggle("back up automatically", isOn: automatically)
+            if let line = backup.statusLine {
+                Text(verbatim: line)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            if let folder = backup.folderDisplay {
+                LabeledContent("folder") {
+                    HStack {
+                        Text(verbatim: folder)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.head)
+                        Button("choose…") {
+                            Task { @MainActor in
+                                if let url = pickFolder() { await backup.setFolder(url) }
+                            }
+                        }
+                    }
+                }
+            }
+            Button("back up now") {
+                Task { @MainActor in
+                    if backup.folder == nil {
+                        guard let url = pickFolder() else { return }
+                        await backup.setFolder(url)
+                    }
+                    await backup.backUpNow()
+                }
+            }
+            .disabled(backup.isBusy)
+        } header: {
+            Text("backup")
+        } footer: {
+            Text("keeps one file, \(LibraryBackupNaming.automaticFileName), and replaces it each time")
+        }
+    }
+
+    /// Turning it on uses the folder already set, or iCloud Drive's; with neither, it asks.
+    private var automatically: Binding<Bool> {
+        Binding(get: { backup.isEnabled }, set: { on in
+            Task { @MainActor in
+                if !on {
+                    await backup.turnOff()
+                } else if await !backup.turnOn(), let url = pickFolder() {
+                    await backup.chooseFolder(url)
+                }
+            }
+        })
+    }
+
+    /// The standard folder panel (the app isn't sandboxed, so a path is all it needs to keep).
+    @MainActor private func pickFolder() -> URL? {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = backup.folder
+        panel.message = "where gloss keeps its backup"
+        panel.prompt = "choose"
+        return panel.runModal() == .OK ? panel.url : nil
     }
 
     /// The picker edits the model's choice directly; the save is the model's didSet.

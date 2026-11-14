@@ -10,8 +10,8 @@ import GlossCore
     public let model: BackupModel
     private let time: any TimeSource
 
-    public init(services: GlossServices) {
-        self.model = BackupModel(services: services)
+    public init(services: GlossServices, activity: BackupActivity = BackupActivity()) {
+        self.model = BackupModel(services: services, activity: activity)
         self.time = services.time
     }
 

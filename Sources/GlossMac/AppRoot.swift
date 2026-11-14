@@ -25,6 +25,10 @@ struct CompositionFailure: Error {
     let libraryURL: URL
     /// The Settings window's model (⌘,); the Settings scene reads it.
     let settingsModel: AppSettingsModel
+    /// Counts backups under way (manual in any window, automatic) so they don't overlap.
+    let backupActivity: BackupActivity
+    /// Automatic backup: the Settings window shows it, `prepare()` runs its timer.
+    let automaticBackup: AutomaticBackupModel
     private let appearance: AppearanceSource
     private var prepared = false
     /// The app object lives as long as the process, so the observer never needs removing.
@@ -55,6 +59,9 @@ struct CompositionFailure: Error {
         self.libraryURL = libraryURL
         self.appearance = appearance
         self.settingsModel = AppSettingsModel(services: services)
+        let backupActivity = BackupActivity()
+        self.backupActivity = backupActivity
+        self.automaticBackup = AutomaticBackupModel(services: services, activity: backupActivity)
         self.engines = ReadingEngineRegistry([
             EPUBReadingEngine(readerDirectory: readerDirectory, library: services.library) { appearance.current },
             PDFReadingEngine(library: services.library) { appearance.current },
@@ -83,6 +90,22 @@ struct CompositionFailure: Error {
         let services = services
         Task.detached(priority: .utility) {
             try? await services.performMaintenance()
+        }
+        startAutomaticBackup()
+    }
+
+    /// The automatic backup timer: a first look shortly after launch (so opening stays quick),
+    /// then every hour. Each look is a cheap "is a day up?" check, which also catches a laptop
+    /// that slept through the day; the model decides, and a run is at most once a day.
+    private func startAutomaticBackup() {
+        let backup = automaticBackup
+        Task {
+            await backup.load()
+            try? await Task.sleep(for: .seconds(15))
+            while !Task.isCancelled {
+                await backup.runIfDue()
+                try? await Task.sleep(for: .seconds(60 * 60))
+            }
         }
     }
 }
