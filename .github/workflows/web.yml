@@ -11,7 +11,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
+  # Docs-only changes skip web rather than the workflow, so the required check still passes
+  # (scripts/code-changed.sh).
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - name: check out
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: anything besides docs?
+        id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: echo "code=$(scripts/code-changed.sh "$BASE")" | tee -a "$GITHUB_OUTPUT"
+
+  web:
+    needs: changes
+    # Runs unless changes said docs only: if changes failed, this must not pass by skipping.
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
