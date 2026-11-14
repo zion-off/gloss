@@ -32,6 +32,8 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
     /// The search session's matches, collected as the background find finds them; shown softly
     /// once the find ends, so a partial page's worth never flickers in.
     private var searchMatches: [PDFSelection] = []
+    /// The session's query a find is (or was last) running for; nil with no session on this book.
+    private var searchQuery: String?
     /// Bumped by every session change: a find's end only lands if it is still the newest
     /// (a newer query, a clear, another book).
     private var searchGeneration = 0
@@ -64,11 +66,18 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
         observers.append(NotificationCenter.default.addObserver(forName: .PDFViewSelectionChanged, object: pdfView, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.selectionChanged() }
         })
-        // A background find's matches arrive one at a time; the session is the document's find
-        // delegate and collects them (PDFKit posts them as notifications too, but the delegate
-        // needs no userInfo key spelunking and lands on the main actor with the session).
-        // The Swift spelling of these two names is the one the importer gives the ObjC
-        // constants; the docs JSON only carries the extern.
+        // A background find reports each match and its end as notifications. They are observed
+        // on the main queue rather than through PDFDocumentDelegate: nothing documents which
+        // thread the delegate is called on, and a main-queue observer is delivered on the main
+        // thread whatever thread PDFKit posts from. The Swift spellings are the importer's; the
+        // docs JSON only carries the externs, and the match payload's key comes from the SDK
+        // header (PDFDocumentFoundSelection).
+        observers.append(NotificationCenter.default.addObserver(forName: .PDFDocumentDidFindMatch, object: nil, queue: .main) { [weak self] note in
+            // The match is taken out of the notification before the isolated hop: the note is
+            // main-queue-delivered but not Sendable, the selection it hands over is.
+            nonisolated(unsafe) let match = note.userInfo?["PDFDocumentFoundSelection"] as? PDFSelection
+            MainActor.assumeIsolated { self?.collectMatch(match) }
+        })
         observers.append(NotificationCenter.default.addObserver(forName: .PDFDocumentDidEndFind, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.findEnded() }
         })
@@ -102,9 +111,9 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
         quotes = PDFQuoteResolver()
         searchMatches = []
         searchGeneration += 1
+        searchQuery = nil
+        pdfView.highlightedSelections = nil  // the previous book's, until the first find ends
         self.document = pdf
-        findCollector.session = self
-        pdf.delegate = findCollector
         pageCount = pdf.pageCount
         pdfView.document = pdf
         toc = Self.toc(of: pdf)
@@ -122,6 +131,9 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
         document?.cancelFindString()
         searchMatches = []
         searchGeneration += 1
+        searchQuery = nil
+        emphasisedMatch = nil
+        pdfView.highlightedSelections = nil
         document = nil
         pageCount = 0
         toc = []
@@ -182,12 +194,13 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
         pdf.cancelFindString()  // a find still running for an earlier query
         searchGeneration += 1
         findGeneration = searchGeneration
+        searchQuery = query
         pdf.beginFindString(query, withOptions: [.caseInsensitive, .diacriticInsensitive])
     }
 
-    /// The running find's newest match (from the find delegate).
-    private func collectMatch(_ instance: PDFSelection) {
-        guard findGeneration == searchGeneration else { return }
+    /// The running find's newest match (from the find notification).
+    private func collectMatch(_ instance: PDFSelection?) {
+        guard findGeneration == searchGeneration, let instance else { return }
         searchMatches.append(instance)
     }
 
@@ -200,35 +213,36 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
         pdfView.highlightedSelections = matches.isEmpty ? nil : matches
     }
 
-    /// Cancels a running find and forgets its matches (a newer query, a clear, a close).
+    /// Cancels a running find and forgets its matches (a newer query, a clear, a close). The
+    /// user's own text selection is not the session's to clear: only the match the session
+    /// emphasised goes.
     private func stopFinding() {
         searchGeneration += 1
         searchMatches = []
+        searchQuery = nil
         document?.cancelFindString()
         pdfView.highlightedSelections = nil
-        pdfView.clearSelection()
-    }
-
-    /// The document's find delegate. PDFKit's protocol is unisolated but calls on the main
-    /// thread (its find notifications arrive on the main queue); the hop is stated with
-    /// `assumeIsolated`, exactly like the session's notification observers.
-    @MainActor
-    private final class FindCollector: NSObject, PDFDocumentDelegate {
-        weak var session: PDFReaderSession?
-        nonisolated func didMatchString(_ instance: PDFSelection) {
-            // PDFSelection is not Sendable, and PDFKit hands the delegate a fresh, main-thread
-            // object per match (its find notifications carry the same objects on the main
-            // queue); the hop is stated, and the collector is the only reader.
-            nonisolated(unsafe) let match = instance
-            MainActor.assumeIsolated { self.session?.collectMatch(match) }
+        if let emphasised = emphasisedMatch, pdfView.currentSelection === emphasised {
+            pdfView.clearSelection()
         }
+        emphasisedMatch = nil
     }
-    private lazy var findCollector = FindCollector()
 
-    /// Emphasises the current hit: PDFKit draws the current selection in its stronger find style,
-    /// on top of the soft highlights.
+    /// The match the session emphasised (its current hit), to take back on clear.
+    private var emphasisedMatch: PDFSelection?
+    /// While the session sets the current match, PDFKit reports it as a selection change; the
+    /// selection popover must not open for it.
+    private var isEmphasisingSearchMatch = false
+
+    /// Emphasises the current hit: PDFKit draws the current selection in its stronger find
+    /// style, on top of the soft highlights. The selection it sets is the session's, not the
+    /// user's: the change it triggers is swallowed, so no selection popover opens and ⌘K is
+    /// not offered against a search match.
     private func emphasise(_ selection: PDFSelection) {
+        emphasisedMatch = selection
+        isEmphasisingSearchMatch = true
         pdfView.currentSelection = selection
+        Task { @MainActor in self.isEmphasisingSearchMatch = false }
     }
 
     /// A search hit: its own occurrence on its own page when it has a locator (search chunks
@@ -330,6 +344,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
     }
 
     private func selectionChanged() {
+        guard !isEmphasisingSearchMatch else { return }  // the search session's, not the user's
         guard let pdf = document else { return }
         guard let selection = pdfView.currentSelection,
               let text = selection.string, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
