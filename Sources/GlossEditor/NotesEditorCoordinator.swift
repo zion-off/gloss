@@ -73,7 +73,13 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         }
         textView.onFocusChange = { [weak self] focused in self?.actions.focusChanged(focused) }
         textView.onHover = { [weak self] point in self?.pointerMoved(to: point) }
-        textView.onHoverEnd = { [weak self] in self?.endHover(); self?.setRowHover(nil) }
+        // The pointer left the text, or a floating view covers it: the view under it sets the
+        // cursor now, so dropping the row must not put the I-beam back.
+        textView.onHoverEnd = { [weak self] in
+            self?.endHover()
+            self?.hoveredRowID = nil
+            self?.setRowHover(nil)
+        }
 
         let scrollView = NSScrollView()
         scrollView.documentView = textView

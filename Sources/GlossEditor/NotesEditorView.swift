@@ -53,8 +53,7 @@ public struct NotesEditor: View {
            let rect = selectionRect {
             // Position by top edge: the bar sits over the selection when there's room, under
             // it when there isn't.
-            FormatBarView(model: model, actions: actions)
-                .arrowCursor()
+            FormatBarHost(model: model, actions: actions)
                 .position(x: OverlayGeometry.clampCenter(rect.midX, width: FormatBarView.width, in: size.width),
                           y: OverlayGeometry.above(anchor: rect, height: FormatBarView.height) + FormatBarView.height / 2)
         }
@@ -69,7 +68,6 @@ public struct NotesEditor: View {
     }
 }
 
-/// The format bar: the standard buttons, in a system material, floating over the selection.
 extension View {
     /// The text view underneath asks for an I-beam over its whole area, floating controls
     /// included; they want the arrow, set again on every move over them.
@@ -80,6 +78,7 @@ extension View {
     }
 }
 
+/// The format bar: the standard buttons, in a system material, floating over the selection.
 struct FormatBarView: View {
     static let width: CGFloat = CGFloat(FormatBar.items.count) * 28 + 12
     static let height: CGFloat = 32
@@ -108,6 +107,55 @@ struct FormatBarView: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
         .shadow(radius: 2, y: 1)
     }
+}
+
+/// Hosts the format bar in a view of its own over the text, so the bar owns the pointer.
+///
+/// The text view's I-beam is a cursor rect over its whole visible area, and AppKit doesn't
+/// clip cursor rects or tracking areas by what's drawn on top. Drawn by the editor's own
+/// hosting view, the bar had no view of its own to claim the cursor: the I-beam showed through,
+/// the arrow set on each hover move lost to every cursor-rect reset (each edit lays the text out
+/// again), and leaving the bar left the arrow over the text. A cursor-update area of its own
+/// makes AppKit send the cursor update to the bar when the pointer comes in, and to the text
+/// view (its I-beam) when it goes back out.
+private struct FormatBarHost: NSViewRepresentable {
+    let model: NotesEditorModel
+    let actions: NotesEditorActions
+
+    func makeNSView(context: Context) -> FormatBarHostingView {
+        let view = FormatBarHostingView(rootView: FormatBarView(model: model, actions: actions))
+        view.clipsToBounds = false  // the bar's shadow falls outside its frame
+        return view
+    }
+
+    func updateNSView(_ nsView: FormatBarHostingView, context: Context) {
+        nsView.rootView = FormatBarView(model: model, actions: actions)
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: FormatBarHostingView, context: Context) -> CGSize? {
+        CGSize(width: FormatBarView.width, height: FormatBarView.height)
+    }
+}
+
+private final class FormatBarHostingView: NSHostingView<FormatBarView> {
+    private var cursorArea: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let cursorArea { removeTrackingArea(cursorArea) }
+        let area = NSTrackingArea(rect: .zero, options: [.cursorUpdate, .activeInKeyWindow, .inVisibleRect],
+                                  owner: self, userInfo: nil)
+        addTrackingArea(area)
+        cursorArea = area
+    }
+
+    /// The arrow over the whole bar, buttons and gaps alike, like any toolbar or palette.
+    override func cursorUpdate(with event: NSEvent) {
+        NSCursor.arrow.set()
+    }
+
+    /// A click on a button leaves the keyboard focus, and so the selection, in the text.
+    override var acceptsFirstResponder: Bool { false }
 }
 
 /// The slash menu: the model's items, the selected row highlighted, clicks run.

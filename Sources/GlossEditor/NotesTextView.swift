@@ -66,7 +66,20 @@ final class NotesTextView: NSTextView {
     }
 
     override func mouseMoved(with event: NSEvent) {
+        // Tracking areas go by geometry, not by what's on top: moves over the format bar or the
+        // slash menu still land here. The view on top owns the pointer there, so this view
+        // shows no hover and leaves the cursor alone, as if the pointer had left.
+        guard isUnderPointer(event) else { onHoverEnd?(); return }
         onHover?(convert(event.locationInWindow, from: nil))
+    }
+
+    /// Whether this view is what a click at the event's location would hit, the same hit test
+    /// the window runs for clicks (from the frame view, in window coordinates).
+    private func isUnderPointer(_ event: NSEvent) -> Bool {
+        guard let content = window?.contentView else { return true }
+        let root = content.superview ?? content
+        guard let hit = root.hitTest(event.locationInWindow) else { return false }
+        return hit.isDescendant(of: self)
     }
 
     override func mouseExited(with event: NSEvent) {
