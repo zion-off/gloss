@@ -42,14 +42,6 @@ choose open, then open again. Or clear the quarantine flag once:
 xattr -dr com.apple.quarantine /Applications/gloss.app
 ```
 
-The `gloss` command ships inside the app. To use it from the terminal, choose **gloss > install
-command line tool** (it links `/usr/local/bin/gloss` and asks for your password if it has to).
-Without the menu, link it yourself:
-
-```sh
-ln -s /Applications/gloss.app/Contents/Helpers/gloss /usr/local/bin/gloss
-```
-
 ## build and run
 
 To build it yourself you need macOS 14 or later and Xcode
@@ -67,12 +59,16 @@ and pnpm if you're changing `web/`. Run `scripts/check.sh` before committing; `C
 ## the `gloss` command
 
 Everything the app does with your library, scripts can do too. The command and the app share the
-library safely, and the app picks up changes made from the terminal. If you installed the app you
-already have it (see install above); otherwise build it:
+library safely, and the app picks up changes made from the terminal.
+
+It ships inside the app. Choose **gloss > install command line tool** (it links `/usr/local/bin/gloss`
+and asks for your password if it has to), or link it yourself:
 
 ```sh
-swift build -c release --product gloss    # then run .build/release/gloss
+ln -s /Applications/gloss.app/Contents/Helpers/gloss /usr/local/bin/gloss
 ```
+
+Building from source instead: `swift build -c release --product gloss`, then run `.build/release/gloss`.
 
 ```sh
 gloss import ~/Books                        # files or whole folders
