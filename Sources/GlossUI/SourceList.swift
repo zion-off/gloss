@@ -12,9 +12,6 @@ struct SourceList: View {
     /// results left it): the chapter being read is brought into view then.
     var revealToken = 0
     @Environment(\.undoManager) private var undoManager
-    /// The contents rows fully on screen (macOS 15's scroll visibility). On earlier systems it
-    /// stays empty and a due scroll always runs: centring a row that was visible is harmless.
-    @State private var fullyVisibleRows: Set<ContentsNode.ID> = []
     // Which sections are open survives a relaunch, like the rest of the window (state restoration).
     @SceneStorage("sidebar.contents") private var showsContents = true
     @SceneStorage("sidebar.highlights") private var showsHighlights = true
@@ -55,13 +52,9 @@ struct SourceList: View {
     private func reveal(_ row: ContentsNode.ID?, with proxy: ScrollViewProxy) {
         guard let row, showsContents else { return }
         Task { @MainActor in
-            guard !fullyVisibleRows.contains(row) else { return }
-            proxy.scrollTo(Self.contentsRowID(row), anchor: .center)
+            proxy.scrollTo(row, anchor: .center)
         }
     }
-
-    /// A contents row's scroll id, apart from the other sections' row ids.
-    static func contentsRowID(_ id: ContentsNode.ID) -> String { "contents:" + id }
 
     private var list: some View {
         List(selection: selection) {
@@ -125,12 +118,15 @@ struct SourceList: View {
                         }
                     }
                     .padding(.leading, Self.indent(row.depth))
-                    .tag(SidebarSelection.contents(row.node.id))
-                    .id(Self.contentsRowID(row.node.id))
                     // The selection follows the chapter (the standard selected row); VoiceOver
                     // also hears which entry is being read when the selection is elsewhere.
                     .accessibilityValue(isCurrent ? Text("current chapter") : Text(verbatim: ""))
-                    .modifier(FullVisibility(id: row.node.id, visible: $fullyVisibleRows))
+                    // Last, on the row itself: the list reads the selection value from the row's
+                    // tag, and a view wrapped around it after the tag (an `.id`, or a modifier with
+                    // `if #available`, which the view builder erases to `AnyView`) hid it, so a
+                    // click fell back to the ForEach id (a String), matched no `SidebarSelection`
+                    // and selected nothing.
+                    .tag(SidebarSelection.contents(row.node.id))
                 }
             }
         }
@@ -230,24 +226,5 @@ private struct HighlightRow: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(verbatim: "\(highlight.color.rawValue) highlight: \(highlight.passage.quote)"))
-    }
-}
-
-/// Tracks which contents rows are fully on screen (macOS 15+), so a due scroll can leave a
-/// visible row alone. Earlier systems never record any: the scroll always runs.
-private struct FullVisibility: ViewModifier {
-    let id: ContentsNode.ID
-    @Binding var visible: Set<ContentsNode.ID>
-
-    func body(content: Content) -> some View {
-        if #available(macOS 15.0, *) {
-            content
-                .onScrollVisibilityChange(threshold: 0.99) { isVisible in
-                    if isVisible { visible.insert(id) } else { visible.remove(id) }
-                }
-                .onDisappear { visible.remove(id) }
-        } else {
-            content
-        }
     }
 }

@@ -47,11 +47,23 @@ struct ContentsVisibilityTests {
     @Test("the selection follows the chapter from the book or the contents, never from a highlight or page")
     func selectionFollows() {
         let highlight = HighlightID(GlossID(high: 9, low: 1)), page = PageID(GlossID(high: 9, low: 2))
-        #expect(ContentsVisibility.followedSelection(.book, current: "1.1") == .contents("1.1"))
-        #expect(ContentsVisibility.followedSelection(.contents("0"), current: "1.1") == .contents("1.1"))
-        #expect(ContentsVisibility.followedSelection(.contents("1.1"), current: "1.1") == nil)
-        #expect(ContentsVisibility.followedSelection(.highlight(highlight), current: "1.1") == nil)
-        #expect(ContentsVisibility.followedSelection(.page(page), current: "1.1") == nil)
-        #expect(ContentsVisibility.followedSelection(.book, current: nil) == nil)
+        let partB = location("c2b")
+        #expect(ContentsVisibility.followedSelection(.book, in: nodes, at: partB) == .contents("1.1"))
+        #expect(ContentsVisibility.followedSelection(.contents("0"), in: nodes, at: partB) == .contents("1.1"))
+        #expect(ContentsVisibility.followedSelection(.contents("1.1"), in: nodes, at: partB) == nil)
+        #expect(ContentsVisibility.followedSelection(.highlight(highlight), in: nodes, at: partB) == nil)
+        #expect(ContentsVisibility.followedSelection(.page(page), in: nodes, at: partB) == nil)
+        #expect(ContentsVisibility.followedSelection(.book, in: nodes, at: location("missing")) == nil)
+    }
+
+    @Test("a clicked entry that still covers the position keeps the selection")
+    func clickedEntryStays() {
+        // "two" clicked, landing where its "part b" is: the chapter the user picked stays selected.
+        #expect(ContentsVisibility.followedSelection(.contents("1"), in: nodes, at: location("c2b")) == nil)
+        // The second listing of the same place clicked: it names the position too.
+        let twice = nodes + [ContentsNode(id: "3", label: "two again", target: Locator(scheme: LocatorScheme("href"), value: "c2"))]
+        #expect(ContentsVisibility.followedSelection(.contents("3"), in: twice, at: location("c2")) == nil)
+        // Reading on into the next chapter moves it.
+        #expect(ContentsVisibility.followedSelection(.contents("1"), in: nodes, at: location("c3")) == .contents("2"))
     }
 }

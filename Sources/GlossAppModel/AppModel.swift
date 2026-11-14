@@ -355,7 +355,7 @@ import GlossReaderBridge
     /// moves; nothing navigates.
     public func followCurrentContents() {
         guard workspace.document != nil,
-              let next = ContentsVisibility.followedSelection(workspace.sidebar, current: currentContentsRow) else { return }
+              let next = ContentsVisibility.followedSelection(workspace.sidebar, in: contents, at: reader.location) else { return }
         workspace.sidebar = next
     }
 
