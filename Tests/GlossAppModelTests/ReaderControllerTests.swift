@@ -101,6 +101,22 @@ struct ReaderControllerTests {
         #expect(try await lib.services.library.document(book.id)?.lastOpenedAt != nil)
     }
 
+    @Test("an open sent to the engine being replaced reaches the new one at the saved position")
+    func openAcrossEngineSwap() async throws {
+        let lib = TestLibrary()
+        let (book, _) = try await lib.book()
+        let saved = Locator(scheme: FakeFormat.scheme, value: "saved")
+        try await lib.services.library.savePosition(saved, progression: 0.4, label: nil, of: book.id)
+        let controller = ReaderController(services: lib.services)
+        let old = FakeDriver(), new = FakeDriver()
+        controller.attach(old)
+        await controller.handle(.ready)
+        await controller.open(book)  // goes to the old engine: the pane swaps engines after this
+        controller.attach(new)
+        await controller.handle(.ready)
+        #expect(new.calls == [.open(book.id, saved)])
+    }
+
     @Test("opening at a passage goes there after the book loads")
     func openAtPassage() async throws {
         let lib = TestLibrary()

@@ -90,6 +90,8 @@ import GlossReaderBridge
     private let services: GlossServices
     private weak var driver: (any ReaderDriving)?
     private var pendingOpen: (document: Document, locator: Locator?)?
+    /// The open last sent to an engine, so an engine swap can send it again as it was.
+    private var sentOpen: (document: Document, locator: Locator?)?
     private var pendingFocus: Locator?
     /// A search hit to reveal once the open book is on screen — for the book it was asked in,
     /// so opening another book in between drops it instead of mislanding.
@@ -120,7 +122,12 @@ import GlossReaderBridge
         isReady = false
         stopShowingBook()
         if pendingOpen == nil, let document {
-            pendingOpen = (document, location?.locator)
+            // Where the reader is, or else where the last open sent this book: an open that went
+            // to the engine being replaced (the pane swaps engines only after `open` has read the
+            // saved position and sent it on) has no location yet. Reopened from nil, the book
+            // started at its beginning and its first relocation saved that over the reader's place.
+            let sent = sentOpen?.document.id == document.id ? sentOpen?.locator : nil
+            pendingOpen = (document, location?.locator ?? sent)
         }
     }
 
@@ -426,6 +433,7 @@ import GlossReaderBridge
     private func performPendingOpen() async {
         guard let pending = pendingOpen, let driver else { return }
         pendingOpen = nil
+        sentOpen = pending
         lastOpenID += 1
         let openID = lastOpenID
         awaitedOpenID = openID
