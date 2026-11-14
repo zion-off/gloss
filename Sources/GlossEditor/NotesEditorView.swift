@@ -61,12 +61,10 @@ public struct NotesEditor: View {
                 FormatBarHost(model: model, actions: actions)
                     .position(x: OverlayGeometry.clampCenter(rect.midX, width: FormatBarView.width, in: size.width),
                               y: OverlayGeometry.above(anchor: rect, height: FormatBarView.height) + FormatBarView.height / 2)
-                    .transition(.opacity)
             }
         }
-        // Fades in and out like the system's popovers; a selection that moves while the bar is
-        // up moves it at once, without sliding.
-        .animation(.easeOut(duration: 0.15), value: formatBarAnchor != nil)
+        // No transition, like the slash menu: the bar is there when the selection is, and moves
+        // with it at once.
         // Hangs from its slash and follows it as the note scrolls. Once the slash's line is out
         // of view the menu hides until it's back; it stays open meanwhile (typing scrolls the
         // caret back into view, Escape closes it).
