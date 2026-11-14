@@ -258,6 +258,9 @@ import GlossReaderBridge
     /// PDFs can't, so the capability is a separate protocol). Books opened afterwards pick the
     /// new appearance up at open; this is for the one already on screen.
     public func applyAppearanceIfSupported(_ appearance: ReaderAppearance) async {
+        // Colours go to the session whether or not a book shows: it stays for the engine's next
+        // book (every PDF opens in the same one), which would otherwise keep the old theme.
+        if let themed = driver as? (any ThemeColorsApplying) { themed.apply(appearance.colors) }
         guard isShowingBook, let driver, let applying = driver as? (any ReflowableAppearanceApplying) else { return }
         do { try await applying.apply(appearance) } catch { errorMessage = Self.describe(error) }
     }
