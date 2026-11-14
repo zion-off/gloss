@@ -7,7 +7,7 @@ import GlossTerminal
 // MARK: link
 
 struct LinkCommand: AsyncParsableCommand {
-    /// The part flags (`--section`, `--page`) come from the registered formats (D-197), so the
+    /// The part flags (`--section`, `--page`) come from the registered formats, so the
     /// help is built when it's asked for, inside a run.
     static var configuration: CommandConfiguration {
         let names = CLIEnvironment.current.partNames

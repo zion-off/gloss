@@ -21,20 +21,45 @@ export interface AnnotationsPayloadInput {
     markers?: CfiMarker[]
 }
 
+// Looks up several quotes of one section at once, in order: a CFI for each, null when its words
+// aren't there. The glue parses the section once for the whole batch.
+export type SectionResolver = (section: number, quotes: QuoteTarget[]) => Promise<(string | null)[]>
+
+// The quote markers of a payload grouped by the section their words are in (sections and
+// markers in first-seen order), each with its position in `markers`.
+export const groupQuoteMarkers = (
+    markers: SetAnnotationsPayload['markers'],
+): Map<number, { index: number; quote: QuoteTarget }[]> => {
+    const bySection = new Map<number, { index: number; quote: QuoteTarget }[]>()
+    markers.forEach((marker, index) => {
+        if ('cfi' in marker) return
+        const group = bySection.get(marker.quote.section)
+        if (group) group.push({ index, quote: marker.quote })
+        else bySection.set(marker.quote.section, [{ index, quote: marker.quote }])
+    })
+    return bySection
+}
+
 // Markers pinned by quotes (`gloss link`) are placed by the CFI their words resolve to; the ones
-// whose words can't be found in the book are left out (no marker beats a wrong one).
+// whose words can't be found in the book are left out (no marker beats a wrong one). One lookup
+// per section, not per marker, and the markers keep the payload's order.
 export const resolveMarkers = async (
     payload: SetAnnotationsPayload,
-    resolveQuote: (quote: QuoteTarget) => Promise<string | null>,
+    resolveSection: SectionResolver,
 ): Promise<{ highlights: HighlightAnnotation[]; markers: CfiMarker[] }> => {
+    const found = new Map<number, string | null>()
+    for (const [section, group] of groupQuoteMarkers(payload.markers)) {
+        const cfis = await resolveSection(section, group.map(entry => entry.quote))
+        group.forEach((entry, i) => found.set(entry.index, cfis[i] ?? null))
+    }
     const markers: CfiMarker[] = []
-    for (const marker of payload.markers) {
+    payload.markers.forEach((marker, index) => {
         if ('cfi' in marker) markers.push(marker)
         else {
-            const cfi = await resolveQuote(marker.quote)
+            const cfi = found.get(index)
             if (cfi) markers.push({ id: marker.id, cfi })
         }
-    }
+    })
     return { highlights: payload.highlights, markers }
 }
 

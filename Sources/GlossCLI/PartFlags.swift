@@ -3,7 +3,7 @@ import Foundation
 /// The per-format flags of `gloss link` (`--section 5` for epubs, `--page 5` for pdfs).
 ///
 /// ArgumentParser's options are fixed at compile time, but which words name a part of a book
-/// belongs to the formats (`QuoteLocating.partName`, D-197). So the command declares one
+/// belongs to the formats (`QuoteLocating.partName`). So the command declares one
 /// `--part` option and the names the formats supply are rewritten into it before parsing:
 /// `--section 5` becomes `--part section:5`. Only arguments after the `link` subcommand change.
 enum PartFlags {

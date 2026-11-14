@@ -7,19 +7,40 @@
 // payload plus the currently drawn state into a minimal plan
 // `{ add, remove, update }`, and answers "which note IDs live at this CFI?" for
 // `annotationActivated`.
+// The quote markers of a payload grouped by the section their words are in (sections and
+// markers in first-seen order), each with its position in `markers`.
+export const groupQuoteMarkers = (markers) => {
+    const bySection = new Map();
+    markers.forEach((marker, index) => {
+        if ('cfi' in marker)
+            return;
+        const group = bySection.get(marker.quote.section);
+        if (group)
+            group.push({ index, quote: marker.quote });
+        else
+            bySection.set(marker.quote.section, [{ index, quote: marker.quote }]);
+    });
+    return bySection;
+};
 // Markers pinned by quotes (`gloss link`) are placed by the CFI their words resolve to; the ones
-// whose words can't be found in the book are left out (no marker beats a wrong one).
-export const resolveMarkers = async (payload, resolveQuote) => {
+// whose words can't be found in the book are left out (no marker beats a wrong one). One lookup
+// per section, not per marker, and the markers keep the payload's order.
+export const resolveMarkers = async (payload, resolveSection) => {
+    const found = new Map();
+    for (const [section, group] of groupQuoteMarkers(payload.markers)) {
+        const cfis = await resolveSection(section, group.map(entry => entry.quote));
+        group.forEach((entry, i) => found.set(entry.index, cfis[i] ?? null));
+    }
     const markers = [];
-    for (const marker of payload.markers) {
+    payload.markers.forEach((marker, index) => {
         if ('cfi' in marker)
             markers.push(marker);
         else {
-            const cfi = await resolveQuote(marker.quote);
+            const cfi = found.get(index);
             if (cfi)
                 markers.push({ id: marker.id, cfi });
         }
-    }
+    });
     return { highlights: payload.highlights, markers };
 };
 // Build the complete desired entry list from a `setAnnotations` payload.

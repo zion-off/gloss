@@ -27,17 +27,28 @@ export const textNodes = (doc: Document): Text[] => {
     return nodes
 }
 
-// Gives a document the shape of the rendered one (the elements the sanitizer strips, so the
-// range's CFI matches what is shown), then finds the anchor's words: the Range they cover, or
-// null when they aren't there. Changes `doc`.
-export const quoteRange = (doc: Document, anchor: QuoteAnchor): Range | null => {
+// A section's document given the shape of the rendered one (the elements the sanitizer strips,
+// so a range's CFI matches what is shown) with its text nodes found once, to resolve any number
+// of quotes in it. Changes `doc`.
+export interface SectionText {
+    doc: Document
+    nodes: Text[]
+    texts: string[]
+}
+
+export const sectionText = (doc: Document): SectionText => {
     for (const element of Array.from(doc.querySelectorAll('*')))
         if (shouldRemove(element)) element.remove()
     const nodes = textNodes(doc)
-    const found = resolveInNodes(nodes.map(node => node.nodeValue ?? ''), anchor)
+    return { doc, nodes, texts: nodes.map(node => node.nodeValue ?? '') }
+}
+
+// The Range the anchor's words cover in the section, or null when they aren't there.
+export const quoteRange = (section: SectionText, anchor: QuoteAnchor): Range | null => {
+    const found = resolveInNodes(section.texts, anchor)
     if (!found) return null
-    const range = doc.createRange()
-    range.setStart(nodes[found.start.node], found.start.offset)
-    range.setEnd(nodes[found.end.node], found.end.offset)
+    const range = section.doc.createRange()
+    range.setStart(section.nodes[found.start.node], found.start.offset)
+    range.setEnd(section.nodes[found.end.node], found.end.offset)
     return range
 }

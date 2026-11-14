@@ -4,7 +4,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
-import { quoteRange, textNodes } from '../src/bridge/quote-dom.ts'
+import { quoteRange as rangeIn, sectionText, textNodes } from '../src/bridge/quote-dom.ts'
 import type { QuoteAnchor } from '../src/bridge/quote.ts'
 
 const { window } = new JSDOM('')
@@ -13,6 +13,7 @@ const section = (body: string): Document =>
     new window.DOMParser().parseFromString(
         `<html xmlns="${XHTML_NS}"><head><title>t</title></head><body>${body}</body></html>`, 'application/xhtml+xml')
 
+const quoteRange = (doc: Document, anchor: QuoteAnchor): Range | null => rangeIn(sectionText(doc), anchor)
 const anchor = (text: string, extra: Partial<QuoteAnchor> = {}): QuoteAnchor =>
     ({ text, prefix: '', suffix: '', occurrence: 0, ...extra })
 
@@ -38,6 +39,13 @@ test('a repeated quote: context first, then the occurrence number', () => {
     const byContext = quoteRange(section('<p>the whale</p><p>and the whale</p><p>then the whale again</p>'),
         anchor('the whale', { occurrence: 0, prefix: 'and', suffix: '' }))
     assert.equal(byContext?.startContainer.nodeValue, 'and the whale')
+})
+
+test('one parsed section resolves several quotes', () => {
+    const prepared = sectionText(section('<p>Call me <i>Ish</i>mael.</p><p>Some years ago</p>'))
+    assert.equal(rangeIn(prepared, anchor('Ishmael.'))?.toString(), 'Ishmael.')
+    assert.equal(rangeIn(prepared, anchor('years ago'))?.toString(), 'years ago')
+    assert.equal(rangeIn(prepared, anchor('nowhere')), null)
 })
 
 test('words that are not there give no range', () => {

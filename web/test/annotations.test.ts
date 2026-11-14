@@ -6,6 +6,7 @@ import {
     entriesFromPayload,
     planAnnotations,
     idsAt,
+    groupQuoteMarkers,
     resolveMarkers,
     styleFor,
     type AnnotationsPayloadInput,
@@ -205,10 +206,32 @@ test('quote markers are placed by the CFI their words resolve to; unfound ones a
     const resolved = await resolveMarkers({
         highlights: [hl('h1', CFI_A)],
         markers: [mk('m1', CFI_B), { id: 'm2', quote }, { id: 'm3', quote: { ...quote, text: 'nowhere' } }],
-    }, async q => {
-        asked.push(q)
-        return q.text === 'the whale' ? CFI_C : null
+    }, async (section, quotes) => {
+        asked.push([section, quotes.length])
+        return quotes.map(q => q.text === 'the whale' ? CFI_C : null)
     })
     assert.deepEqual(resolved, { highlights: [hl('h1', CFI_A)], markers: [mk('m1', CFI_B), mk('m2', CFI_C)] })
-    assert.equal(asked.length, 2)
+    assert.deepEqual(asked, [[4, 2]])
+})
+
+test('quote markers are grouped by section: one lookup each, payload order kept', async () => {
+    const q = (section: number, text: string) => ({ section, text, prefix: '', suffix: '', occurrence: 0 })
+    const markers = [
+        { id: 'a', quote: q(7, 'a') }, mk('c1', CFI_A), { id: 'b', quote: q(2, 'b') },
+        { id: 'c', quote: q(7, 'c') }, { id: 'd', quote: q(2, 'd') },
+    ]
+    const groups = groupQuoteMarkers(markers)
+    assert.deepEqual([...groups.keys()], [7, 2])
+    assert.deepEqual(groups.get(7)?.map(e => [e.index, e.quote.text]), [[0, 'a'], [3, 'c']])
+    assert.deepEqual(groups.get(2)?.map(e => [e.index, e.quote.text]), [[2, 'b'], [4, 'd']])
+    assert.equal(groupQuoteMarkers([mk('x', CFI_A)]).size, 0)
+
+    const asked: [number, string[]][] = []
+    const resolved = await resolveMarkers({ highlights: [], markers }, async (section, quotes) => {
+        asked.push([section, quotes.map(x => x.text)])
+        return quotes.map(x => x.text === 'd' ? null : `cfi-${x.text}`)
+    })
+    assert.deepEqual(asked, [[7, ['a', 'c']], [2, ['b', 'd']]])
+    assert.deepEqual(resolved.markers.map(m => m.id), ['a', 'c1', 'b', 'c'])
+    assert.deepEqual(resolved.markers.map(m => m.cfi), ['cfi-a', CFI_A, 'cfi-b', 'cfi-c'])
 })

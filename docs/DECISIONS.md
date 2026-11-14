@@ -175,33 +175,6 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   A CLI link and a GUI link to the same words are two targets (different locators) drawn as one
   underline whose popover lists both. Readers don't upgrade quote locators to CFIs/PDF locators:
   writing from the reader would race edits and sync for a saving of one parse per section per open.
-- **D-194 Scripts written without spaces have no word edges.** Whole-word matching (D-192) looked
-  for letters on both sides of a match, which is every position in a Chinese, Japanese or Thai
-  sentence, so those quotes never matched. `FoldedText.isWholeWords` now treats Han, kana, Bopomofo,
-  Thai, Lao, Tibetan, Myanmar and Khmer characters as non-word characters: a match next to them is
-  always at an edge (Latin next to Han still checks its own side). Only the CLI checks word edges;
-  the readers' resolver (`bridge/quote.ts`) matches anywhere, so the TypeScript twin needed no
-  change, only the shared fixture cases (Chinese, kana that decompose, Thai) that keep folding in step.
-- **D-195 A repeated `--text-offset` finds the link its first run made.** The "[" a link inserts
-  shifts the words one character on, so the same offsets no longer named them. `NotesTextFinder.
-  match(wrappedAt:)` accepts a range that is exactly one character before a link's label (a link
-  starting where the range starts, label = range + 1): such a range starts on a link's "[" and could
-  never be linked as it is, so it can't mean anything else. The outcome is the usual one: same
-  target says "already links", another target re-points it.
-- **D-196 Flags an exact place would ignore are a usage error.** `--match` with a range, `--offset`
-  and `--text-offset` name one spot, so `--nth`, `--chapter`, `--before`, `--after` (and, with a
-  `--match` range, `--section`/`--page`; with `--text-offset`, `--text-nth`) used to be dropped
-  silently. They now exit 64 naming the flags and what to drop. An error and not a warning: no
-  combination means anything (`--section` with `--offset` stays, since `--offset` counts in that
-  part), and a script that passes `--nth 2` expects it to take effect.
-- **D-197 The nouns for a part of a book come from the formats, not the CLI.** `QuoteLocating.partName`
-  already names a format's parts ("section", "page"); the registry lists them (`quotePartNames`), the
-  composition root hands them to `CLIEnvironment.partNames`, and `PartFlags` rewrites `--section 5`
-  into `--part section:5` before ArgumentParser runs (its options are fixed at compile time, so one
-  `--part` option stands in for whatever flags the formats name). `--part 5` works for any format;
-  using the wrong noun for a book still says what to use. The help text is built from the names. A
-  new format with `partName = "chapter"` gets `--chapter`-style flags with no CLI change, unless it
-  collides with an existing option such as `--chapter` (the title filter): choose another noun then.
 
 ## Storage
 

@@ -46,6 +46,7 @@ let opened = false                          // a book is open and taking command
 let needsClose = false                      // view.open may have built a renderer
 const bookGeneration = queue.makeGeneration()   // late callbacks of a closed book bail
 const searchGeneration = queue.makeGeneration() // stopped searches stop posting
+const annotationRequests = queue.makeGeneration() // a newer setAnnotations supersedes quote lookups
 let colors: protocol.AppearanceColors | null = null
 let drawn: annotations.DrawnEntry[] = []   // annotations currently drawn
 let hadSelection = false                    // suppress selectionCleared noise
@@ -445,6 +446,7 @@ const applyAppearance = (payload: protocol.Appearance): void => {
 const closeBook = (): void => {
     bookGeneration.bump()
     searchGeneration.bump()
+    annotationRequests.bump()
     opened = false
     drawn = []
     hadSelection = false
@@ -485,36 +487,97 @@ const guardScripts = (book: Book): void => {
 
 // -- quotes ----------------------------------------------------------------------
 
-// The CFI of a passage pinned by its words (an `epub-quote` locator from `gloss link`, D-190):
-// find the words in the section's document (context first, then the occurrence; bridge/quote.ts,
-// bridge/quote-dom.ts) and take the range's CFI, the way foliate's own search does.
-// Null when the words aren't there; remembered for as long as the book is open.
-const resolveQuote = async (target: protocol.QuoteTarget): Promise<string | null> => {
-    const key = JSON.stringify([target.section, target.text, target.prefix, target.suffix, target.occurrence])
-    const known = quoteCfis.get(key)
-    if (known !== undefined) return known
-    const generation = bookGeneration.value()
-    let cfi: string | null = null
-    let failed = false
-    try {
-        const section = view.book.sections[target.section]
-        let doc = await section?.createDocument?.()
-        // Broken XHTML: foliate renders it as HTML (and so does the sanitizer), so parse it that
-        // way too, or the CFI's path would point into WebKit's error document.
-        if (doc && section && (doc.getElementsByTagName('parsererror').length > 0 || !doc.body)) {
-            const markup = await view.book.loadText?.(section.id)
-            if (typeof markup === 'string') doc = new DOMParser().parseFromString(markup, 'text/html')
-        }
-        const range = doc ? quoteDOM.quoteRange(doc, target) : null
-        if (range) cfi = view.getCFI(target.section, range)
-    } catch (error) {
-        failed = true
-        console.warn('gloss: a quote did not resolve', error)
+const quoteKey = (target: protocol.QuoteTarget): string =>
+    JSON.stringify([target.section, target.text, target.prefix, target.suffix, target.occurrence])
+
+// A section's document the way foliate renders it, for finding quotes.
+const sectionDocument = async (index: number): Promise<Document | null> => {
+    const section = view.book.sections[index]
+    let doc = await section?.createDocument?.()
+    // Broken XHTML: foliate renders it as HTML (and so does the sanitizer), so parse it that
+    // way too, or the CFI's path would point into WebKit's error document.
+    if (doc && section && (doc.getElementsByTagName('parsererror').length > 0 || !doc.body)) {
+        const markup = await view.book.loadText?.(section.id)
+        if (typeof markup === 'string') doc = new DOMParser().parseFromString(markup, 'text/html')
     }
-    // a failure may be passing (a section still loading); only settled answers are remembered
-    if (!failed && bookGeneration.isCurrent(generation)) quoteCfis.set(key, cfi)
-    return cfi
+    return doc ?? null
 }
+
+// The CFIs of passages pinned by their words (`epub-quote` locators from `gloss link`, D-190),
+// all in one section: the section is parsed once, each quote's words are found in it (context
+// first, then the occurrence; bridge/quote.ts, bridge/quote-dom.ts) and the range's CFI is taken
+// the way foliate's own search does. Null for words that aren't there; answers are remembered for
+// as long as the book is open.
+const resolveQuotes: annotations.SectionResolver = async (index, targets) => {
+    const generation = bookGeneration.value()
+    const cfis = targets.map(target => quoteCfis.get(quoteKey(target)))
+    if (cfis.every(cfi => cfi !== undefined)) return cfis as (string | null)[]
+    let prepared: quoteDOM.SectionText | null = null
+    try {
+        const doc = await sectionDocument(index)
+        if (doc) prepared = quoteDOM.sectionText(doc)
+    } catch (error) {
+        // a failure may be passing (a section still loading), so nothing is remembered
+        console.warn('gloss: a section did not load for its quotes', error)
+        return targets.map(target => quoteCfis.get(quoteKey(target)) ?? null)
+    }
+    return targets.map((target, i) => {
+        const known = cfis[i]
+        if (known !== undefined) return known
+        let cfi: string | null = null
+        try {
+            const range = prepared ? quoteDOM.quoteRange(prepared, target) : null
+            if (range) cfi = view.getCFI(index, range)
+        } catch (error) {
+            console.warn('gloss: a quote did not resolve', error)
+            return null
+        }
+        if (bookGeneration.isCurrent(generation)) quoteCfis.set(quoteKey(target), cfi)
+        return cfi
+    })
+}
+
+const resolveQuote = async (target: protocol.QuoteTarget): Promise<string | null> =>
+    (await resolveQuotes(target.section, [target]))[0] ?? null
+
+// What is already known, without parsing anything.
+const knownQuotes: annotations.SectionResolver = async (_index, targets) =>
+    targets.map(target => quoteCfis.get(quoteKey(target)) ?? null)
+
+// Makes the drawn annotations match a payload with every marker placed by a CFI. Draws run one
+// at a time (a background quote lookup and a newer command may both have something to draw), and
+// one made stale by a newer request or a closed book draws nothing.
+const drawQueue = queue.makeSerialQueue()
+
+const drawAnnotations = (
+    payload: { highlights: protocol.HighlightAnnotation[]; markers: annotations.CfiMarker[] },
+    generation: number,
+    request: number,
+): Promise<void> => drawQueue.run(async () => {
+    if (!bookGeneration.isCurrent(generation) || !annotationRequests.isCurrent(request)) return
+    const plan = annotations.planAnnotations(payload, drawn)
+    const indexByCfi = new Map(drawn.map(e => [e.cfi, e.index] as const))
+    // update the drawn state *first*: the draw-annotation handlers fired
+    // by re-adding below must see the new colours and marker sets
+    drawn = annotations.entriesFromPayload(payload)
+    for (const entry of drawn) entry.index = indexByCfi.get(entry.cfi)
+    for (const entry of plan.remove) {
+        try {
+            await view.deleteAnnotation({ value: entry.cfi })
+        } catch (error) {
+            postError(error, 'setAnnotations')
+        }
+    }
+    for (const entry of [...plan.update, ...plan.add]) {
+        try {
+            entry.index = await addAnnotation(entry.cfi)
+            const state = drawn.find(e => e.cfi === entry.cfi)
+            if (state) state.index = entry.index
+        } catch (error) {
+            postError(error, 'setAnnotations')
+        }
+    }
+})
 
 // -- command handlers ---------------------------------------------------------
 
@@ -590,33 +653,25 @@ const commands: { [K in protocol.CommandType]: (payload: protocol.CommandPayload
                 .catch((error: unknown) => postError(error, 'setAppearance'))
     },
 
+    // Highlights and CFI markers are drawn at once; markers pinned by quotes (`gloss link`) need
+    // their sections parsed, which must not hold back the commands behind this one: they are
+    // looked up in the background, a section at a time, and drawn when found. A newer
+    // `setAnnotations`, a `close` or an `open` supersedes a lookup still running.
     async setAnnotations(desired: protocol.SetAnnotationsPayload) {
         requireRenderer()
         const generation = bookGeneration.value()
-        const payload = await annotations.resolveMarkers(desired, resolveQuote)
-        if (!bookGeneration.isCurrent(generation)) return
-        const plan = annotations.planAnnotations(payload, drawn)
-        const indexByCfi = new Map(drawn.map(e => [e.cfi, e.index] as const))
-        // update the drawn state *first*: the draw-annotation handlers fired
-        // by re-adding below must see the new colours and marker sets
-        drawn = annotations.entriesFromPayload(payload)
-        for (const entry of drawn) entry.index = indexByCfi.get(entry.cfi)
-        for (const entry of plan.remove) {
+        const request = annotationRequests.bump()
+        await drawAnnotations(await annotations.resolveMarkers(desired, knownQuotes), generation, request)
+        const pending = desired.markers.some(m => 'quote' in m && !quoteCfis.has(quoteKey(m.quote)))
+        if (!pending) return
+        void (async () => {
             try {
-                await view.deleteAnnotation({ value: entry.cfi })
+                const payload = await annotations.resolveMarkers(desired, resolveQuotes)
+                await drawAnnotations(payload, generation, request)
             } catch (error) {
-                postError(error, 'setAnnotations')
+                if (bookGeneration.isCurrent(generation)) postError(error, 'setAnnotations')
             }
-        }
-        for (const entry of [...plan.update, ...plan.add]) {
-            try {
-                entry.index = await addAnnotation(entry.cfi)
-                const state = drawn.find(e => e.cfi === entry.cfi)
-                if (state) state.index = entry.index
-            } catch (error) {
-                postError(error, 'setAnnotations')
-            }
-        }
+        })()
     },
 
     async clearSelection() {
