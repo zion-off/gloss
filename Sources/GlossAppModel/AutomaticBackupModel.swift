@@ -125,7 +125,7 @@ public enum AutomaticBackupSettings {
             let verifier = services.store as? any BackupVerifying
             let single = single
             // Off the main actor: copying a big library must not stall the UI.
-            try await Task.detached(priority: .utility) {
+            _ = try await Task.detached(priority: .utility) {
                 try await single.run(in: folder, snapshot: { try await backup.backup(to: $0) },
                                      verify: { url in if let verifier { try await verifier.verifyBackup(at: url) } })
             }.value
