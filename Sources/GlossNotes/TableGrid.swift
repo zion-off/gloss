@@ -234,6 +234,11 @@ public struct CellTextRun: Hashable, Sendable {
 }
 
 public enum TableCellText {
+    /// What VoiceOver says for a drawn table.
+    public static func accessibilityLabel(rows: Int, columns: Int) -> String {
+        "table, \(rows) \(rows == 1 ? "row" : "rows"), \(columns) \(columns == 1 ? "column" : "columns")"
+    }
+
     /// A cell's text as the grid draws it: styled by the spans inside it (bold, links, code, a
     /// bold header), with markdown syntax (`**`, brackets, a link's destination, an escape's
     /// backslash) left out, since a drawn cell is never edited in place.

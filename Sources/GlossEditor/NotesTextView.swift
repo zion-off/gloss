@@ -30,7 +30,7 @@ final class NotesTextView: NSTextView {
         get { tableTarget.perform }
         set { tableTarget.perform = newValue }
     }
-    /// The drawn tables (the coordinator's), for cursor zones.
+    /// The drawn tables (the coordinator's), for cursor zones and VoiceOver.
     var tableStore: TableGridStore?
     /// A paste of this plain text: `true` when the coordinator took it.
     var onPaste: ((String) -> Bool)?
@@ -49,6 +49,9 @@ final class NotesTextView: NSTextView {
     private lazy var addColumnHandle = makeHandle(.addColumn)
     /// The table whose handles show (its ordinal), and its rect in this view.
     private var handleTable: (ordinal: Int, rect: NSRect)?
+    /// VoiceOver's elements for the drawn tables, kept while their content is the same, so its
+    /// focus survives a restyle.
+    private var accessibleTables: [(key: [String], element: NSAccessibilityElement)] = []
 
     /// The subpage row under the pointer (this view's coordinates): Notion's soft rounded block.
     /// A view of its own beneath the text's: TextKit 2 renders layout fragments into
@@ -162,6 +165,77 @@ final class NotesTextView: NSTextView {
                 addCursorRect(rect, cursor: cursor)
             }
         }
+    }
+
+    // MARK: VoiceOver
+
+    /// Each drawn table as a table of rows and cells, after the text view's own children (its
+    /// markdown stays in the text, which VoiceOver also reads).
+    override func accessibilityChildren() -> [Any]? {
+        (super.accessibilityChildren() ?? []) + tableAccessibilityElements()
+    }
+
+    private func tableAccessibilityElements() -> [Any] {
+        let tables = tableStore?.all ?? []
+        var kept: [(key: [String], element: NSAccessibilityElement)] = []
+        for table in tables {
+            let key = ["\(table.ordinal)"] + table.cells.flatMap { $0.map(\.string) + ["\n"] }
+            let element = accessibleTables.first { $0.key == key }?.element ?? makeAccessibilityElement(for: table)
+            kept.append((key, element))
+        }
+        accessibleTables = kept
+        return kept.map(\.element)
+    }
+
+    private func makeAccessibilityElement(for table: RenderedTable) -> NSAccessibilityElement {
+        let ordinal = table.ordinal
+        let columns = table.layout.columnWidths.count
+        let element = TableAccessibilityElement { [weak self] in self?.accessibilityRect(table: ordinal, cell: nil) }
+        element.setAccessibilityRole(.table)
+        element.setAccessibilityLabel(TableCellText.accessibilityLabel(rows: table.cells.count, columns: columns))
+        element.setAccessibilityParent(self)
+        element.setAccessibilityRowCount(table.cells.count)
+        element.setAccessibilityColumnCount(columns)
+        let rows = table.cells.enumerated().map { rowIndex, cells -> NSAccessibilityElement in
+            let row = TableAccessibilityElement { [weak self] in self?.accessibilityRect(table: ordinal, cell: (rowIndex, nil)) }
+            row.setAccessibilityRole(.row)
+            row.setAccessibilityParent(element)
+            row.setAccessibilityChildren(cells.enumerated().map { column, text -> NSAccessibilityElement in
+                let cell = TableAccessibilityElement { [weak self] in self?.accessibilityRect(table: ordinal, cell: (rowIndex, column)) }
+                cell.setAccessibilityRole(.cell)
+                cell.setAccessibilityLabel(text.string)
+                cell.setAccessibilityParent(row)
+                cell.setAccessibilityRowIndexRange(NSRange(location: rowIndex, length: 1))
+                cell.setAccessibilityColumnIndexRange(NSRange(location: column, length: 1))
+                return cell
+            })
+            return row
+        }
+        element.setAccessibilityRows(rows)
+        element.setAccessibilityChildren(rows)
+        element.setAccessibilityColumnHeaderUIElements(rows.first?.accessibilityChildren())
+        // The "+" handles only appear under the pointer: VoiceOver reaches them as actions here.
+        element.setAccessibilityCustomActions([TableCommand.addRow, .addColumn].map { command in
+            NSAccessibilityCustomAction(name: command.title) { [weak self] in
+                MainActor.assumeIsolated { self?.onTableCommand?(command, ordinal) }
+                return true
+            }
+        })
+        return element
+    }
+
+    /// A table's, row's or cell's rect on screen, from where the table is drawn now.
+    private func accessibilityRect(table ordinal: Int, cell: (row: Int, column: Int?)?) -> NSRect? {
+        guard let table = tableStore?.all.first(where: { $0.ordinal == ordinal }), let origin = origin(of: table) else { return nil }
+        let layout = table.layout
+        var rect = NSRect(x: 0, y: layout.gridTop, width: layout.width, height: layout.gridBottom - layout.gridTop)
+        if let cell, layout.rowHeights.indices.contains(cell.row) {
+            let frame = layout.cellFrame(row: cell.row, column: cell.column ?? 0)
+            rect = NSRect(x: cell.column == nil ? 0 : frame.x, y: frame.y, width: cell.column == nil ? layout.width : frame.width, height: frame.height)
+        }
+        let inView = rect.offsetBy(dx: origin.x, dy: origin.y)
+        guard let window else { return nil }
+        return window.convertToScreen(convert(inView, to: nil))
     }
 
     private func makeHandle(_ command: TableCommand) -> TableHandle {
@@ -389,6 +463,24 @@ private final class TableActionTarget: NSObject {
 
     @objc func menuItem(_ sender: NSMenuItem) {
         if let choice = sender.representedObject as? Choice { perform?(choice.command, choice.ordinal) }
+    }
+}
+
+/// A VoiceOver element for a drawn table, row or cell, framed from where the table is drawn
+/// whenever it is asked (the table moves with edits above it and with scrolling).
+private final class TableAccessibilityElement: NSAccessibilityElement {
+    private let frameOnScreen: @MainActor () -> NSRect?
+
+    init(frame: @escaping @MainActor () -> NSRect?) {
+        frameOnScreen = frame
+        super.init()
+    }
+
+    /// Asked on the main thread, as AppKit's accessibility runs there. The closure is copied out
+    /// first: a main-actor closure is Sendable, the element isn't.
+    override func accessibilityFrame() -> NSRect {
+        let frame = frameOnScreen
+        return MainActor.assumeIsolated { frame() } ?? .zero
     }
 }
 

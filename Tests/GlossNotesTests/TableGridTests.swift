@@ -76,6 +76,7 @@ struct TableGridTests {
         #expect(runs[0].style.bold == true && runs[2].style.color == .link && runs[3].style == runs[1].style)
         let header = TableCellText.runs(table.header.cells[0].contentRange, in: doc.text, spans: spans, theme: .standard)
         #expect(header.map(\.text) == ["h"] && header[0].style.bold == true && header[0].style.font == nil)
+        #expect(TableCellText.accessibilityLabel(rows: 1, columns: 3) == "table, 1 row, 3 columns")
         // A drawn table's text is hidden under the grid, its lines laid out as table lines.
         let grid = NotesTheme.standard.runs(for: [StyleSpan(range: 0..<3, role: NotesRole.tableGrid)], length: 3)
         #expect(grid.first?.style.hidden == true && grid.first?.style.block == .table)
