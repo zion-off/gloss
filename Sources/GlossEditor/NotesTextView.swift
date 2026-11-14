@@ -23,12 +23,27 @@ final class NotesTextView: NSTextView {
     private(set) var isSelectingWithMouse = false
     /// The mouse button came up after a click or drag in the text.
     var onMouseSelectionEnd: (() -> Void)?
+    /// A click on a drawn table's cell: the table's ordinal, the grid row (header first), the column.
+    var onTableCellClick: ((Int, Int, Int) -> Void)?
+    /// A "+" handle or the grid's menu: what to do, and to which table (its ordinal).
+    var onTableCommand: ((TableCommand, Int) -> Void)? {
+        get { tableTarget.perform }
+        set { tableTarget.perform = newValue }
+    }
+    /// A paste of this plain text: `true` when the coordinator took it.
+    var onPaste: ((String) -> Bool)?
     /// The view got wider or narrower (drawn tables fill the width).
     var onWidthChange: (() -> Void)?
     /// Light, dark or Increase Contrast changed (drawn tables resolve their colours with it).
     var onAppearanceChange: (() -> Void)?
 
     private var hoverArea: NSTrackingArea?
+    private let tableTarget = TableActionTarget()
+    private lazy var addRowHandle = TableHandle(command: .addRow, target: tableTarget, action: #selector(TableActionTarget.addRowHandle(_:)))
+    private lazy var addColumnHandle = TableHandle(command: .addColumn, target: tableTarget,
+                                                   action: #selector(TableActionTarget.addColumnHandle(_:)))
+    /// The table whose handles show, as a rect in this view.
+    private var handleTableRect: NSRect?
 
     /// The subpage row under the pointer (this view's coordinates): Notion's soft rounded block.
     /// A view of its own beneath the text's: TextKit 2 renders layout fragments into
@@ -71,6 +86,8 @@ final class NotesTextView: NSTextView {
         let origin: NSPoint
         /// The point, from the table's top-left.
         let local: NSPoint
+
+        var rect: NSRect { NSRect(x: origin.x, y: origin.y, width: CGFloat(table.layout.width), height: CGFloat(table.layout.height)) }
     }
 
     func tableHit(at point: NSPoint) -> TableHit? {
@@ -84,6 +101,65 @@ final class NotesTextView: NSTextView {
         guard point.y >= bandTop, point.y < bandTop + CGFloat(band.table.layout.lineHeights[band.line]) else { return nil }
         let origin = NSPoint(x: container.x + frame.minX + band.table.originX, y: bandTop - CGFloat(band.table.layout.lineTops[band.line]))
         return TableHit(table: band.table, origin: origin, local: NSPoint(x: point.x - origin.x, y: point.y - origin.y))
+    }
+
+    /// Shows the "+" handles on a drawn table's bottom and right edges, like Notes. Subviews, not
+    /// drawn by the fragments: a fragment's rendering is cached and doesn't repaint on hover.
+    func showTableHandles(for hit: TableHit) {
+        let layout = hit.table.layout
+        for (handle, rect) in [(addRowHandle, layout.addRowHandle), (addColumnHandle, layout.addColumnHandle)] {
+            if handle.superview !== self { addSubview(handle) }
+            handle.frame = NSRect(x: hit.origin.x + CGFloat(rect.x), y: hit.origin.y + CGFloat(rect.y), width: CGFloat(rect.width), height: CGFloat(rect.height))
+            handle.isHidden = false
+        }
+        tableTarget.handleOrdinal = hit.table.ordinal
+        handleTableRect = hit.rect
+    }
+
+    func hideTableHandles() {
+        addRowHandle.isHidden = true
+        addColumnHandle.isHidden = true
+        tableTarget.handleOrdinal = nil
+        handleTableRect = nil
+    }
+
+    /// Whether the pointer is still where the shown handles belong: over their table or them.
+    func isNearTableHandles(_ point: NSPoint) -> Bool {
+        guard let handleTableRect else { return false }
+        let reach = CGFloat(TableGridMetrics.standard.handleSize)
+        return handleTableRect.insetBy(dx: -reach, dy: -reach).contains(point)
+    }
+
+    /// The grid's context menu: its own commands only (a text menu would act on hidden markdown).
+    private func tableMenu(for ordinal: Int) -> NSMenu {
+        let menu = NSMenu(title: "table")
+        for command in [TableCommand.addRow, .addColumn] {
+            let item = NSMenuItem(title: command.title, action: #selector(TableActionTarget.menuItem(_:)), keyEquivalent: "")
+            item.target = tableTarget
+            item.representedObject = TableActionTarget.Choice(command: command, ordinal: ordinal)
+            menu.addItem(item)
+        }
+        return menu
+    }
+
+    /// Right-clicks on a grid show its menu here, before the text view's own handling could move
+    /// the caret into the table (which would turn the grid back into markdown under the menu).
+    override func rightMouseDown(with event: NSEvent) {
+        if let hit = tableHit(at: convert(event.locationInWindow, from: nil)) {
+            NSMenu.popUpContextMenu(tableMenu(for: hit.table.ordinal), with: event, for: self)
+            return
+        }
+        super.rightMouseDown(with: event)
+    }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        if let hit = tableHit(at: convert(event.locationInWindow, from: nil)) { return tableMenu(for: hit.table.ordinal) }
+        return super.menu(for: event)
+    }
+
+    override func paste(_ sender: Any?) {
+        if let string = NSPasteboard.general.string(forType: .string), onPaste?(string) == true { return }
+        super.paste(sender)
     }
 
     override func setFrameSize(_ newSize: NSSize) {
@@ -148,6 +224,17 @@ final class NotesTextView: NSTextView {
             onRowClick(hit.row)
             return
         }
+        if let hit = tableHit(at: point) {
+            if event.modifierFlags.contains(.control) {
+                NSMenu.popUpContextMenu(tableMenu(for: hit.table.ordinal), with: event, for: self)
+                return
+            }
+            // A drawn cell isn't edited in place: the click puts the caret in the cell's markdown,
+            // and the table shows as text until the caret leaves it.
+            let cell = hit.table.layout.nearestCell(x: Double(hit.local.x), y: Double(hit.local.y))
+            onTableCellClick?(hit.table.ordinal, cell.row, cell.column)
+            return
+        }
         // Only over a line: below the last one the insertion index is the end of the text, and a
         // subpage row or task box there would answer clicks on empty space.
         if isOverText(point) {
@@ -171,6 +258,32 @@ final class NotesTextView: NSTextView {
         // Vertical only: a fragment's frame is as wide as its text, and a row under hidden markdown
         // is far narrower than the line it fills.
         return inContainer.y >= fragment.layoutFragmentFrame.minY && inContainer.y < fragment.layoutFragmentFrame.maxY
+    }
+}
+
+/// Receives the grid's handle clicks and menu choices: a plain object, so the text view's own
+/// menu validation never sees (and disables) actions it doesn't know.
+@MainActor
+private final class TableActionTarget: NSObject {
+    struct Choice {
+        let command: TableCommand
+        let ordinal: Int
+    }
+
+    var perform: ((TableCommand, Int) -> Void)?
+    /// The table whose handles show.
+    var handleOrdinal: Int?
+
+    @objc func addRowHandle(_ sender: Any?) {
+        if let handleOrdinal { perform?(.addRow, handleOrdinal) }
+    }
+
+    @objc func addColumnHandle(_ sender: Any?) {
+        if let handleOrdinal { perform?(.addColumn, handleOrdinal) }
+    }
+
+    @objc func menuItem(_ sender: NSMenuItem) {
+        if let choice = sender.representedObject as? Choice { perform?(choice.command, choice.ordinal) }
     }
 }
 
