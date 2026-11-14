@@ -369,9 +369,15 @@ final class NotesTextView: NSTextView {
     /// Whether this view is what a click at the event's location would hit, the same hit test
     /// the window runs for clicks (from the frame view, in window coordinates).
     private func isUnderPointer(_ event: NSEvent) -> Bool {
+        isUnderPointer(windowPoint: event.locationInWindow)
+    }
+
+    /// Whether this view is what a window point would hit: a floating view on top (the format
+    /// bar, the slash menu) owns the pointer there, and nothing under it should react.
+    func isUnderPointer(windowPoint: NSPoint) -> Bool {
         guard let content = window?.contentView else { return true }
         let root = content.superview ?? content
-        guard let hit = root.hitTest(event.locationInWindow) else { return false }
+        guard let hit = root.hitTest(windowPoint) else { return false }
         return hit.isDescendant(of: self)
     }
 
