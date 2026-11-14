@@ -177,6 +177,14 @@ import GlossCore
         !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// The book the current context is in, nil on the library.
+    private var contextDocumentID: DocumentID? {
+        switch contextProvider() {
+        case .home: nil
+        case .reader(let id), .notes(let id), .split(let id): id
+        }
+    }
+
     /// Whether the search field is open (focused or expanded); the window binds it to the field.
     public var isPresented = false
 
