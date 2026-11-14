@@ -140,7 +140,7 @@ public struct MainWindow: View {
         }
         .task(id: app.workspace.pendingNoteReveal) {
             if let range = app.workspace.pendingNoteReveal, let page = app.workspace.page {
-                reveal = NotesReveal(pageID: page.id, range: range)
+                reveal = NotesReveal(pageID: page.id, range: range, focusesText: app.workspace.pendingNoteRevealFocuses)
                 app.workspace.consumeNoteReveal()
             }
         }

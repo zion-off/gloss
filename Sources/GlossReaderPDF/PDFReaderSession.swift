@@ -34,6 +34,8 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
     private var searchMatches: [PDFSelection] = []
     /// The session's query a find is (or was last) running for; nil with no session on this book.
     private var searchQuery: String?
+    /// A hit with no locator, waiting for the running find's matches to land.
+    private var pendingRevealText: String?
     /// Bumped by every session change: a find's end only lands if it is still the newest
     /// (a newer query, a clear, another book).
     private var searchGeneration = 0
@@ -211,6 +213,10 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
         let matches = searchMatches
         searchMatches = []
         pdfView.highlightedSelections = matches.isEmpty ? nil : matches
+        if let text = pendingRevealText {
+            pendingRevealText = nil
+            if let match = firstCollectedMatch(of: text) { revealMatch(match) }
+        }
     }
 
     /// Cancels a running find and forgets its matches (a newer query, a clear, a close). The
@@ -219,6 +225,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
     private func stopFinding() {
         searchGeneration += 1
         searchMatches = []
+        pendingRevealText = nil
         searchQuery = nil
         document?.cancelFindString()
         pdfView.highlightedSelections = nil
@@ -263,11 +270,31 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
             }
             return
         }
-        guard let hit = pdf.findString(text, withOptions: [.caseInsensitive, .diacriticInsensitive]).first,
-              let page = hit.pages.first else { return }
-        pdfView.go(to: hit)
-        emphasise(hit)
-        flashRect(on: page, rect: Self.pageRect(hit.bounds(for: page)))
+        // No locator at all: prefer a match the session's background find already collected
+        // (the hit's query is the session's); a find still running holds this until its matches
+        // land (`findEnded`), and only a book with no session on it falls back to the
+        // synchronous find, the one call of its kind left (nothing else is searching it).
+        if let match = firstCollectedMatch(of: text) {
+            revealMatch(match)
+            return
+        }
+        if searchQuery != nil {
+            pendingRevealText = text
+            return
+        }
+        guard let hit = pdf.findString(text, withOptions: [.caseInsensitive, .diacriticInsensitive]).first else { return }
+        revealMatch(hit)
+    }
+
+    /// A collected match whose text is the hit's, if the session's find gathered one.
+    private func firstCollectedMatch(of text: String) -> PDFSelection? {
+        searchMatches.first { $0.string?.range(of: text, options: [.caseInsensitive, .diacriticInsensitive]) != nil }
+    }
+
+    private func revealMatch(_ match: PDFSelection) {
+        pdfView.go(to: match)
+        emphasise(match)
+        if let page = match.pages.first { flashRect(on: page, rect: Self.pageRect(match.bounds(for: page))) }
     }
 
     private func clamped(_ index: Int) -> Int { min(max(index, 0), max(pageCount - 1, 0)) }

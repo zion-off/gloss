@@ -43,16 +43,21 @@ import GlossNotes
     }
 }
 
-/// A selection the editor should show once, on a given page (a marker click in the book).
+/// A selection the editor should show once, on a given page (a marker click in the book, a
+/// search hit).
 public struct NotesReveal: Equatable, Sendable {
     public let token: UUID
     public let pageID: PageID
     public let range: Range<Int>
+    /// Whether the editor takes keyboard focus to show it (a marker click: yes, the reader was
+    /// driving; a search hit: no, the results list is driving and its Up/Down must keep it).
+    public let focusesText: Bool
 
-    public init(pageID: PageID, range: Range<Int>) {
+    public init(pageID: PageID, range: Range<Int>, focusesText: Bool = true) {
         self.token = UUID()
         self.pageID = pageID
         self.range = range
+        self.focusesText = focusesText
     }
 }
 

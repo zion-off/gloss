@@ -280,7 +280,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
             let length = textView.string.utf16.count
             let lower = min(reveal.range.lowerBound, length)
             let range = NSRange(lower..<min(max(lower, reveal.range.upperBound), length))
-            textView.window?.makeFirstResponder(textView)
+            if reveal.focusesText { textView.window?.makeFirstResponder(textView) }
             textView.setSelectedRange(range)
             textView.scrollRangeToVisible(range)
             textView.showFindIndicator(for: range)
