@@ -23,6 +23,16 @@ import GlossNotes
         public var selectedIndex: Int
     }
 
+    /// A table the editor draws as a grid, and the column widths it uses.
+    public struct GridTable: Hashable, Sendable {
+        /// Its position among the page's tables.
+        public var ordinal: Int
+        public var table: MarkdownTable
+        /// Each column's share of the table's width, from stored widths that fit it; nil lays
+        /// the columns out automatically.
+        public var columnFractions: [Double]?
+    }
+
     public enum SaveState: Equatable, Sendable {
         case saved
         case pending
@@ -62,6 +72,12 @@ import GlossNotes
     /// Styling for the whole text, with the syntax under the selection revealed.
     public private(set) var spans: [StyleSpan] = []
     public private(set) var subpageRows: [SubpageRow] = []
+    /// The page's tables, in order: a table's ordinal is its index here.
+    public private(set) var tables: [MarkdownTable] = []
+    /// The tables drawn as grids: all of them except one the selection touches, which shows its
+    /// markdown for editing (no convert step: leaving it draws it). A caret counts only while the
+    /// editor has focus; a selection (a find match, say) always does, or it would sit hidden.
+    public private(set) var gridTables: [GridTable] = []
     /// Children with no block line, listed after the text ("more pages in here").
     public private(set) var unplacedChildren: [Page] = []
     public private(set) var activeFormats: Set<String> = []
@@ -85,6 +101,8 @@ import GlossNotes
     private var writeChain: Task<Void, Never>?
     private var dismissedSlashAt: Int?
     private var generation = 0
+    /// Whether the text view has keyboard focus: without it there is no caret to edit a table with.
+    private var isFocused = false
 
     public init(services: GlossServices, slashCommands: SlashCommandRegistry? = nil, saveDelay: Duration = .milliseconds(500)) {
         self.services = services
@@ -186,9 +204,15 @@ import GlossNotes
 
     public func selectionDidChange(_ newSelection: Range<Int>) {
         selection = clamp(newSelection)
-        spans = SyntaxReveal.apply(baseSpans, selection: selection, concealed: subpageRows.map(\.lineRange))
-        activeFormats = FormatBar.activeItems(in: document, selection: selection)
+        refreshPresentation()
         updateSlashMenu()
+    }
+
+    /// The text view gained or lost keyboard focus.
+    public func focusDidChange(_ focused: Bool) {
+        guard focused != isFocused else { return }
+        isFocused = focused
+        refreshPresentation()
     }
 
     // MARK: Commands (each returns an edit for the text view to apply)
@@ -265,6 +289,38 @@ import GlossNotes
     /// The subpage row under an offset (a click opens the page).
     public func subpageRow(at offset: Int) -> SubpageRow? {
         subpageRows.first { $0.lineRange.contains(offset) || $0.lineRange.upperBound == offset }
+    }
+
+    // MARK: Tables
+
+    /// The drawn table covering an offset (the pointer's index over a grid).
+    public func gridTable(at offset: Int) -> GridTable? {
+        gridTables.first { $0.table.range.lowerBound <= offset && offset <= $0.table.range.upperBound }
+    }
+
+    /// Adds an empty row to the page's `ordinal`th table (a "+" handle, the grid's menu).
+    public func addRow(toTable ordinal: Int) -> EditResult? {
+        tables.indices.contains(ordinal) ? TableEditing.addRow(to: tables[ordinal], selection: selection) : nil
+    }
+
+    /// Adds an empty column to the page's `ordinal`th table.
+    public func addColumn(toTable ordinal: Int) -> EditResult? {
+        tables.indices.contains(ordinal) ? TableEditing.addColumn(to: tables[ordinal], selection: selection) : nil
+    }
+
+    /// Where a click on a drawn cell puts the caret: the end of the cell's text (`row` counts the
+    /// grid's rows, header first). The table then shows its markdown with the caret in that cell.
+    public func caret(inTable ordinal: Int, row: Int, column: Int) -> Int? {
+        guard tables.indices.contains(ordinal) else { return nil }
+        let rows = tables[ordinal].gridRows
+        guard rows.indices.contains(row), rows[row].cells.indices.contains(column) else { return nil }
+        return rows[row].cells[column].contentRange.upperBound
+    }
+
+    /// A paste of plain text: one holding a table goes in on lines of its own with the caret
+    /// after it, so the grid draws at once. Nil pastes as usual.
+    public func paste(_ string: String) -> EditResult? {
+        TablePaste.edit(pasting: string, in: document, selection: selection)
     }
 
     // MARK: Slash menu
@@ -376,11 +432,25 @@ import GlossNotes
 
     private func reparse() {
         document = MarkdownParser.notes.parse(text)
+        tables = MarkdownTable.all(in: document)
         subpageRows = SubpageRows.rows(in: document, children: children)
         let placed = Set(subpageRows.map(\.pageID))
         unplacedChildren = children.filter { !placed.contains($0.id) }
         baseSpans = styler.spans(for: document, subpageRows: subpageRows)
-        spans = SyntaxReveal.apply(baseSpans, selection: selection, concealed: subpageRows.map(\.lineRange))
+        refreshPresentation()
+    }
+
+    /// What depends on the selection and focus: which tables draw as grids, the revealed syntax,
+    /// the format bar's state.
+    private func refreshPresentation() {
+        gridTables = tables.enumerated().compactMap { ordinal, table in
+            // Touching, as for syntax reveal: a caret at either end of the table is in it.
+            let touches = selection.lowerBound <= table.range.upperBound && selection.upperBound >= table.range.lowerBound
+            let editing = touches && (isFocused || !selection.isEmpty)
+            return editing ? nil : GridTable(ordinal: ordinal, table: table, columnFractions: nil)
+        }
+        let grids = gridTables.map { StyleSpan(range: $0.table.range, role: NotesRole.tableGrid) }
+        spans = SyntaxReveal.apply(baseSpans + grids, selection: selection, concealed: subpageRows.map(\.lineRange))
         activeFormats = FormatBar.activeItems(in: document, selection: selection)
     }
 
