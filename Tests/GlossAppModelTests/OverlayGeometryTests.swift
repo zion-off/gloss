@@ -42,9 +42,30 @@ struct OverlayGeometryTests {
         #expect(OverlayGeometry.above(anchor: OverlayRect(x: 0, y: 0, width: 60, height: 20), height: 30) == 20 + 6)
     }
 
-    @Test("below centres the overlay under the anchor")
-    func below() {
-        let anchor = OverlayRect(x: 0, y: 100, width: 60, height: 20)
-        #expect(OverlayGeometry.belowCenter(anchor: anchor, height: 250) == 120 + 6 + 125)
+    @Test("a menu drops under its anchor, flips above without room, slides in from the edges and keeps its side")
+    func menuPlacement() {
+        let window = OverlayRect(x: 0, y: 0, width: 600, height: 400)
+        let menu = OverlaySize(width: 260, height: 120)
+        func slash(_ x: Double, _ y: Double) -> OverlayRect { OverlayRect(x: x, y: y, width: 7, height: 16) }
+        let cases: [(String, OverlayRect, OverlaySize, OverlayRect, Bool?, OverlayRect, Bool)] = [
+            ("below, left edge on the slash", slash(100, 50), menu, window, nil,
+             OverlayRect(x: 100, y: 70, width: 260, height: 120), false),
+            ("no room below: above, bottom edge on the line", slash(100, 330), menu, window, nil,
+             OverlayRect(x: 100, y: 206, width: 260, height: 120), true),
+            ("near the right edge: slides left", slash(500, 50), menu, window, nil,
+             OverlayRect(x: 332, y: 70, width: 260, height: 120), false),
+            ("near the left edge: slides right", slash(2, 50), menu, window, nil,
+             OverlayRect(x: 8, y: 70, width: 260, height: 120), false),
+            ("taller than both sides: the larger side's room", slash(100, 150), OverlaySize(width: 260, height: 300), window, nil,
+             OverlayRect(x: 100, y: 170, width: 260, height: 222), false),
+            ("tiny container: centred, the larger side's room", slash(10, 10), menu, OverlayRect(x: 0, y: 0, width: 200, height: 100), nil,
+             OverlayRect(x: -30, y: 30, width: 260, height: 62), false),
+            ("shrunk while filtering: stays above though it fits below now", slash(100, 250), OverlaySize(width: 260, height: 40), window, true,
+             OverlayRect(x: 100, y: 206, width: 260, height: 40), true),
+        ]
+        for (name, anchor, size, available, kept, frame, flipped) in cases {
+            let placement = OverlayGeometry.menuPlacement(anchor: anchor, size: size, in: available, keepingFlipped: kept)
+            #expect(placement == MenuPlacement(frame: frame, flipped: flipped), "\(name)")
+        }
     }
 }

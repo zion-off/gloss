@@ -23,6 +23,31 @@ public struct OverlayRect: Hashable, Sendable {
     public var midY: Double { y + height / 2 }
 }
 
+/// A size in points, portable.
+public struct OverlaySize: Hashable, Sendable {
+    public var width: Double
+    public var height: Double
+
+    public init(width: Double, height: Double) {
+        self.width = width
+        self.height = height
+    }
+}
+
+/// Where a menu dropped from an anchor goes.
+public struct MenuPlacement: Hashable, Sendable {
+    /// Its top-left corner, and the height it gets: its own, or the room on its side when that's
+    /// less (it scrolls).
+    public var frame: OverlayRect
+    /// Above the anchor, not below it.
+    public var flipped: Bool
+
+    public init(frame: OverlayRect, flipped: Bool) {
+        self.frame = frame
+        self.flipped = flipped
+    }
+}
+
 /// Geometry for overlays anchored to text, in pure math so it's Linux-tested.
 ///
 /// AppKit hands out rects in a view's own space, which is bottom-left-origin unless the view is
@@ -58,9 +83,32 @@ public enum OverlayGeometry {
         return top >= minY ? top : anchor.maxY + gap
     }
 
-    /// Where an overlay of `height` goes below an anchor: its centre line, `gap` under the
-    /// anchor's bottom (the caller positions by centre).
-    public static func belowCenter(anchor: OverlayRect, height: Double, gap: Double = 6) -> Double {
-        anchor.maxY + gap + height / 2
+    /// Where a menu of `size` dropped from `anchor` goes inside `available`, all in top-left
+    /// space, the way the system's popovers and menus place themselves: left edge on the
+    /// anchor's, `gap` under it; above it (bottom edge on the anchor) when it doesn't fit below
+    /// and there's more room on top; slid sideways only as far as it takes to stay `margin`
+    /// inside. A menu taller than its side gets that side's room and scrolls; a container
+    /// narrower than the menu centres it.
+    ///
+    /// `kept` is the side the menu already took: it stays there while the menu fits, or while it
+    /// doesn't fit on the other side either, so a list that shrinks or grows as it's filtered
+    /// never jumps across the line.
+    public static func menuPlacement(anchor: OverlayRect, size: OverlaySize, in available: OverlayRect,
+                                     keepingFlipped kept: Bool? = nil, gap: Double = 4, margin: Double = 8) -> MenuPlacement {
+        let below = available.maxY - margin - (anchor.maxY + gap)
+        let above = anchor.minY - gap - (available.minY + margin)
+        let fitsBelow = size.height <= below
+        let fitsAbove = size.height <= above
+        let flipped = switch kept {
+        case nil: !fitsBelow && above > below
+        case true?: fitsAbove || !fitsBelow
+        case false?: !fitsBelow && fitsAbove
+        }
+        let height = min(size.height, max(0, flipped ? above : below))
+        let y = flipped ? anchor.minY - gap - height : anchor.maxY + gap
+        let x = available.width >= size.width + 2 * margin
+            ? min(max(anchor.minX, available.minX + margin), available.maxX - margin - size.width)
+            : available.midX - size.width / 2
+        return MenuPlacement(frame: OverlayRect(x: x, y: y, width: size.width, height: height), flipped: flipped)
     }
 }
