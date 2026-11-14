@@ -5,12 +5,23 @@
 public struct MarkdownParser: Sendable {
     public var blockParsers: [any BlockParser]
     public var inlineParsers: [any InlineParser]
-    public var delimiters: [EmphasisDelimiter]
+    public var delimiters: [EmphasisDelimiter] {
+        didSet { delimiterCharacters = Self.delimiterCharacters(for: delimiters) }
+    }
+    /// The delimiters keyed by character, for the scanner's per-unit lookup. Built once here, not
+    /// on every inline scan: a table parses each cell's inlines separately, so a scan per cell
+    /// made the dictionary's cost per cell too.
+    public private(set) var delimiterCharacters: [UInt16: EmphasisDelimiter]
 
     public init(blockParsers: [any BlockParser], inlineParsers: [any InlineParser], delimiters: [EmphasisDelimiter]) {
         self.blockParsers = blockParsers
         self.inlineParsers = inlineParsers
         self.delimiters = delimiters
+        self.delimiterCharacters = Self.delimiterCharacters(for: delimiters)
+    }
+
+    static func delimiterCharacters(for delimiters: [EmphasisDelimiter]) -> [UInt16: EmphasisDelimiter] {
+        Dictionary(delimiters.map { ($0.character, $0) }, uniquingKeysWith: { first, _ in first })
     }
 
     /// The v1 dialect: headings, emphasis, lists, task lists, quotes, code, links, dividers.

@@ -30,7 +30,7 @@ struct InlineScanner: Sendable {
         let context = InlineParsingContext(text: text, scanner: self)
         var atoms: [Inline] = []
         var runs: [DelimiterRun] = []
-        let delimiterChars = Dictionary(parser.delimiters.map { ($0.character, $0) }, uniquingKeysWith: { a, _ in a })
+        let delimiterChars = parser.delimiterCharacters
         var cursor = range.lowerBound
         let limit = range.upperBound
         scan: while cursor < limit {
