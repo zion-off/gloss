@@ -19,6 +19,10 @@ final class NotesTextView: NSTextView {
     var onHoverEnd: (() -> Void)?
     /// Keyboard focus came or went (enables the Format menu).
     var onFocusChange: ((Bool) -> Void)?
+    /// A click or drag selection is in progress (the format bar waits for it to end).
+    private(set) var isSelectingWithMouse = false
+    /// The mouse button came up after a click or drag in the text.
+    var onMouseSelectionEnd: (() -> Void)?
 
     private var hoverArea: NSTrackingArea?
 
@@ -112,7 +116,12 @@ final class NotesTextView: NSTextView {
             let index = characterIndexForInsertion(at: point)
             if index != NSNotFound, let onTextClick, onTextClick(index) { return }
         }
+        // The text view tracks a click or drag selection inside `mouseDown` until the button
+        // comes up.
+        isSelectingWithMouse = true
         super.mouseDown(with: event)
+        isSelectingWithMouse = false
+        onMouseSelectionEnd?()
     }
 
     /// Whether a point (this view's coordinates) is on a laid-out line rather than empty space.

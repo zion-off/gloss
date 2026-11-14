@@ -80,6 +80,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
             self?.hoveredRowID = nil
             self?.setRowHover(nil)
         }
+        textView.onMouseSelectionEnd = { [weak self] in self?.reportSelection() }
 
         let scrollView = NSScrollView()
         scrollView.documentView = textView
@@ -439,7 +440,9 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         let inView = scrollView.convert(windowRect, from: nil)
         let rect = OverlayGeometry.topLeft(OverlayRect(x: inView.minX, y: inView.minY, width: inView.width, height: inView.height),
                                            inHeight: scrollView.bounds.height, flipped: scrollView.isFlipped)
-        selectionRectChanged?(selection.length > 0 ? rect : nil)
+        // The format bar waits for a drag selection to end, like the system's edit menus: shown
+        // mid-drag it chased the pointer and could land under it.
+        selectionRectChanged?(selection.length > 0 && !textView.isSelectingWithMouse ? rect : nil)
         caretRectChanged?(rect)
     }
 

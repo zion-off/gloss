@@ -48,15 +48,25 @@ public struct NotesEditor: View {
         .onAppear { onActionsReady(actions) }
     }
 
+    /// Where the format bar goes, or nil when it's hidden.
+    private var formatBarAnchor: OverlayRect? {
+        FormatBar.shouldShow(selection: model.selection, subpageRows: model.subpageRows) ? selectionRect : nil
+    }
+
     @ViewBuilder private func overlays(in size: CGSize) -> some View {
-        if FormatBar.shouldShow(selection: model.selection, subpageRows: model.subpageRows),
-           let rect = selectionRect {
-            // Position by top edge: the bar sits over the selection when there's room, under
-            // it when there isn't.
-            FormatBarHost(model: model, actions: actions)
-                .position(x: OverlayGeometry.clampCenter(rect.midX, width: FormatBarView.width, in: size.width),
-                          y: OverlayGeometry.above(anchor: rect, height: FormatBarView.height) + FormatBarView.height / 2)
+        ZStack(alignment: .topLeading) {
+            if let rect = formatBarAnchor {
+                // Position by top edge: the bar sits over the selection when there's room, under
+                // it when there isn't.
+                FormatBarHost(model: model, actions: actions)
+                    .position(x: OverlayGeometry.clampCenter(rect.midX, width: FormatBarView.width, in: size.width),
+                              y: OverlayGeometry.above(anchor: rect, height: FormatBarView.height) + FormatBarView.height / 2)
+                    .transition(.opacity)
+            }
         }
+        // Fades in and out like the system's popovers; a selection that moves while the bar is
+        // up moves it at once, without sliding.
+        .animation(.easeOut(duration: 0.15), value: formatBarAnchor != nil)
         if let menu = model.slashMenu, let rect = caretRect {
             SlashMenuView(model: model, confirm: { id in Task { await actions.confirmSlash(id) } })
                 .arrowCursor()
