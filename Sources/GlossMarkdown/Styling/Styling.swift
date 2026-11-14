@@ -14,6 +14,9 @@ public struct StyleRole: RawRepresentable, Hashable, Sendable, CustomStringConve
     public static let codeBlock = StyleRole("codeBlock")
     public static let quote = StyleRole("quote")
     public static let listMarker = StyleRole("listMarker")
+    /// A list item's leading indentation: kept in the text, never shown (the editor indents the
+    /// line by its nesting level instead of by the width of its spaces).
+    public static let listIndent = StyleRole("listIndent")
     public static let taskBox = StyleRole("taskBox")
     public static let taskBoxChecked = StyleRole("taskBoxChecked")
     public static let taskDone = StyleRole("taskDone")
@@ -145,13 +148,15 @@ public struct ListItemRule: StylingRule {
     public init() {}
     public func spans(for block: Block, in text: MarkdownText) -> [StyleSpan] {
         guard let marker = block.syntax.first else { return [] }
+        let indent = block.range.lowerBound..<marker.lowerBound
+        var spans = indent.isEmpty ? [] : [StyleSpan(range: indent, role: .listIndent)]
         guard let checked = block.attributes.checked else {
-            return [StyleSpan(range: marker, role: .listMarker)]
+            return spans + [StyleSpan(range: marker, role: .listMarker)]
         }
         // "- [ ] ": the bullet dims like syntax, the box is a control.
         let boxStart = marker.upperBound - (marker.upperBound - marker.lowerBound >= 4 ? 4 : 3)
         let box = boxStart..<min(boxStart + 3, marker.upperBound)
-        var spans = syntaxSpans([marker.lowerBound..<boxStart], element: block.range)
+        spans += syntaxSpans([marker.lowerBound..<boxStart], element: block.range)
         spans.append(StyleSpan(range: box, role: checked ? .taskBoxChecked : .taskBox))
         if checked, !block.contentRange.isEmpty { spans.append(StyleSpan(range: block.contentRange, role: .taskDone)) }
         return spans
