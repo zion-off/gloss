@@ -346,6 +346,18 @@ import GlossReaderBridge
     public var contents: [ContentsNode] { ContentsNode.nodes(from: reader.toc) }
     /// The contents entry being read and its pages left, for the sidebar (paginated EPUBs only).
     public var contentsPageCount: ContentsPageCount? { ContentsPageCount.current(in: contents, at: reader.location) }
+    /// The contents entry being read (any flow, fixed layout, PDF outlines), for the sidebar to
+    /// keep in view and mark.
+    public var currentContentsRow: ContentsNode.ID? { ContentsVisibility.currentRow(in: contents, at: reader.location) }
+
+    /// The chapter being read changed: the sidebar's selection follows it when it is on the book
+    /// or the contents (never a highlight or notes page the user picked). Only the selection
+    /// moves; nothing navigates.
+    public func followCurrentContents() {
+        guard workspace.document != nil,
+              let next = ContentsVisibility.followedSelection(workspace.sidebar, current: currentContentsRow) else { return }
+        workspace.sidebar = next
+    }
 
     /// The books the source list's book section shows: the reader's and the notes pane's.
     public var bookSidebarSubjects: BookSidebarSubjects {

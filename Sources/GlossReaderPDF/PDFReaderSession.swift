@@ -27,6 +27,8 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
     private var overlays: [Int: PDFPageOverlay] = [:]
     /// Passages pinned by their words (`gloss link`), found in this document's pages.
     private var quotes = PDFQuoteResolver()
+    /// The open document's outline, so each relocation names the entry being read.
+    private var toc: [ReaderTocEntry] = []
     /// The search session's matches, collected as the background find finds them; shown softly
     /// once the find ends, so a partial page's worth never flickers in.
     private var searchMatches: [PDFSelection] = []
@@ -105,7 +107,8 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
         pdf.delegate = findCollector
         pageCount = pdf.pageCount
         pdfView.document = pdf
-        inbox.post(.opened(toc: Self.toc(of: pdf), openID: openID))
+        toc = Self.toc(of: pdf)
+        inbox.post(.opened(toc: toc, openID: openID))
         // A position this engine can't read (another engine's, or malformed) opens at the top.
         if let position, (try? PDFReaderTarget(position)) != nil {
             try await go(to: position, flash: false)
@@ -121,6 +124,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
         searchGeneration += 1
         document = nil
         pageCount = 0
+        toc = []
         annotations = PDFAnnotationLayout(.init())
         overlays = [:]
         quotes = PDFQuoteResolver()
@@ -321,7 +325,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
         guard let pdf = document else { return }
         let index = pdfView.currentPage.map { pdf.index(for: $0) } ?? 0
         let location = PDFReaderPositions.location(page: index, pageCount: pageCount,
-                                                   pageLabel: pdf.page(at: index)?.label)
+                                                   pageLabel: pdf.page(at: index)?.label, toc: toc)
         inbox.post(.relocated(location))
     }
 

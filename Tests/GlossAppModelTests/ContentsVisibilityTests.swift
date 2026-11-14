@@ -43,4 +43,15 @@ struct ContentsVisibilityTests {
         #expect(!ContentsVisibility.shouldScroll(previous: "1.1", current: "1.1"))  // a page turn inside it
         #expect(!ContentsVisibility.shouldScroll(previous: "1.1", current: nil))  // the position lost its entry
     }
+
+    @Test("the selection follows the chapter from the book or the contents, never from a highlight or page")
+    func selectionFollows() {
+        let highlight = HighlightID(GlossID(high: 9, low: 1)), page = PageID(GlossID(high: 9, low: 2))
+        #expect(ContentsVisibility.followedSelection(.book, current: "1.1") == .contents("1.1"))
+        #expect(ContentsVisibility.followedSelection(.contents("0"), current: "1.1") == .contents("1.1"))
+        #expect(ContentsVisibility.followedSelection(.contents("1.1"), current: "1.1") == nil)
+        #expect(ContentsVisibility.followedSelection(.highlight(highlight), current: "1.1") == nil)
+        #expect(ContentsVisibility.followedSelection(.page(page), current: "1.1") == nil)
+        #expect(ContentsVisibility.followedSelection(.book, current: nil) == nil)
+    }
 }
