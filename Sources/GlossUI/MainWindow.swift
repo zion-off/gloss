@@ -12,6 +12,8 @@ import GlossReaderKit
 /// shared services, which the composition root (GlossMac) hands in with the reading engines.
 public struct MainWindow: View {
     @Environment(\.undoManager) private var undoManager
+    /// The window's light or dark mode: a book in auto-night follows it.
+    @Environment(\.colorScheme) private var colorScheme
     private let engines: ReadingEngineRegistry
     private let prepare: @MainActor () async -> Void
     @State private var app: AppModel
@@ -88,6 +90,9 @@ public struct MainWindow: View {
         // A book gets the whole window: the sidebar steps aside when one opens and returns for the
         // library and the trash, where it is the way around. Opening it by hand inside a book sticks
         // until the next change of place.
+        .onChange(of: colorScheme, initial: true) { _, scheme in
+            Task { await app.systemAppearanceChanged(dark: scheme == .dark) }
+        }
         .onChange(of: showsBook, initial: true) { _, isBook in
             withAnimation { columnVisibility = isBook ? .detailOnly : .all }
         }

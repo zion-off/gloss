@@ -9,8 +9,8 @@ hop between the two. Think footnotes, except you write them yourself.
 ## what you get
 
 - **a reader** for epubs and pdfs. Table of contents, search inside the book, reading progress,
-  and gloss remembers where you stopped. Epubs have light, sepia and night themes, text size, line
-  spacing, margins, paginated or scrolling layout.
+  and gloss remembers where you stopped. Epubs have light, sepia, gray and night themes (night can
+  follow dark mode), Books' fonts, text size, line spacing, margins, paginated or scrolling layout.
 - **highlights** in five colours. They're drawn on top of the book, never written into your file.
 - **a notes page per book**, with live markdown styling as you type, a floating format bar, a `/`
   menu, task lists and subpages, in a text size you pick in settings.

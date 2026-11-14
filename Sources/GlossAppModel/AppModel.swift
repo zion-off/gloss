@@ -335,8 +335,19 @@ import GlossReaderBridge
         await trash.reload()
         if let notesTextSize { notes.textSize = notesTextSize }
         if let settings {
-            await reader.applyAppearanceIfSupported(AppearanceStyler().appearance(for: settings))
+            await reader.applyAppearanceIfSupported(AppearanceStyler().appearance(for: settings, systemIsDark: systemIsDark))
         }
+    }
+
+    /// Whether the Mac is in dark mode, as this window sees it (auto-night follows it).
+    public private(set) var systemIsDark = false
+
+    /// The system went light or dark: an open book in auto-night switches with it.
+    public func systemAppearanceChanged(dark: Bool) async {
+        guard dark != systemIsDark else { return }
+        systemIsDark = dark
+        guard let settings = try? await ReaderSettingsStore(settings: services.settings).load(), settings.autoNight else { return }
+        await reader.applyAppearanceIfSupported(AppearanceStyler().appearance(for: settings, systemIsDark: dark))
     }
 
     /// Waits for the settings reaction (tests, and teardown before quit).

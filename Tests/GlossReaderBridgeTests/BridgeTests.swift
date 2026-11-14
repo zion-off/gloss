@@ -162,6 +162,18 @@ struct AppearanceTests {
         #expect(ReaderColorName(rawValue: "yellow")!.highlightColor == .yellow)
     }
 
+    @Test("settings stored before auto-night and fonts still load; auto-night is night only in the dark")
+    func newerSettings() throws {
+        let old = #"{"theme":"sepia","fontSize":19,"lineHeight":1.6,"flow":"paginated","margin":48,"maxInlineSize":720,"maxColumnCount":2}"#
+        var settings = try JSONDecoder().decode(ReaderSettings.self, from: Data(old.utf8))
+        #expect(settings.fontSize == 19 && !settings.autoNight && settings.typeface == .original)
+        settings.autoNight = true
+        #expect(settings.theme(systemIsDark: false) == .sepia && settings.theme(systemIsDark: true) == .night)
+        #expect(!styler.appearance(for: settings).css.contains("body, body :not("))  // original keeps the book's fonts
+        settings.typeface = .charter
+        #expect(styler.appearance(for: settings).css.contains("font-family: 'Charter', Georgia, serif !important"))
+    }
+
     @Test("reader settings persist through the settings store")
     func persistence() async throws {
         let lib = TestLibrary()
