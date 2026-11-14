@@ -3,7 +3,7 @@ import GlossCore
 import GRDB
 
 /// The library in one SQLite file (WAL mode), safe to share between the app and the CLI.
-public final class SQLiteLibraryStore: LibraryStore, ChangeFeed, LibraryBackup, Sendable {
+public final class SQLiteLibraryStore: LibraryStore, ChangeFeed, LibraryBackup, BackupVerifying, Sendable {
     public let origin: String
     public let url: URL?
     let writer: any DatabaseWriter
@@ -95,6 +95,19 @@ public final class SQLiteLibraryStore: LibraryStore, ChangeFeed, LibraryBackup, 
         let path = url.path
         try await writer.writeWithoutTransaction { db in
             try db.execute(sql: "VACUUM INTO ?", arguments: [path])
+        }
+    }
+
+    // MARK: BackupVerifying
+
+    /// Opens the copy read-only and runs SQLite's quick consistency check over it.
+    public func verifyBackup(at url: URL) async throws {
+        var configuration = Configuration()
+        configuration.readonly = true
+        let copy = try DatabaseQueue(path: url.path, configuration: configuration)
+        let verdict = try await copy.read { db in try String.fetchOne(db, sql: "PRAGMA quick_check") }
+        guard verdict == "ok" else {
+            throw StoreError.conflict("the copy failed its consistency check")
         }
     }
 }

@@ -3,6 +3,9 @@ import Foundation
 /// Backup file names, in one place: the cli (`gloss backup <folder>`) and the app's
 /// "back up library…" panel must offer the same shape of name.
 public enum LibraryBackupNaming {
+    /// The one file automatic backup keeps in its folder, replaced on every run.
+    public static let automaticFileName = "gloss-backup.sqlite"
+
     /// "gloss backup 2026-11-13 1015.sqlite" — the date in the user's time zone, to the minute,
     /// so two backups of one session never collide.
     public static func fileName(for date: Date) -> String {

@@ -42,3 +42,9 @@ public protocol ChangeFeed: Sendable {
 public protocol LibraryBackup: Sendable {
     func backup(to url: URL) async throws
 }
+
+/// Checks that a copy made by `LibraryBackup` opens and is internally consistent. Separate from
+/// `LibraryBackup`: only stores backed by a real database file can say.
+public protocol BackupVerifying: Sendable {
+    func verifyBackup(at url: URL) async throws
+}
