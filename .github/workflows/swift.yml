@@ -1,0 +1,40 @@
+name: swift
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: swift-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - name: check out
+        uses: actions/checkout@v4
+
+      - name: select the newest xcode 26
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
+
+      - name: build the app, the cli and the tests
+        run: swift build --build-tests 2>&1 | tee build.log
+
+      - name: fail on compiler warnings in Sources/ or Tests/
+        run: |
+          grep -E "warning:" build.log | grep -F -e "$PWD/Sources/" -e "$PWD/Tests/" | sort -u > warnings.txt || true
+          if [ -s warnings.txt ]; then
+            cat warnings.txt
+            echo "::error::compiler warnings in Sources/ or Tests/ (zero-warning policy)"
+            exit 1
+          fi
+
+      - name: swift tests
+        run: swift test --skip-build
+
+      - name: cli smoke test (the real binary on a real library)
+        run: scripts/cli-smoke.sh
