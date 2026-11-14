@@ -192,6 +192,8 @@ export interface RelocatedPayload {
     fraction: number
     section: { index: number; count: number }
     tocLabel: string | null
+    /** The contents entry being read (foliate's `tocItem.href`), to mark it in the sidebar. */
+    tocHref: string | null
     pageLabel: string | null
     pagesLeftInSection: number | null
     atStart: boolean
@@ -486,6 +488,7 @@ export const EVENT_PAYLOAD_SPECS: Record<EventType, Record<string, FieldSpec>> =
             },
         },
         tocLabel: { t: 'string', nullable: true },
+        tocHref: { t: 'string', nullable: true },
         pageLabel: { t: 'string', nullable: true },
         pagesLeftInSection: { t: 'number', min: 0, int: true, nullable: true },
         atStart: BOOL,

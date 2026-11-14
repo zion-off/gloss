@@ -249,6 +249,7 @@ export const EVENT_PAYLOAD_SPECS = {
             },
         },
         tocLabel: { t: 'string', nullable: true },
+        tocHref: { t: 'string', nullable: true },
         pageLabel: { t: 'string', nullable: true },
         pagesLeftInSection: { t: 'number', min: 0, int: true, nullable: true },
         atStart: BOOL,

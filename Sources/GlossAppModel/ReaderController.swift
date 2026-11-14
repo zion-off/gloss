@@ -202,7 +202,9 @@ import GlossReaderBridge
             errorMessage = message
         case .relocated(let location):
             guard isShowingBook else { return }
-            self.location = location
+            // A resize or a restyle relocates many times with the same place and page count; only
+            // a real change touches observers (the sidebar's page count, the status line).
+            if self.location != location { self.location = location }
             savePosition(location)
         case .selectionChanged(let passage, let anchor):
             guard isShowingBook, let document else { return }

@@ -29,14 +29,22 @@ public struct ReaderLocation: Hashable, Sendable {
     public var progressText: String
     public var atStart: Bool
     public var atEnd: Bool
+    /// Pages after this one in the current section (paginated reflowable books only; nil in
+    /// scrolled flow, fixed layout and PDFs).
+    public var pagesLeftInSection: Int?
+    /// The table-of-contents entry being read, as the target its `ReaderTocEntry` carries.
+    public var contentsTarget: Locator?
 
-    public init(locator: Locator, progression: Double, label: String?, progressText: String, atStart: Bool = false, atEnd: Bool = false) {
+    public init(locator: Locator, progression: Double, label: String?, progressText: String, atStart: Bool = false, atEnd: Bool = false,
+                pagesLeftInSection: Int? = nil, contentsTarget: Locator? = nil) {
         self.locator = locator
         self.progression = progression
         self.label = label
         self.progressText = progressText
         self.atStart = atStart
         self.atEnd = atEnd
+        self.pagesLeftInSection = pagesLeftInSection
+        self.contentsTarget = contentsTarget
     }
 }
 

@@ -77,6 +77,32 @@ public struct OutlineRow<Node: Identifiable>: Identifiable {
     }
 }
 
+/// The contents entry being read and how many pages are left in it, Apple Books style: shown
+/// under that entry in the sidebar while reading in pages (nothing in scrolled flow, fixed layout
+/// or PDFs, whose locations carry no page count). The count is the open section's, measured by the
+/// reader as laid out now, so it follows text size, margins, spacing, theme and window size.
+public struct ContentsPageCount: Equatable, Sendable {
+    public var nodeID: ContentsNode.ID
+    public var caption: String
+
+    /// The entry the location is in, with its caption; nil without a page count or an entry.
+    public static func current(in nodes: [ContentsNode], at location: ReaderLocation?) -> ContentsPageCount? {
+        guard let left = location?.pagesLeftInSection, let target = location?.contentsTarget,
+              let row = OutlineRow.rows(nodes, children: \.children).first(where: { $0.node.target == target })
+        else { return nil }
+        return ContentsPageCount(nodeID: row.node.id, caption: caption(pagesLeft: left))
+    }
+
+    /// "7 pages left in chapter", "1 page left in chapter", "last page of chapter".
+    public static func caption(pagesLeft: Int) -> String {
+        switch pagesLeft {
+        case ...0: "last page of chapter"
+        case 1: "1 page left in chapter"
+        default: "\(pagesLeft) pages left in chapter"
+        }
+    }
+}
+
 /// One notes page in the sidebar's read-only outline (brief 25: no drag to reorder).
 public struct PageOutlineNode: Hashable, Identifiable, Sendable {
     public var id: PageID

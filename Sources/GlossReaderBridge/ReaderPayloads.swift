@@ -375,18 +375,21 @@ public struct ReaderRelocatedPayload: Codable, Hashable, Sendable {
     public var fraction: Double
     public var section: ReaderSectionProgress
     public var tocLabel: String?
+    /// The contents entry being read (its href, as in the `opened` table of contents).
+    public var tocHref: String?
     public var pageLabel: String?
     /// Pages remaining in the current section; nil in scrolled flow or fixed layout.
     public var pagesLeftInSection: Int?
     public var atStart: Bool
     public var atEnd: Bool
 
-    public init(cfi: String, fraction: Double, section: ReaderSectionProgress, tocLabel: String?, pageLabel: String?,
-                pagesLeftInSection: Int?, atStart: Bool, atEnd: Bool) {
+    public init(cfi: String, fraction: Double, section: ReaderSectionProgress, tocLabel: String?, tocHref: String? = nil,
+                pageLabel: String?, pagesLeftInSection: Int?, atStart: Bool, atEnd: Bool) {
         self.cfi = cfi
         self.fraction = fraction
         self.section = section
         self.tocLabel = tocLabel
+        self.tocHref = tocHref
         self.pageLabel = pageLabel
         self.pagesLeftInSection = pagesLeftInSection
         self.atStart = atStart

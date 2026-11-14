@@ -23,6 +23,7 @@ const sampleRelocated = (): RelocatedPayload => ({
     fraction: 0.281,
     section: { index: 3, count: 14 },
     tocLabel: 'Chapter 1. Loomings',
+    tocHref: 'text/ch1.xhtml',
     pageLabel: null,
     pagesLeftInSection: 7,
     atStart: false,
@@ -168,13 +169,13 @@ test('event field checks', () => {
     invalidEvent({ v: 1, type: 'relocated', payload: {
         cfi: 'epubcfi(/6)', fraction: 0.5,
         section: { index: 0, count: 2 },
-        tocLabel: null, pageLabel: null,
+        tocLabel: null, tocHref: null, pageLabel: null,
         pagesLeftInSection: -3, atStart: false, atEnd: false,
     } }, 'negative pagesLeftInSection')
     invalidEvent({ v: 1, type: 'relocated', payload: {
         cfi: 'epubcfi(/6)', fraction: 0.5,
         section: { index: 0 },
-        tocLabel: null, pageLabel: null,
+        tocLabel: null, tocHref: null, pageLabel: null,
         pagesLeftInSection: null, atStart: false, atEnd: false,
     } }, 'section missing count')
     invalidEvent({ v: 1, type: 'selectionChanged', payload: {
