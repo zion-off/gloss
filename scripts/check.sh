@@ -18,7 +18,7 @@ if ! swift test --skip-build >"$log" 2>&1; then
   grep -E "✘|error|failed" "$log" | head -40
   echo "✘ swift tests failed (full log: $log)"; exit 1
 fi
-grep -E "^✔ Test run with" "$log" | awk '{tests += $5; suites += $8} END {printf "✔ %d swift tests in %d suites\n", tests, suites}'
+grep -E "Test run with [0-9]+ tests" "$log" | sed -E 's/.*Test run with ([0-9]+) tests in ([0-9]+) suites.*/✔ \1 swift tests in \2 suites/'
 
 
 if [ -x scripts/cli-smoke.sh ]; then

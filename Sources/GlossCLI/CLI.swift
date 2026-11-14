@@ -81,7 +81,7 @@ public struct GlossCommand: AsyncParsableCommand {
         books and pages can be named by title, by id (or the short id gloss prints), or by a gloss:// link.
         every command takes --json for scripts. the library is shared safely with the gloss app.
         """,
-        version: "0.1.0",
+        version: BuildInfo.version,
         subcommands: [
             ImportCommand.self, ListCommand.self, BookCommand.self, PagesCommand.self, ReadCommand.self,
             PageCommand.self, LinkCommand.self, HighlightsCommand.self, SearchCommand.self, ExportCommand.self, OpenCommand.self,

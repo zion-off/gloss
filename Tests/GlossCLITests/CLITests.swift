@@ -347,7 +347,7 @@ struct CLITrashTests {
         let help = await cli.run("--help")
         #expect(help.code == 0)
         #expect(help.out.contains("read, note and link books"))
-        #expect(await cli.run("--version").out == "0.1.0\n")
+        #expect(await cli.run("--version").out == "\(BuildInfo.version)\n")
         let unknown = await cli.run("teleport")
         #expect(unknown.code == 64)
         #expect(!unknown.err.isEmpty)
