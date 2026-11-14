@@ -71,6 +71,30 @@ struct LinkCommand: AsyncParsableCommand {
             if let value, value < 1 { throw ValidationError("\(name) counts from 1") }
         }
         if list, dryRun { throw ValidationError("pick either --list or --dry-run") }
+        try rejectFlagsAnExactPlaceIgnores()
+    }
+
+    /// An exact place (`--match` with a range, `--offset`, `--text-offset`) names one spot, so flags
+    /// that choose among matches or narrow the search would be silently ignored: refuse them.
+    /// (A usage error rather than a warning: no combination of them with an exact place means
+    /// anything, and a script that passes one expects it to have an effect.)
+    private func rejectFlagsAnExactPlaceIgnores() throws {
+        if isExact {
+            var ignored = [("--nth", nth != nil), ("--chapter", chapter != nil), ("--before", before != nil),
+                           ("--after", after != nil)]
+            // --offset counts within the part --section/--page names; a --match range already says which.
+            if isExactRef { ignored += [("--section", section != nil), ("--page", pageNumber != nil)] }
+            let given = ignored.filter(\.1).map(\.0)
+            if !given.isEmpty {
+                let place = isExactRef ? "--match with a range" : "--offset"
+                throw ValidationError("\(place) names one exact place, so \(given.joined(separator: ", ")) would do nothing\n"
+                    + "drop \(given.count == 1 ? "it" : "them"), or drop \(place == "--offset" ? "--offset" : "the range") to search by words instead")
+            }
+        }
+        if textOffset != nil, textNth != nil {
+            throw ValidationError("--text-offset names one exact place, so --text-nth would do nothing\n"
+                + "drop one of them")
+        }
     }
 
     /// `--match scheme:value@start-end` is exact; `--match scheme:value` only says where to look.

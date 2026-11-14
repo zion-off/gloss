@@ -188,6 +188,12 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   starting where the range starts, label = range + 1): such a range starts on a link's "[" and could
   never be linked as it is, so it can't mean anything else. The outcome is the usual one: same
   target says "already links", another target re-points it.
+- **D-196 Flags an exact place would ignore are a usage error.** `--match` with a range, `--offset`
+  and `--text-offset` name one spot, so `--nth`, `--chapter`, `--before`, `--after` (and, with a
+  `--match` range, `--section`/`--page`; with `--text-offset`, `--text-nth`) used to be dropped
+  silently. They now exit 64 naming the flags and what to drop. An error and not a warning: no
+  combination means anything (`--section` with `--offset` stays, since `--offset` counts in that
+  part), and a script that passes `--nth 2` expects it to take effect.
 
 ## Storage
 
