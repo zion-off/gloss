@@ -10,6 +10,23 @@ public enum SearchScope: Hashable, Sendable {
     case document(DocumentID, Set<SearchFacet>)
 }
 
+extension SearchScope {
+    /// Whether this scope searches the text of this book.
+    public func coversText(of documentID: DocumentID) -> Bool {
+        if case .document(let id, let facets) = self { return id == documentID && facets.contains(.text) }
+        return false
+    }
+
+    /// Whether this scope searches the notes of this book (all notes covers every book's).
+    public func coversNotes(of documentID: DocumentID) -> Bool {
+        switch self {
+        case .allNotes: true
+        case .document(let id, let facets): id == documentID && facets.contains(.notes)
+        default: false
+        }
+    }
+}
+
 /// Where the user is when they start typing in the search field.
 public enum SearchContext: Hashable, Sendable {
     case home

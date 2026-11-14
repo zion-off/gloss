@@ -34,12 +34,26 @@ public struct SearchHit: Hashable, Sendable {
     public var subtitle: String?
     public var snippet: Snippet
     public var destination: SearchDestination
+
+    public init(group: SearchResultGroup, title: String, subtitle: String? = nil, snippet: Snippet,
+                destination: SearchDestination) {
+        self.group = group
+        self.title = title
+        self.subtitle = subtitle
+        self.snippet = snippet
+        self.destination = destination
+    }
 }
 
 public struct SearchResultSection: Hashable, Sendable, Identifiable {
     public var group: SearchResultGroup
     public var hits: [SearchHit]
     public var id: String { group.id }
+
+    public init(group: SearchResultGroup, hits: [SearchHit]) {
+        self.group = group
+        self.hits = hits
+    }
 }
 
 /// A searchable source. Register one to make something new searchable.
