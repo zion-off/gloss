@@ -76,7 +76,7 @@ swift build                      # everything
 swift test                       # all Swift tests
 (cd web && pnpm test)            # typecheck + bridge tests under Node
 (cd web && pnpm build)           # regenerate the committed reader .js from web/src
-scripts/check.sh                 # build, tests, web checks, cli smoke test: run before every commit
+scripts/check.sh                 # build, tests, web checks, cli smoke test (ci runs the same on every pr)
 scripts/run-mac.sh               # build and open build/gloss.app (development only, ad hoc signing)
 ```
 
@@ -118,8 +118,6 @@ bundle first, because `open` on a running app only brings the old build forward.
 - Granular commits: one logical change each, with the tests that cover it.
 - Conventional Commits scoped by module: `feat(store): …`, `fix(cli): …`, `test(core): …`,
   `refactor(markdown): …`, `docs: …`, `chore: …`.
-- Commit only after `scripts/check.sh` exits 0. Don't pipe its output when gating a commit (a pipe
-  reports the last command's status, not the check's).
 - History is linear: merges are rebase-and-merge only, so rebase your branch and never create a
   merge commit. The identity comes from the global git config: no `-c user.name` overrides, no
   `Co-authored-by` trailers, and never `@`-mention anyone.
