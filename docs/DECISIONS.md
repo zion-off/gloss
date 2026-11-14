@@ -175,6 +175,13 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   A CLI link and a GUI link to the same words are two targets (different locators) drawn as one
   underline whose popover lists both. Readers don't upgrade quote locators to CFIs/PDF locators:
   writing from the reader would race edits and sync for a saving of one parse per section per open.
+- **D-194 Scripts written without spaces have no word edges.** Whole-word matching (D-192) looked
+  for letters on both sides of a match, which is every position in a Chinese, Japanese or Thai
+  sentence, so those quotes never matched. `FoldedText.isWholeWords` now treats Han, kana, Bopomofo,
+  Thai, Lao, Tibetan, Myanmar and Khmer characters as non-word characters: a match next to them is
+  always at an edge (Latin next to Han still checks its own side). Only the CLI checks word edges;
+  the readers' resolver (`bridge/quote.ts`) matches anywhere, so the TypeScript twin needed no
+  change, only the shared fixture cases (Chinese, kana that decompose, Thai) that keep folding in step.
 
 ## Storage
 

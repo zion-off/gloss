@@ -95,10 +95,13 @@ public struct FoldedText: Sendable {
     }
 
     /// Whether a folded range starts and ends at word edges: a match that begins or ends with a
-    /// letter or digit may not continue a word ("the" is not in "mother").
+    /// letter or digit may not continue a word ("the" is not in "mother"). Scripts written without
+    /// spaces between words (Chinese, Japanese, Thai...) have no word edges to check, so every
+    /// position next to them is an edge.
     public func isWholeWords(_ range: Range<Int>) -> Bool {
         func isWord(_ index: Int) -> Bool {
             guard index >= 0, index < units.count, let scalar = Unicode.Scalar(units[index]) else { return false }
+            if Self.isSpaceless(scalar) { return false }
             return scalar.properties.isAlphabetic || scalar.properties.numericType != nil
                 || scalar.properties.generalCategory == .nonspacingMark
         }
@@ -106,6 +109,20 @@ public struct FoldedText: Sendable {
         if isWord(range.lowerBound), isWord(range.lowerBound - 1) { return false }
         if isWord(range.upperBound - 1), isWord(range.upperBound) { return false }
         return true
+    }
+
+    /// Scripts that separate words by nothing: Han, kana, Bopomofo, Thai, Lao, Tibetan, Myanmar,
+    /// Khmer and the CJK punctuation block (BMP only; the folded units are UTF-16 and an astral
+    /// Han character is a surrogate, which is never a word character anyway).
+    private static func isSpaceless(_ scalar: Unicode.Scalar) -> Bool {
+        switch scalar.value {
+        case 0x0E00...0x0FFF, 0x1000...0x109F, 0x1780...0x17FF,
+             0x2E80...0x2FDF, 0x3000...0x30FF, 0x3100...0x312F, 0x31F0...0x31FF,
+             0x3400...0x4DBF, 0x4E00...0x9FFF, 0xF900...0xFAFF, 0xFF66...0xFF9F:
+            return true
+        default:
+            return false
+        }
     }
 
     /// The source UTF-16 range a non-empty folded range covers.

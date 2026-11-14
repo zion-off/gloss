@@ -60,6 +60,15 @@ struct QuoteAnchorTests {
         #expect(FoldedText.ranges(of: "the", in: "Mother, the thermos", wholeWords: true) == [8..<11])
         #expect(FoldedText.ranges(of: "Ahab!", in: "Ahab!x", wholeWords: true) == [0..<5])
     }
+
+    @Test("scripts without spaces between words always have word edges")
+    func spacelessScripts() {
+        #expect(FoldedText.ranges(of: "喜欢", in: "我喜欢读书", wholeWords: true) == [1..<3])
+        #expect(FoldedText.ranges(of: "クジラ", in: "ぼくはクジラが好き", wholeWords: true) == [3..<6])
+        #expect(FoldedText.ranges(of: "อ่านหนังสือ", in: "ฉันชอบอ่านหนังสือ", wholeWords: true) == [6..<17])
+        #expect(FoldedText.ranges(of: "gloss", in: "我喜欢gloss这本书", wholeWords: true) == [3..<8])
+        #expect(FoldedText.ranges(of: "the", in: "我喜欢mother", wholeWords: true).isEmpty)
+    }
 }
 
 @Suite("book text references")

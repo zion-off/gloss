@@ -177,5 +177,47 @@
       0,
       13
     ]
+  },
+  {
+    "name": "chinese, spacing differs",
+    "source": "我喜欢读书，也喜欢写 笔记。",
+    "anchor": {
+      "text": "也喜欢写笔记",
+      "prefix": "",
+      "suffix": "",
+      "occurrence": 0
+    },
+    "expected": [
+      6,
+      13
+    ]
+  },
+  {
+    "name": "japanese kana that decompose",
+    "source": "ぼくはクジラが好き",
+    "anchor": {
+      "text": "クジラが",
+      "prefix": "",
+      "suffix": "",
+      "occurrence": 0
+    },
+    "expected": [
+      3,
+      7
+    ]
+  },
+  {
+    "name": "thai with combining marks",
+    "source": "ฉันชอบอ่านหนังสือ",
+    "anchor": {
+      "text": "อ่านหนังสือ",
+      "prefix": "",
+      "suffix": "",
+      "occurrence": 0
+    },
+    "expected": [
+      6,
+      17
+    ]
   }
 ]
