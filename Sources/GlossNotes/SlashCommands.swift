@@ -83,6 +83,8 @@ public struct SlashCommandRegistry: Sendable {
                                keywords: ["blockquote", ">"], command: ToggleQuote()),
             FormatSlashCommand(id: "code", title: "code", subtitle: "a block of monospaced text", symbol: "chevron.left.forwardslash.chevron.right",
                                keywords: ["snippet", "```"], command: ToggleCodeBlock()),
+            FormatSlashCommand(id: "table", title: "table", subtitle: "rows and columns", symbol: "tablecells",
+                               keywords: ["grid", "columns", "rows", "|"], command: InsertTable()),
             FormatSlashCommand(id: "divider", title: "divider", subtitle: "a line across", symbol: "minus",
                                keywords: ["rule", "hr", "line", "---"], command: InsertDivider()),
         ])
