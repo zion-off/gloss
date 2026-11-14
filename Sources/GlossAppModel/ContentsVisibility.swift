@@ -27,12 +27,25 @@ public enum ContentsVisibility {
     /// selection follows the page): the current entry becomes selected when the selection is
     /// the book itself or another contents entry. A selected highlight or notes page is the
     /// user's, and is left alone. Nil: leave the selection as it is.
-    public static func followedSelection(_ selection: SidebarSelection, current: ContentsNode.ID?) -> SidebarSelection? {
-        guard let current else { return nil }
+    ///
+    /// A selected entry that still covers the position stays: one listing the same place again
+    /// (the current row is the first of the two), or a chapter whose own part is being read —
+    /// clicking "chapter 2" and landing where "part a" begins must not snap the selection away
+    /// from the row the user just clicked.
+    public static func followedSelection(_ selection: SidebarSelection, in nodes: [ContentsNode],
+                                         at location: ReaderLocation?) -> SidebarSelection? {
+        guard let current = currentRow(in: nodes, at: location) else { return nil }
         switch selection {
-        case .book: return .contents(current)
-        case .contents(let id) where id != current: return .contents(current)
-        default: return nil
+        case .book:
+            return .contents(current)
+        case .contents(let id) where id != current:
+            guard let selected = ContentsNode.find(id, in: nodes) else { return .contents(current) }
+            if selected.target == location?.contentsTarget || ContentsNode.find(current, in: selected.children ?? []) != nil {
+                return nil
+            }
+            return .contents(current)
+        default:
+            return nil
         }
     }
 }
