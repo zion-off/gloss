@@ -83,6 +83,9 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
             self?.model.focusDidChange(focused)
             self?.restyle()
         }
+        textView.onTableCellClick = { [weak self] table, row, column in self?.cellClicked(table: table, row: row, column: column) }
+        textView.onTableCommand = { [weak self] command, table in self?.run(command, onTable: table) }
+        textView.onPaste = { [weak self] string in self?.paste(string) ?? false }
         textView.onWidthChange = { [weak self] in self?.widthChanged() }
         textView.onAppearanceChange = { [weak self] in self?.appearanceChanged() }
         textView.onHover = { [weak self] point in self?.pointerMoved(to: point) }
@@ -92,6 +95,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
             self?.endHover()
             self?.hoveredRowID = nil
             self?.setRowHover(nil)
+            self?.textView?.hideTableHandles()
         }
         textView.onMouseSelectionEnd = { [weak self] in self?.reportSelection() }
 
@@ -147,8 +151,14 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     private func pointerMoved(to point: NSPoint) {
         guard let textView else { return }
         setRowHover(textView.rowHit(at: point))
+        let table = textView.tableHit(at: point)
+        if let table {
+            textView.showTableHandles(for: table)
+        } else if !textView.isNearTableHandles(point) {
+            textView.hideTableHandles()
+        }
         // Over a drawn table the index lands in its hidden markdown, not on anything shown there.
-        guard textView.tableHit(at: point) == nil else { endHover(); return }
+        guard table == nil else { endHover(); return }
         let index = textView.characterIndexForInsertion(at: point)
         guard index != NSNotFound else { endHover(); return }
         // The whole link (label + destination) under the pointer, if it's a passage link.
@@ -282,6 +292,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         // new page's buffer.
         textView.undoManager?.removeAllActions()
         setRowHover(nil)  // another page's rows: the old block must not linger
+        textView.hideTableHandles()
         storage.beginEditing()
         storage.replaceCharacters(in: NSRange(location: 0, length: storage.length), with: text)
         storage.endEditing()
@@ -302,9 +313,51 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
 
     // MARK: Tables
 
+    /// A click on a drawn cell: the caret goes to the end of the cell's text, so the table shows its
+    /// markdown, ready to edit there.
+    private func cellClicked(table ordinal: Int, row: Int, column: Int) {
+        guard let textView, textView.string == model.text,
+              let caret = model.caret(inTable: ordinal, row: row, column: column) else { return }
+        textView.window?.makeFirstResponder(textView)
+        textView.setSelectedRange(NSRange(location: caret, length: 0))
+    }
+
+    /// A "+" handle or the grid's menu: one undoable edit; the caret stays on its text.
+    private func run(_ command: TableCommand, onTable ordinal: Int) {
+        guard let textView, textView.string == model.text else { return }
+        let result = switch command {
+        case .addRow: model.addRow(toTable: ordinal)
+        case .addColumn: model.addColumn(toTable: ordinal)
+        }
+        guard let result else { return }
+        apply(result)
+        refreshHoverSoon()
+    }
+
+    /// Plain text pasted: a table goes in on lines of its own with the caret after it.
+    private func paste(_ string: String) -> Bool {
+        guard let textView, textView.string == model.text else { return false }
+        model.selectionDidChange(Self.range(textView.selectedRange))
+        guard let result = model.paste(string) else { return false }
+        apply(result)
+        return true
+    }
+
+    /// The edit moved or grew the table under the pointer: show its handles where it is now, once
+    /// it's laid out, instead of waiting for the next mouse move.
+    private func refreshHoverSoon() {
+        Task { @MainActor [weak self] in
+            guard let self, let textView = self.textView, let window = textView.window else { return }
+            let origin = textView.textContainerOrigin
+            textView.textLayoutManager?.ensureLayout(for: textView.visibleRect.offsetBy(dx: -origin.x, dy: -origin.y))
+            self.pointerMoved(to: textView.convert(window.mouseLocationOutsideOfEventStream, from: nil))
+        }
+    }
+
     /// Drawn tables fill the width: lay them out again, after the frame change (which happens
     /// during layout, when the text storage must not change).
     private func widthChanged() {
+        textView?.hideTableHandles()
         guard !tableRelayoutPending else { return }
         tableRelayoutPending = true
         Task { @MainActor [weak self] in
@@ -354,6 +407,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         model.textDidChange(textView.string, selection: Self.range(textView.selectedRange))
         restyle()
         setRowHover(nil)  // the rows may have moved; the next pointer move finds them again
+        textView.hideTableHandles()
         normalizeTypingAttributes()
         reportSelection()
     }
@@ -535,6 +589,8 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
 
     @objc private func boundsChanged() {
         reportSelection()
+        // A scroll moves the tables without a mouse move; the next move shows their handles again.
+        textView?.hideTableHandles()
     }
 
     static func range(_ nsRange: NSRange) -> Range<Int> {
