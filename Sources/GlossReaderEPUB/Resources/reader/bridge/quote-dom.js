@@ -1,5 +1,5 @@
 // generated from web/src/bridge/quote-dom.ts by pnpm build; do not edit
-// The DOM half of quote resolution (`gloss link` quote markers, D-190): the words of a section's
+// The DOM half of quote resolution (`gloss link` quote markers): the words of a section's
 // parsed document, and the Range an anchor's words cover in it. The pure matching is in
 // ./quote.ts; this only walks a Document it is given (no globals), so jsdom can run it.
 import { resolveInNodes } from './quote.js';
