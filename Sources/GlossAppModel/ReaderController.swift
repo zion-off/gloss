@@ -133,6 +133,7 @@ import GlossReaderBridge
         pendingFocus = nil
         pendingSearchReveal = nil
         pendingSearchHighlights = nil
+        shownSearchHighlights = nil
         stopShowingBook()
         toc = []
         location = nil
@@ -150,6 +151,7 @@ import GlossReaderBridge
         let request = openRequests
         self.document = document
         errorMessage = nil  // a stale error must not speak for this open
+        shownSearchHighlights = nil  // the new book holds nothing yet
         stopShowingBook()
         toc = []
         location = nil
@@ -265,6 +267,10 @@ import GlossReaderBridge
         try? await driver?.turnPage(forward: forward)
     }
 
+    /// The search session's query last sent to the engine, so an unchanged one is never re-sent:
+    /// re-sending would clear the current match's emphasis and rescan the whole book on every step.
+    private var shownSearchHighlights: String?
+
     /// Shows a search session's matches in the open book softly (nil clears them), when the
     /// engine can; a book still opening gets them once it shows.
     public func setSearchHighlights(_ query: String?) async {
@@ -274,6 +280,9 @@ import GlossReaderBridge
             return
         }
         pendingSearchHighlights = nil
+        // The same query stands: the engine already holds it (and the current match on top).
+        guard query != shownSearchHighlights else { return }
+        shownSearchHighlights = query
         do { try await highlighting.setSearchHighlights(query) } catch { errorMessage = Self.describe(error) }
     }
 
@@ -436,6 +445,7 @@ import GlossReaderBridge
         isShowingBook = false
         awaitedOpenID = nil
         shownAnnotations = nil
+        shownSearchHighlights = nil
         selection = nil
         selectionAnchor = nil
         markerChoice = nil
