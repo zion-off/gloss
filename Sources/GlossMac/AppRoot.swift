@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import GlossAppModel
 import GlossCore
@@ -74,7 +75,7 @@ struct CompositionFailure: Error {
             let settings = note.userInfo?[glossReaderSettingsKey] as? ReaderSettings
             MainActor.assumeIsolated {
                 guard let appearance, let settings else { return }
-                appearance.current = AppearanceStyler().appearance(for: settings)
+                appearance.settings = settings
             }
         }
     }
@@ -85,7 +86,7 @@ struct CompositionFailure: Error {
         guard !prepared else { return }
         prepared = true
         if let settings = try? await ReaderSettingsStore(settings: services.settings).load() {
-            appearance.current = AppearanceStyler().appearance(for: settings)
+            appearance.settings = settings
         }
         let services = services
         Task.detached(priority: .utility) {
@@ -110,7 +111,13 @@ struct CompositionFailure: Error {
     }
 }
 
-/// The appearance new reader sessions open with.
+/// The appearance new reader sessions open with: the reading settings, in the system's mode
+/// at the moment the session opens (auto-night).
 @MainActor final class AppearanceSource {
-    var current = AppearanceStyler().appearance(for: ReaderSettings())
+    var settings = ReaderSettings()
+
+    var current: ReaderAppearance {
+        let dark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        return AppearanceStyler().appearance(for: settings, systemIsDark: dark)
+    }
 }

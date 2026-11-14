@@ -29,6 +29,15 @@ public struct GlossSettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                Toggle(isOn: $model.reader.autoNight) {
+                    Text("auto night")
+                    Text("the night theme while your mac is in dark mode")
+                }
+                Picker("font", selection: $model.reader.typeface) {
+                    ForEach(ReaderSettings.Typeface.allCases, id: \.self) { typeface in
+                        Text(verbatim: typeface.label).tag(typeface)
+                    }
+                }
                 ValueSlider("text size", value: $model.reader.fontSize, in: 12...24, step: 1,
                             shown: "\(Int(model.reader.fontSize)) pt")
                 ValueSlider("line spacing", value: $model.reader.lineHeight, in: 1.2...2.0, step: 0.1,
@@ -210,6 +219,8 @@ private struct ValueSlider: View {
 /// reads the model's values as they are edited, so every drag shows at once.
 private struct ReadingSample: View {
     let settings: ReaderSettings
+    /// The settings window's mode, standing in for the system's (auto-night).
+    @Environment(\.colorScheme) private var colorScheme
 
     private static let passages = [
         "it was the best of times, it was the worst of times, it was the age of wisdom, it was the age of foolishness, it was the epoch of belief, it was the epoch of incredulity, it was the season of light, it was the season of darkness.",
@@ -220,7 +231,7 @@ private struct ReadingSample: View {
     private static let height: CGFloat = 200
 
     var body: some View {
-        let colors = AppearanceStyler().appearance(for: settings).colors
+        let colors = AppearanceStyler().appearance(for: settings, systemIsDark: colorScheme == .dark).colors
         let foreground = Self.color(colors.foreground, fallback: .labelColor)
         let twoColumns = settings.flow == .paginated && settings.maxColumnCount > 1
         GeometryReader { proxy in
@@ -239,17 +250,24 @@ private struct ReadingSample: View {
         .background(Self.color(colors.background, fallback: .textBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("sample page in the \(settings.theme.rawValue) theme")
+        .accessibilityLabel("sample page in the \(settings.theme(systemIsDark: colorScheme == .dark).rawValue) theme")
     }
 
-    /// One column of text in the reader's font: `-apple-system` (the system font) at the text
+    /// One column of text in the reader's font (the system font for a book's own) at the text
     /// size, with CSS line-height approximated as extra spacing over the font's own (~1.2×).
     private func column(_ text: String) -> some View {
         Text(verbatim: text)
-            .font(.system(size: settings.fontSize))
+            .font(font)
             .lineSpacing(max(0, settings.lineHeight - 1.2) * settings.fontSize)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .clipped()
+    }
+
+    private var font: Font {
+        switch settings.typeface {
+        case .newYork: .system(size: settings.fontSize, design: .serif)
+        default: settings.typeface.familyName.map { .custom($0, size: settings.fontSize) } ?? .system(size: settings.fontSize)
+        }
     }
 
     static func color(_ css: String, fallback: NSColor) -> Color {
