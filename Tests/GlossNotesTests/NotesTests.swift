@@ -69,6 +69,10 @@ struct SlashCommandTests {
         #expect(trigger("```\n/pa|\n```") == nil)
         #expect(trigger("/" + String(repeating: "a", count: 30) + "|") == nil)
         #expect(trigger("no trigger|") == nil)
+        // Not in a table's source (the notes dialect), where a block command would break it.
+        let table = "| a | /pa |\n|---|---|"
+        #expect(SlashTrigger.detect(in: MarkdownParser.notes.parse(table), caret: 9) == nil)
+        #expect(SlashTrigger.detect(in: MarkdownParser.notes.parse(table + "\n/pa"), caret: table.utf16.count + 4)?.query == "pa")
     }
 
     @Test("matching ranks exact, prefix, word, keyword, then fuzzy")
