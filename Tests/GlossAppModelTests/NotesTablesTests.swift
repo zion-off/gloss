@@ -102,10 +102,15 @@ struct NotesTablesTests {
         apply(other.addColumn(toTable: 1), to: other)
         #expect(other.gridTables[1].columnFractions == nil)
 
-        model.resetColumnWidths(ofTable: 1)
+        // A reset (and an undo that puts widths back) is stored at once.
+        let before = model.columnWidths(ofTable: 1)
+        model.setColumnWidths(nil, ofTable: 1)
         await model.flushColumnWidths()
         #expect(model.gridTables[1].columnFractions == nil)
         #expect(try await lib.services.settings.value(key).isEmpty)
+        model.setColumnWidths(before, ofTable: 1)
+        await model.flushColumnWidths()
+        #expect(try await lib.services.settings.value(key) == ["1": TableColumnWidths(fractions: [0.25, 0.75])])
     }
 
     @Test("loading a note drops stored widths for tables past its table count")
