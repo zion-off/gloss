@@ -12,8 +12,7 @@ standard markdown links using the `gloss://` scheme, and the book shows which pa
 from notes, like footnotes you write yourself. MIT licensed. **macOS only**: SwiftUI/AppKit,
 TextKit 2, WKWebView and PDFKit are used directly, with no platform abstraction (no view
 protocols, no cross-platform wrappers, no other app targets). iCloud sync must stay possible
-later: design the data layer for it, never build it. No distribution, packaging, signing or update
-work.
+later: design the data layer for it, never build it.
 
 ## Design principles
 
