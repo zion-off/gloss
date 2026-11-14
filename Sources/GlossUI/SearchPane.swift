@@ -72,6 +72,26 @@ enum SearchResultsPlacement {
     case sidebar, mainPane
 }
 
+/// The sidebar's empty state: a title and one line of detail in small secondary type.
+private struct CompactEmptyState: View {
+    let title: String
+    let detail: String
+
+    var body: some View {
+        VStack(spacing: 3) {
+            Text(verbatim: title)
+                .font(.callout.weight(.medium))
+                .foregroundStyle(.secondary)
+            Text(verbatim: detail)
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 16)
+        .accessibilityElement(children: .combine)
+    }
+}
+
 /// The sidebar's list style in the sidebar, the inset one in the main pane (the two styles are
 /// different types, so a ternary between them doesn't compile).
 private struct ResultsListStyle: ViewModifier {
@@ -95,6 +115,33 @@ struct SearchResults: View {
     var placement: SearchResultsPlacement = .mainPane
     @State private var chosen: Int?
 
+    /// What shows when there is nothing to list. The main pane has room for the system's empty
+    /// state; the sidebar is narrow, so it gets a quiet two-line note instead of a big icon.
+    @ViewBuilder private var emptyState: some View {
+        let scope = app.search.scopeTitle.map { "type to search \($0)" } ?? "type to search gloss"
+        if !app.search.hasQuery {
+            // The search is open but the field is empty: say what it will look through.
+            switch placement {
+            case .sidebar:
+                CompactEmptyState(title: "search your books and notes", detail: scope)
+            case .mainPane:
+                ContentUnavailableView {
+                    Label("search your books and notes", systemImage: "magnifyingglass")
+                } description: {
+                    Text(verbatim: scope)
+                }
+            }
+        } else if !app.search.isSearching, app.search.results.isEmpty {
+            switch placement {
+            case .sidebar:
+                CompactEmptyState(title: "no matches", detail: "nothing in gloss matches that yet")
+            case .mainPane:
+                ContentUnavailableView("no matches", systemImage: "magnifyingglass",
+                                       description: Text("nothing in gloss matches that yet"))
+            }
+        }
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
             List(selection: selection) {
@@ -103,19 +150,7 @@ struct SearchResults: View {
                 }
             }
             .modifier(ResultsListStyle(placement: placement))
-            .overlay {
-                if !app.search.hasQuery {
-                    // The search is open but the field is empty: say what it will look through.
-                    ContentUnavailableView {
-                        Label("search your books and notes", systemImage: "magnifyingglass")
-                    } description: {
-                        Text(verbatim: app.search.scopeTitle.map { "type to search \($0)" } ?? "type to search gloss")
-                    }
-                } else if !app.search.isSearching, app.search.results.isEmpty {
-                    ContentUnavailableView("no matches", systemImage: "magnifyingglass",
-                                           description: Text("nothing in gloss matches that yet"))
-                }
-            }
+            .overlay { emptyState }
             // Stepping (⌘G, the menu) moves the current row: keep it visible, centred like the
             // system's lists do. No animation, like the rest of the search.
             .onChange(of: app.search.stepper.current, initial: true) { _, current in
