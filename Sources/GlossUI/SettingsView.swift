@@ -97,16 +97,18 @@ public struct GlossSettingsView: View {
                     }
                 }
             }
-            Button("back up now") {
-                Task { @MainActor in
-                    if backup.folder == nil {
-                        guard let url = pickFolder() else { return }
-                        await backup.setFolder(url)
+            LabeledContent("manual backup") {
+                Button("back up now") {
+                    Task { @MainActor in
+                        if backup.folder == nil {
+                            guard let url = pickFolder() else { return }
+                            await backup.setFolder(url)
+                        }
+                        await backup.backUpNow()
                     }
-                    await backup.backUpNow()
                 }
+                .disabled(backup.isBusy)
             }
-            .disabled(backup.isBusy)
         } header: {
             Text("backup")
         } footer: {
