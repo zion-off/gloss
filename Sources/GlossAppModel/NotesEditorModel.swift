@@ -4,6 +4,15 @@ import GlossCore
 import GlossMarkdown
 import GlossNotes
 
+/// Where drawn tables' column widths are kept: the library's settings, one entry per page,
+/// mapping each resized table's ordinal on the page to its widths. View state only: never in the
+/// markdown, so exports, the CLI, search and `gloss link` never see it.
+public enum NotesTableSettings {
+    public static func columnWidths(for page: PageID) -> SettingKey<[String: TableColumnWidths]> {
+        SettingKey("notes.tableColumns.\(page.stringValue)", default: [:])
+    }
+}
+
 /// The notes editor's behaviour, without TextKit. The text view stays the source of truth while
 /// the user types (so input methods and undo stay native): it reports changes here, and applies
 /// the edits this model returns through its own change APIs.
@@ -103,6 +112,10 @@ import GlossNotes
     private var generation = 0
     /// Whether the text view has keyboard focus: without it there is no caret to edit a table with.
     private var isFocused = false
+    /// The open page's resized tables, by ordinal (`NotesTableSettings`).
+    private var columnWidths: [Int: TableColumnWidths] = [:]
+    /// Width writes run one after another, each with the widths of its moment.
+    private var columnWidthsWrite: Task<Void, Never>?
 
     public init(services: GlossServices, slashCommands: SlashCommandRegistry? = nil, saveDelay: Duration = .milliseconds(500)) {
         self.services = services
@@ -132,6 +145,7 @@ import GlossNotes
         self.page = page
         text = page.body
         selection = 0..<0
+        columnWidths = [:]  // the old page's: never on this one's tables, even while these load
         // `document` must follow `text` before the first suspension below: the view installs the
         // new text while this call awaits, and AppKit's selection callback reads `document`.
         reparse()
@@ -140,6 +154,7 @@ import GlossNotes
         saveState = .saved
         savedLinks = NotesStyler.glossLinks(in: MarkdownParser.standard.parse(page.body))
         breadcrumbs = (try? await services.pages.breadcrumbs(to: page.id)) ?? [page]
+        await loadColumnWidths(for: page.id)
         await refreshContext()
     }
 
@@ -188,6 +203,7 @@ import GlossNotes
         dismissedSlashAt = nil
         children = []
         savedLinks = []
+        columnWidths = [:]
         reparse()
     }
 
@@ -315,6 +331,50 @@ import GlossNotes
         let rows = tables[ordinal].gridRows
         guard rows.indices.contains(row), rows[row].cells.indices.contains(column) else { return nil }
         return rows[row].cells[column].contentRange.upperBound
+    }
+
+    /// Columns resized by dragging a divider: each column's share of the table's width. Kept in
+    /// memory (the grid redraws with it) until `saveColumnWidths()`; the text never changes.
+    public func resizeColumns(ofTable ordinal: Int, to fractions: [Double]) {
+        guard tables.indices.contains(ordinal), fractions.count == tables[ordinal].columnCount else { return }
+        columnWidths[ordinal] = TableColumnWidths(fractions: fractions)
+        refreshPresentation()
+    }
+
+    /// Back to automatic widths (a double-click on a divider), stored at once.
+    public func resetColumnWidths(ofTable ordinal: Int) {
+        guard columnWidths.removeValue(forKey: ordinal) != nil else { return }
+        refreshPresentation()
+        saveColumnWidths()
+    }
+
+    /// Stores the open page's column widths (when a divider drag ends).
+    public func saveColumnWidths() {
+        guard let page else { return }
+        let key = NotesTableSettings.columnWidths(for: page.id)
+        let value = Dictionary(uniqueKeysWithValues: columnWidths.map { (String($0.key), $0.value) })
+        let settings = services.settings
+        let previous = columnWidthsWrite
+        columnWidthsWrite = Task {
+            await previous?.value
+            try? await settings.set(value, for: key)  // view state: a failed write only loses a width
+        }
+    }
+
+    /// Waits until every width write so far is stored.
+    public func flushColumnWidths() async {
+        await columnWidthsWrite?.value
+    }
+
+    /// Reads a page's stored widths and drops entries for tables it no longer has (by ordinal:
+    /// adding or removing a table above a resized one shifts its widths to another table).
+    private func loadColumnWidths(for id: PageID) async {
+        let stored = (try? await services.settings.value(NotesTableSettings.columnWidths(for: id))) ?? [:]
+        guard page?.id == id else { return }
+        let byOrdinal = Dictionary(stored.compactMap { key, value in Int(key).map { ($0, value) } }, uniquingKeysWith: { first, _ in first })
+        columnWidths = TableWidths.pruned(byOrdinal, tableCount: tables.count)
+        refreshPresentation()
+        if columnWidths.count != stored.count { saveColumnWidths() }
     }
 
     /// A paste of plain text: one holding a table goes in on lines of its own with the caret
@@ -447,7 +507,8 @@ import GlossNotes
             // Touching, as for syntax reveal: a caret at either end of the table is in it.
             let touches = selection.lowerBound <= table.range.upperBound && selection.upperBound >= table.range.lowerBound
             let editing = touches && (isFocused || !selection.isEmpty)
-            return editing ? nil : GridTable(ordinal: ordinal, table: table, columnFractions: nil)
+            return editing ? nil : GridTable(ordinal: ordinal, table: table,
+                                             columnFractions: TableWidths.applicable(columnWidths[ordinal], columnCount: table.columnCount))
         }
         let grids = gridTables.map { StyleSpan(range: $0.table.range, role: NotesRole.tableGrid) }
         spans = SyntaxReveal.apply(baseSpans + grids, selection: selection, concealed: subpageRows.map(\.lineRange))
