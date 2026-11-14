@@ -57,7 +57,8 @@ import GlossNotes
     public private(set) var breadcrumbs: [Page] = []
     public private(set) var text = ""
     public private(set) var selection: Range<Int> = 0..<0
-    public private(set) var document = MarkdownParser.standard.parse("")
+    /// The text in the notes dialect (`MarkdownParser.notes`: standard plus pipe tables).
+    public private(set) var document = MarkdownParser.notes.parse("")
     /// Styling for the whole text, with the syntax under the selection revealed.
     public private(set) var spans: [StyleSpan] = []
     public private(set) var subpageRows: [SubpageRow] = []
@@ -218,9 +219,10 @@ import GlossNotes
         return result.map(KeyOutcome.apply) ?? .passThrough
     }
 
-    /// Return: continue or end a list or quote; nil means "insert a plain newline".
+    /// Return: add or end a table row, continue or end a list or quote; nil means "insert a plain
+    /// newline".
     public func returnKey() -> EditResult? {
-        ListContinuation.newline(in: document, selection: selection)
+        TableEditing.newline(in: document, selection: selection) ?? ListContinuation.newline(in: document, selection: selection)
     }
 
     /// Tab / Shift-Tab: indent or outdent list items; nil means "do the default".
@@ -285,7 +287,7 @@ import GlossNotes
         let id = itemID ?? (menu.items.indices.contains(menu.selectedIndex) ? menu.items[menu.selectedIndex].id : nil)
         guard let command = slashCommands.commands.first(where: { $0.id == id }) else { return nil }
         slashMenu = nil
-        let result = try await slashCommands.run(command, trigger: menu.trigger, in: document, page: page.id)
+        let result = try await slashCommands.run(command, trigger: menu.trigger, in: document, page: page.id, parser: .notes)
         if result.openPage != nil { await refreshContext() }
         return result
     }
@@ -373,7 +375,7 @@ import GlossNotes
     }
 
     private func reparse() {
-        document = MarkdownParser.standard.parse(text)
+        document = MarkdownParser.notes.parse(text)
         subpageRows = SubpageRows.rows(in: document, children: children)
         let placed = Set(subpageRows.map(\.pageID))
         unplacedChildren = children.filter { !placed.contains($0.id) }
