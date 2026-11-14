@@ -2,7 +2,10 @@ import Foundation
 import Observation
 import GlossCore
 
-/// The search popover's state: query, scope (derived from context), grouped results.
+/// The search field's state: query, scope (derived from context), grouped results, and the
+/// session the query opens: the results also exist as one stepping list, and while a query
+/// stands they show in the sidebar inside a book (the main pane keeps the book) and in the
+/// main pane on the library.
 @MainActor @Observable public final class SearchModel {
     public var query = "" {
         didSet { guard query != oldValue else { return }; scheduleSearch() }
@@ -10,6 +13,12 @@ import GlossCore
     public private(set) var scope: SearchScope
     public private(set) var results: [SearchResultSection] = []
     public private(set) var isSearching = false
+    /// The session's stepping list: the results flattened in display order, the current one,
+    /// wraparound. Lives while a query stands.
+    public private(set) var stepper = SearchStepper()
+    /// The book the session searches: the one it started in, or the one a result opened.
+    /// Switching to another book any other way ends the session.
+    public private(set) var sessionDocumentID: DocumentID?
 
     /// Selecting a hit tells the workspace (and the editor/engine) where to go.
     public enum Selection: Hashable, Sendable {
@@ -79,6 +88,7 @@ import GlossCore
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !TextMatcher(query: trimmed).isEmpty else {
             results = []
+            stepper = SearchStepper()
             isSearching = false
             return
         }
@@ -91,6 +101,7 @@ import GlossCore
             let found = (try? await self?.services.search.search(trimmed, in: scope)) ?? []
             guard !Task.isCancelled else { return }
             self?.results = found
+            self?.stepper.replace(sections: found)
             self?.isSearching = false
         }
     }
@@ -103,9 +114,61 @@ import GlossCore
         }
     }
 
+    /// Where the results show, from where the user is: the sidebar inside a book (the book or
+    /// notes stay in the main pane beside it), the main pane on the library.
+    public var showsResultsInSidebar: Bool {
+        showsResults && contextProvider() != .home
+    }
+
+    /// Whether the results fill the main pane (no book is open: the library, the trash).
+    public var showsResultsInMainPane: Bool {
+        showsResults && contextProvider() == .home
+    }
+
+    /// Find Next/Previous (⌘G, ⇧⌘G): steps with wraparound and returns the hit it lands on.
+    public func step(by delta: Int) -> SearchHit? {
+        stepper.step(by: delta)
+    }
+
+    /// A click or a list selection: makes this result current and returns it.
+    public func selectResult(at index: Int) -> SearchHit? {
+        stepper.select(at: index)
+    }
+
+    /// The flat index of a hit, for the row that shows it (nil when it isn't in the list).
+    public func index(of hit: SearchHit) -> Int? {
+        stepper.index(of: hit)
+    }
+
+    /// The session follows where the user went: it keeps the book it started in, or the one a
+    /// result opened (`sessionMoves`); switching books any other way ends it. Without a query
+    /// there is no session. Returns whether the session ended.
+    @discardableResult
+    public func followContextChange(currentDocument: DocumentID?) -> Bool {
+        guard hasQuery else {
+            sessionDocumentID = nil
+            return false
+        }
+        if sessionDocumentID == nil {
+            sessionDocumentID = currentDocument
+            return false
+        }
+        if sessionDocumentID != currentDocument {
+            dismiss()
+            return true
+        }
+        return false
+    }
+
+    /// A result opened this book: the session moves with it.
+    public func sessionMoves(to documentID: DocumentID?) {
+        sessionDocumentID = documentID
+    }
+
     public func cancel() {
         searchTask?.cancel()
         results = []
+        stepper = SearchStepper()
         isSearching = false
     }
 
@@ -132,6 +195,7 @@ import GlossCore
     public func dismiss() {
         query = ""  // the didSet clears the results
         isPresented = false
+        sessionDocumentID = nil
         cancel()
     }
 }
