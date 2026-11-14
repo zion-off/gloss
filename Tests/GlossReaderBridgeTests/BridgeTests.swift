@@ -142,6 +142,19 @@ struct AppearanceTests {
         #expect(dark.colors.marker.contains("0.5"))
     }
 
+    @Test("every theme has its own valid shade of each highlight colour")
+    func themedHighlights() {
+        let themes = ReaderSettings.Theme.allCases
+        for theme in themes {
+            let shades = AppearanceStyler.pageHighlights(for: theme)
+            for name in [ReaderColorName.yellow, .green, .blue, .pink, .purple] { #expect(CSSColor(rgba: shades[name]) != nil, "\(theme) \(name)") }
+            var settings = ReaderSettings()
+            settings.theme = theme
+            #expect(styler.appearance(for: settings).colors.highlights == shades)
+        }
+        #expect(Set(themes.map { AppearanceStyler.pageHighlights(for: $0) }).count == themes.count)
+    }
+
     @Test("highlight colour names map both ways with HighlightColor")
     func colors() {
         #expect(ReaderColorName(.yellow) == .yellow)
