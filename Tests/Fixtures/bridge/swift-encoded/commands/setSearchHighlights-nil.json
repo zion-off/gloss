@@ -1,0 +1,7 @@
+{
+  "payload" : {
+    "query" : null
+  },
+  "type" : "setSearchHighlights",
+  "v" : 1
+}

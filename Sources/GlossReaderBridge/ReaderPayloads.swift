@@ -53,6 +53,17 @@ public enum ReaderDirection: String, Codable, Sendable {
 
 /// The colour set the JS side draws with.
 public struct ReaderColors: Codable, Hashable, Sendable {
+    /// The shades a search session draws with: every match softly, the current one strongly.
+    public struct Search: Codable, Hashable, Sendable {
+        public var soft: String
+        public var current: String
+
+        public init(soft: String, current: String) {
+            self.soft = soft
+            self.current = current
+        }
+    }
+
     public struct Highlights: Codable, Hashable, Sendable {
         public var yellow: String
         public var green: String
@@ -84,12 +95,14 @@ public struct ReaderColors: Codable, Hashable, Sendable {
     /// The underline colour for note-link markers.
     public var marker: String
     public var highlights: Highlights
+    public var search: Search
 
-    public init(background: String, foreground: String, marker: String, highlights: Highlights) {
+    public init(background: String, foreground: String, marker: String, highlights: Highlights, search: Search) {
         self.background = background
         self.foreground = foreground
         self.marker = marker
         self.highlights = highlights
+        self.search = search
     }
 }
 
@@ -304,6 +317,23 @@ public struct ReaderSetAnnotationsPayload: Codable, Hashable, Sendable {
     public init(highlights: [ReaderHighlightAnnotation] = [], markers: [ReaderMarkerAnnotation] = []) {
         self.highlights = highlights
         self.markers = markers
+    }
+}
+
+/// A search session's query, or nil to clear its highlights. The engine draws every match of
+/// the query softly and keeps them drawn as sections load; nil removes them all.
+public struct ReaderSearchHighlightsPayload: Codable, Hashable, Sendable {
+    public var query: String?
+
+    public init(query: String?) {
+        self.query = query
+    }
+
+    private enum CodingKeys: String, CodingKey { case query }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(query, forKey: .query)
     }
 }
 

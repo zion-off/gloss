@@ -43,6 +43,8 @@ struct WireContractTests {
         ("revealSearchHit-cfi", .revealSearchHit(ReaderRevealSearchHitPayload(cfi: "epubcfi(/6/12!/4/2/1:10)", text: "whale"))),
         ("revealSearchHit-section", .revealSearchHit(ReaderRevealSearchHitPayload(section: 3, text: "whale"))),
         ("revealSearchHit-text-only", .revealSearchHit(ReaderRevealSearchHitPayload(text: "whale"))),
+        ("setSearchHighlights", .setSearchHighlights(ReaderSearchHighlightsPayload(query: "white whale"))),
+        ("setSearchHighlights-nil", .setSearchHighlights(ReaderSearchHighlightsPayload(query: nil))),
     ]
 
     static func encode(_ command: ReaderCommand) throws -> String {

@@ -18,6 +18,7 @@ export type CommandType =
     | 'search'
     | 'clearSearch'
     | 'revealSearchHit'
+    | 'setSearchHighlights'
 
 export const COMMAND_TYPES: readonly CommandType[] = Object.freeze([
     'open',
@@ -30,6 +31,7 @@ export const COMMAND_TYPES: readonly CommandType[] = Object.freeze([
     'search',
     'clearSearch',
     'revealSearchHit',
+    'setSearchHighlights',
 ])
 
 export type EventType =
@@ -93,6 +95,8 @@ export interface AppearanceColors {
     foreground: string
     marker: string
     highlights: Record<HighlightColorName, string>
+    /** A search session's shades: every match softly, the current one strongly. */
+    search: { soft: string; current: string }
 }
 
 export interface Appearance {
@@ -159,6 +163,11 @@ export interface SearchPayload {
     query: string
 }
 
+export interface SearchHighlightsPayload {
+    /** The session's query; null clears its highlights. */
+    query: string | null
+}
+
 export interface RevealSearchHitPayload {
     cfi: string | null
     section: number | null
@@ -176,6 +185,7 @@ export interface CommandPayloads {
     search: SearchPayload
     clearSearch: Record<string, never>
     revealSearchHit: RevealSearchHitPayload
+    setSearchHighlights: SearchHighlightsPayload
 }
 
 export interface OpenedPayload {
@@ -357,6 +367,13 @@ const appearanceFields: Record<string, FieldSpec> = {
                     purple: STR,
                 },
             },
+            search: {
+                t: 'object',
+                fields: {
+                    soft: STR,
+                    current: STR,
+                },
+            },
         },
     },
 }
@@ -465,6 +482,9 @@ export const COMMAND_PAYLOAD_SPECS: Record<CommandType, Record<string, FieldSpec
         cfi: { t: 'string', nullable: true },
         section: { t: 'number', min: 0, int: true, nullable: true },
         text: STR,
+    },
+    setSearchHighlights: {
+        query: { t: 'string', nullable: true },
     },
 }
 

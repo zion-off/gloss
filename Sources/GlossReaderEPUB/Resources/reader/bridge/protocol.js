@@ -17,6 +17,7 @@ export const COMMAND_TYPES = Object.freeze([
     'search',
     'clearSearch',
     'revealSearchHit',
+    'setSearchHighlights',
 ]);
 export const EVENT_TYPES = Object.freeze([
     'ready',
@@ -111,6 +112,13 @@ const appearanceFields = {
                     blue: STR,
                     pink: STR,
                     purple: STR,
+                },
+            },
+            search: {
+                t: 'object',
+                fields: {
+                    soft: STR,
+                    current: STR,
                 },
             },
         },
@@ -227,6 +235,9 @@ export const COMMAND_PAYLOAD_SPECS = {
         cfi: { t: 'string', nullable: true },
         section: { t: 'number', min: 0, int: true, nullable: true },
         text: STR,
+    },
+    setSearchHighlights: {
+        query: { t: 'string', nullable: true },
     },
 };
 export const EVENT_PAYLOAD_SPECS = {

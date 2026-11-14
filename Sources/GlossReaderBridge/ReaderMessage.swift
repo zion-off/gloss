@@ -24,9 +24,10 @@ public enum ReaderCommand: Equatable, Sendable {
     case search(ReaderSearchPayload)
     case clearSearch
     case revealSearchHit(ReaderRevealSearchHitPayload)
+    case setSearchHighlights(ReaderSearchHighlightsPayload)
 
     public static let typeNames = [
-        "open", "close", "goTo", "turnPage", "setAppearance", "setAnnotations", "clearSelection", "search", "clearSearch", "revealSearchHit",
+        "open", "close", "goTo", "turnPage", "setAppearance", "setAnnotations", "clearSelection", "search", "clearSearch", "revealSearchHit", "setSearchHighlights",
     ]
 }
 
@@ -78,6 +79,7 @@ extension ReaderCommand: Codable {
             self = .clearSearch
             _ = try container.nestedContainer(keyedBy: EmptyKeys.self, forKey: .payload)
         case "revealSearchHit": self = .revealSearchHit(try payload(ReaderRevealSearchHitPayload.self))
+        case "setSearchHighlights": self = .setSearchHighlights(try payload(ReaderSearchHighlightsPayload.self))
         default: throw ReaderBridgeError.unknownType(type)
         }
     }
@@ -115,6 +117,9 @@ extension ReaderCommand: Codable {
             try container.encode([String: String](), forKey: .payload)
         case .revealSearchHit(let payload):
             try container.encode("revealSearchHit", forKey: .type)
+            try container.encode(payload, forKey: .payload)
+        case .setSearchHighlights(let payload):
+            try container.encode("setSearchHighlights", forKey: .type)
             try container.encode(payload, forKey: .payload)
         }
     }

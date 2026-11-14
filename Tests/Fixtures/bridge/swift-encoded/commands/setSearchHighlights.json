@@ -1,0 +1,7 @@
+{
+  "payload" : {
+    "query" : "white whale"
+  },
+  "type" : "setSearchHighlights",
+  "v" : 1
+}

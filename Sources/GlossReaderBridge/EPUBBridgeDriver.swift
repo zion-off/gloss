@@ -5,7 +5,7 @@ import GlossEPUB
 /// Drives foliate-js through the JSON bridge. Commands become `ReaderCommand`s for `send`
 /// (the WKWebView adapter calls `glossReader.receive`); events come back through `translate`.
 @MainActor
-public final class EPUBBridgeDriver: ReaderDriving, ReflowableAppearanceApplying {
+public final class EPUBBridgeDriver: ReaderDriving, ReflowableAppearanceApplying, SearchHighlighting {
     private let send: @MainActor (ReaderCommand) async throws -> Void
     public private(set) var appearance: ReaderAppearance
     /// Called after each live appearance change, so the host can match native backgrounds.
@@ -74,6 +74,10 @@ public final class EPUBBridgeDriver: ReaderDriving, ReflowableAppearanceApplying
         default: break
         }
         try await send(.revealSearchHit(payload))
+    }
+
+    public func setSearchHighlights(_ query: String?) async throws {
+        try await send(.setSearchHighlights(ReaderSearchHighlightsPayload(query: query)))
     }
 
     public func apply(_ appearance: ReaderAppearance) async throws {
