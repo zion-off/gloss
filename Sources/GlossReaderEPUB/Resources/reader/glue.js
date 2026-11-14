@@ -18,7 +18,7 @@ import * as search from './bridge/search.js';
 import * as sanitize from './bridge/sanitize.js';
 import * as queue from './bridge/queue.js';
 import * as swipe from './bridge/swipe.js';
-import * as quote from './bridge/quote.js';
+import * as quoteDOM from './bridge/quote-dom.js';
 const view = document.querySelector('foliate-view');
 if (!view)
     throw new Error('gloss: <foliate-view> element is missing');
@@ -440,31 +440,9 @@ const guardScripts = (book) => {
     });
 };
 // -- quotes ----------------------------------------------------------------------
-// Text nodes the way foliate's search walks them (text-walker.js): everything in the body but
-// script and style.
-const textNodes = (doc) => {
-    const root = doc.body ?? doc.documentElement;
-    const nodes = [];
-    if (!root)
-        return nodes;
-    const walker = doc.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT | NodeFilter.SHOW_CDATA_SECTION, {
-        acceptNode: node => {
-            if (node.nodeType !== Node.ELEMENT_NODE)
-                return NodeFilter.FILTER_ACCEPT;
-            const name = node.localName.toLowerCase();
-            // svg and math text isn't in gloss's extracted text either (HTMLText skips them)
-            return name === 'script' || name === 'style' || name === 'svg' || name === 'math'
-                ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP;
-        },
-    });
-    for (let node = walker.nextNode(); node; node = walker.nextNode())
-        nodes.push(node);
-    return nodes;
-};
 // The CFI of a passage pinned by its words (an `epub-quote` locator from `gloss link`, D-190):
-// find the words in the section's document (context first, then the occurrence; bridge/quote.ts)
-// and take the range's CFI, the way foliate's own search does. The document is given the shape
-// of the rendered one first (the elements the sanitizer strips), so the CFI matches what is shown.
+// find the words in the section's document (context first, then the occurrence; bridge/quote.ts,
+// bridge/quote-dom.ts) and take the range's CFI, the way foliate's own search does.
 // Null when the words aren't there; remembered for as long as the book is open.
 const resolveQuote = async (target) => {
     const key = JSON.stringify([target.section, target.text, target.prefix, target.suffix, target.occurrence]);
@@ -484,19 +462,9 @@ const resolveQuote = async (target) => {
             if (typeof markup === 'string')
                 doc = new DOMParser().parseFromString(markup, 'text/html');
         }
-        if (doc) {
-            for (const element of Array.from(doc.querySelectorAll('*')))
-                if (sanitize.shouldRemove(element))
-                    element.remove();
-            const nodes = textNodes(doc);
-            const found = quote.resolveInNodes(nodes.map(node => node.nodeValue ?? ''), target);
-            if (found) {
-                const range = doc.createRange();
-                range.setStart(nodes[found.start.node], found.start.offset);
-                range.setEnd(nodes[found.end.node], found.end.offset);
-                cfi = view.getCFI(target.section, range);
-            }
-        }
+        const range = doc ? quoteDOM.quoteRange(doc, target) : null;
+        if (range)
+            cfi = view.getCFI(target.section, range);
     }
     catch (error) {
         failed = true;

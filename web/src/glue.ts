@@ -31,7 +31,7 @@ import * as search from './bridge/search.ts'
 import * as sanitize from './bridge/sanitize.ts'
 import * as queue from './bridge/queue.ts'
 import * as swipe from './bridge/swipe.ts'
-import * as quote from './bridge/quote.ts'
+import * as quoteDOM from './bridge/quote-dom.ts'
 
 const view = document.querySelector('foliate-view') as View | null
 if (!view) throw new Error('gloss: <foliate-view> element is missing')
@@ -485,30 +485,9 @@ const guardScripts = (book: Book): void => {
 
 // -- quotes ----------------------------------------------------------------------
 
-// Text nodes the way foliate's search walks them (text-walker.js): everything in the body but
-// script and style.
-const textNodes = (doc: Document): Text[] => {
-    const root = doc.body ?? doc.documentElement
-    const nodes: Text[] = []
-    if (!root) return nodes
-    const walker = doc.createTreeWalker(root,
-        NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT | NodeFilter.SHOW_CDATA_SECTION, {
-            acceptNode: node => {
-                if (node.nodeType !== Node.ELEMENT_NODE) return NodeFilter.FILTER_ACCEPT
-                const name = (node as Element).localName.toLowerCase()
-                // svg and math text isn't in gloss's extracted text either (HTMLText skips them)
-                return name === 'script' || name === 'style' || name === 'svg' || name === 'math'
-                    ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP
-            },
-        })
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) nodes.push(node as Text)
-    return nodes
-}
-
 // The CFI of a passage pinned by its words (an `epub-quote` locator from `gloss link`, D-190):
-// find the words in the section's document (context first, then the occurrence; bridge/quote.ts)
-// and take the range's CFI, the way foliate's own search does. The document is given the shape
-// of the rendered one first (the elements the sanitizer strips), so the CFI matches what is shown.
+// find the words in the section's document (context first, then the occurrence; bridge/quote.ts,
+// bridge/quote-dom.ts) and take the range's CFI, the way foliate's own search does.
 // Null when the words aren't there; remembered for as long as the book is open.
 const resolveQuote = async (target: protocol.QuoteTarget): Promise<string | null> => {
     const key = JSON.stringify([target.section, target.text, target.prefix, target.suffix, target.occurrence])
@@ -526,18 +505,8 @@ const resolveQuote = async (target: protocol.QuoteTarget): Promise<string | null
             const markup = await view.book.loadText?.(section.id)
             if (typeof markup === 'string') doc = new DOMParser().parseFromString(markup, 'text/html')
         }
-        if (doc) {
-            for (const element of Array.from(doc.querySelectorAll('*')))
-                if (sanitize.shouldRemove(element)) element.remove()
-            const nodes = textNodes(doc)
-            const found = quote.resolveInNodes(nodes.map(node => node.nodeValue ?? ''), target)
-            if (found) {
-                const range = doc.createRange()
-                range.setStart(nodes[found.start.node], found.start.offset)
-                range.setEnd(nodes[found.end.node], found.end.offset)
-                cfi = view.getCFI(target.section, range)
-            }
-        }
+        const range = doc ? quoteDOM.quoteRange(doc, target) : null
+        if (range) cfi = view.getCFI(target.section, range)
     } catch (error) {
         failed = true
         console.warn('gloss: a quote did not resolve', error)
