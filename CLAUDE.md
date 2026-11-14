@@ -107,11 +107,11 @@ bundle first, because `open` on a running app only brings the old build forward.
 ## Releases
 
 - A release is a pull request labelled `release`, plus at most one of `patch`, `minor`, `major`
-  (patch by default; two bump labels fail the `labels` check before the merge). Merging it tags the
-  merge commit and publishes a GitHub release: universal dmg and zip, and a signed appcast that the
-  installed app's Sparkle updater reads. The notes are the PR body: lowercase, no `@`-mentions, and
-  not GitHub's generated ones. Don't add `release` unless asked. Builds are ad hoc signed (no Apple
-  developer account). See `.github/workflows/release.yml` and `scripts/release.sh`.
+  (patch by default; two bump labels fail the `labels` check before the merge). Merging it tags its
+  last rebased commit on main and publishes a GitHub release: universal dmg and zip, and a signed
+  appcast that the installed app's Sparkle updater reads. The notes are the PR body: lowercase, no
+  `@`-mentions, and not GitHub's generated ones. Don't add `release` unless asked. Builds are ad
+  hoc signed (no Apple developer account). See `.github/workflows/release.yml` and `scripts/release.sh`.
 
 ## Commits
 
