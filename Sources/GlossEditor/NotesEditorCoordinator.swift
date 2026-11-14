@@ -289,6 +289,12 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
             displayedSubpageRows = model.subpageRows
             invalidateRows()
         }
+        // The search session's highlights can move without anything else changing (a query
+        // typed, a step, the session ending): they are compared here, because nothing else
+        // re-renders for them — a query change alters no text and no span the editor tracks.
+        if drawnSearchHighlights != model.searchRanges || drawnSearchCurrent != model.searchCurrent {
+            applySearchHighlights()
+        }
         // Styling can change without the text moving (a link's status flipped in the store,
         // the syntax reveal): restyle then, not only on the next keystroke.
         if displayedSpans != model.spans {
@@ -309,6 +315,8 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         storage.endEditing()
         textView.setSelectedRange(NSRange(location: 0, length: 0))
         lastRuns = []  // see the external-change branch of sync
+        drawnSearchHighlights = []
+        drawnSearchCurrent = nil  // the new page's highlights are drawn fresh
         restyle()
         textView.scroll(NSPoint(x: 0, y: 0))
     }
