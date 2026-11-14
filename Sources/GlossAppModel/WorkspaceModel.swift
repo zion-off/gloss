@@ -42,8 +42,12 @@ public struct ReaderFocus: Hashable, Sendable {
     public var canGoBackInNotes: Bool { notesHistory.canGoBack }
     public var canGoForwardInNotes: Bool { notesHistory.canGoForward }
 
-    /// Where the reader pane should be right now (the engine reacts to changes).
+    /// Where the reader pane should be right now.
     public private(set) var readerFocus: ReaderFocus?
+    /// Counts the times the reader was sent to `readerFocus`; the window moves the reader on
+    /// each. Not the focus itself: following the same link again, after scrolling away from its
+    /// passage, sets the same focus as before, and the reader has to go back there all the same.
+    public private(set) var readerFocusRequest = 0
     /// A range in the open page the editor should select and scroll to (a marker click).
     public private(set) var pendingNoteReveal: Range<Int>?
     /// Whether the pending reveal should focus the editor (a marker click) or leave focus with
@@ -197,6 +201,7 @@ public struct ReaderFocus: Hashable, Sendable {
         try await services.library.markOpened(id)
         readerHistory.visit(ReaderFocus(documentID: id, locator: locator))
         readerFocus = readerHistory.current
+        readerFocusRequest += 1
     }
 
     /// The notes pane alone: shows a book's main page and records it in the notes' history.

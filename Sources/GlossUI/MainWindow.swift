@@ -123,7 +123,7 @@ public struct MainWindow: View {
         .libraryFeatures(app: app)  // the drop zone, ⇧⌘A, the import alert, the details sheet, the sort menu
         .quickSwitcher(app: app, isPresented: Binding(get: { commands.showsSwitcher },
                                                        set: { commands.showsSwitcher = $0 }))
-        .externalURLHandling(app: app)
+        .externalURLHandling(app: app, ready: started)
         .exportFailureAlert(app: app)
         .focusedSceneValue(\.windowCommands, commands)
         .focusedSceneValue(\.exportActions, exportActions)
@@ -131,7 +131,7 @@ public struct MainWindow: View {
         .backupResultAlert(backup)
         .overlay(alignment: .bottom) { TrashToastOverlay(app: app) }
         .task { await run() }
-        .task(id: app.workspace.readerFocus) { await app.showReaderFocus() }
+        .task(id: app.workspace.readerFocusRequest) { await app.showReaderFocus() }
         .task(id: app.bookSidebarSubjects) {
             await app.showBookSidebar()
             // The search follows the context: a session keeps its book (switching to another
