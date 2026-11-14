@@ -39,11 +39,27 @@ public struct TableGridMetrics: Hashable, Sendable {
     public var minimumColumnWidth: Double
     /// How near a divider the pointer grabs it.
     public var dividerReach: Double
-    /// The "+" handles' diameter.
+    /// The outer border's band inside the grid, where the pointer is on the border, not a cell.
+    public var borderReach: Double
+    /// The "+" handles' drawn diameter.
     public var handleSize: Double
+    /// Around a handle's circle, still part of its click target.
+    public var handleSlop: Double
 
-    public static let standard = TableGridMetrics(cellPaddingX: 8, cellPaddingY: 5, margin: 6, ruleBand: 1, cornerRadius: 6,
-                                                  minimumColumnWidth: 44, dividerReach: 4, handleSize: 18)
+    /// Notes-like cells (a body line with room around it), the same corner radius as the
+    /// subpage rows' hover block, and as much space above the grid as below it.
+    public static let standard = TableGridMetrics(cellPaddingX: 8, cellPaddingY: 6, margin: 8, ruleBand: 1, cornerRadius: 6,
+                                                  minimumColumnWidth: 44, dividerReach: 4, borderReach: 3, handleSize: 18, handleSlop: 3)
+}
+
+/// The cursor a part of a drawn table shows.
+public enum TableCursor: Hashable, Sendable {
+    /// Grid chrome: the margins above and below, the outer border.
+    case arrow
+    /// A cell: a click puts the caret in its text.
+    case text
+    /// A divider between columns: drag to resize.
+    case columnResize
 }
 
 /// Where a drawn table's parts go, from its top-left (the top of its first line, its left edge).
@@ -150,6 +166,33 @@ public struct TableGridLayout: Hashable, Sendable {
         let tops = rowTops
         let row = tops.indices.last { tops[$0] <= y } ?? 0
         return (row, column)
+    }
+
+    /// The table split into cursor zones that never overlap and cover it exactly (AppKit's
+    /// cursor rects may nest but not partly overlap). The rules between rows belong to the cells:
+    /// an arrow flicking on for a point while moving down a column would read as noise.
+    public func cursorZones() -> [(rect: GridRect, cursor: TableCursor)] {
+        var zones: [(rect: GridRect, cursor: TableCursor)] = []
+        func add(_ x0: Double, _ x1: Double, _ y0: Double, _ y1: Double, _ cursor: TableCursor) {
+            guard x1 > x0, y1 > y0 else { return }
+            zones.append((GridRect(x: x0, y: y0, width: x1 - x0, height: y1 - y0), cursor))
+        }
+        let border = min(metrics.borderReach, width / 2, (gridBottom - gridTop) / 2)
+        add(0, width, 0, gridTop + border, .arrow)
+        add(0, width, gridBottom - border, height, .arrow)
+        let top = gridTop + border, bottom = gridBottom - border
+        add(0, border, top, bottom, .arrow)
+        add(width - border, width, top, bottom, .arrow)
+        // Between the side borders: cells, and the dividers between them.
+        var x = border
+        for edge in columnEdges.dropFirst().dropLast() {
+            let reach = min(metrics.dividerReach, max(edge - x, 0))
+            add(x, edge - reach, top, bottom, .text)
+            add(edge - reach, edge + reach, top, bottom, .columnResize)
+            x = edge + reach
+        }
+        add(x, width - border, top, bottom, .text)
+        return zones
     }
 
     /// The "+" that adds a row, centred on the bottom edge.

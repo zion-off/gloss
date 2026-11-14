@@ -98,13 +98,16 @@ final class TableGridFragment: NSTextLayoutFragment {
 
     override func draw(at point: CGPoint, in context: CGContext) {
         guard let band, let store else { return super.draw(at: point, in: context) }
+        // Hairlines: one device pixel, whatever the display (and the layer's) scale.
+        let pixel = 1 / max(context.convertToDeviceSpace(CGSize(width: 1, height: 1)).width, 1)
         (store.appearance ?? NSAppearance.currentDrawing()).performAsCurrentDrawingAppearance {
-            Self.draw(line: band.line, of: band.table, left: point.x, top: point.y + band.top)
+            Self.draw(line: band.line, of: band.table, left: point.x, top: point.y + band.top, pixel: pixel)
         }
     }
 
-    /// Draws line `line`'s band of `table` with the band's top-left at (`left`, `top`).
-    private static func draw(line: Int, of table: RenderedTable, left: CGFloat, top: CGFloat) {
+    /// Draws line `line`'s band of `table` with the band's top-left at (`left`, `top`); `pixel` is
+    /// a device pixel in points.
+    private static func draw(line: Int, of table: RenderedTable, left: CGFloat, top: CGFloat, pixel: CGFloat) {
         let layout = table.layout
         let originX = left + table.originX
         let originY = top - CGFloat(layout.lineTops[line])
@@ -115,21 +118,23 @@ final class TableGridFragment: NSTextLayoutFragment {
 
         let grid = CGRect(x: originX, y: originY + CGFloat(layout.gridTop), width: CGFloat(layout.width),
                           height: CGFloat(layout.gridBottom - layout.gridTop))
+        // The system separator colour, one device pixel wide and centred on a pixel, like the
+        // system's own separators; the border's corners as round as the subpage rows' hover block.
         NSColor.separatorColor.setStroke()
+        let onPixel = { (value: CGFloat) in (value / pixel).rounded(.down) * pixel + pixel / 2 }
         let radius = CGFloat(layout.metrics.cornerRadius)
-        let border = NSBezierPath(roundedRect: grid.insetBy(dx: 0.5, dy: 0.5), xRadius: radius, yRadius: radius)
-        border.lineWidth = 1
+        let border = NSBezierPath(roundedRect: grid.insetBy(dx: pixel / 2, dy: pixel / 2), xRadius: radius, yRadius: radius)
+        border.lineWidth = pixel
         border.stroke()
-        // Hairlines on the pixel grid: half a point off a whole point.
         let rules = NSBezierPath()
-        rules.lineWidth = 1
+        rules.lineWidth = pixel
         for edge in layout.columnEdges.dropFirst().dropLast() {
-            let x = (originX + CGFloat(edge)).rounded(.down) + 0.5
+            let x = onPixel(originX + CGFloat(edge))
             rules.move(to: NSPoint(x: x, y: grid.minY))
             rules.line(to: NSPoint(x: x, y: grid.maxY))
         }
         for rule in layout.rowRules {
-            let y = (originY + CGFloat(rule)).rounded(.down) + 0.5
+            let y = onPixel(originY + CGFloat(rule))
             rules.move(to: NSPoint(x: grid.minX, y: y))
             rules.line(to: NSPoint(x: grid.maxX, y: y))
         }
