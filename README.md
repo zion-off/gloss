@@ -24,6 +24,9 @@ hop between the two. Think footnotes, except you write them yourself.
   library. Open quickly (⇧⌘O) jumps to any book or page.
 - **trash** with undo, for books and pages. You pick how long things stay (7, 30 or 90 days, or forever).
 - **export** a book's notes as markdown or html, or print them. "back up library…" makes a copy.
+- **automatic backup**: switch on "back up automatically" in settings and gloss keeps one file,
+  `gloss-backup.sqlite`, in a folder you pick (iCloud Drive's `gloss` folder by default), replacing
+  it in one step once a day, so a failed run never costs you the last good copy.
 - **one file**: books, covers, notes and highlights all live in a single SQLite file in
   `~/Library/Application Support/gloss/`.
 
