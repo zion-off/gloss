@@ -19,9 +19,10 @@ public struct TextStyle: Hashable, Sendable {
     }
 
     /// Paragraph treatment for the lines a block covers. `row`: a subpage row's line, one fixed
-    /// height that never wraps, whatever its hidden text.
+    /// height that never wraps, whatever its hidden text. `table`: a drawn table's line, which
+    /// never wraps either; the editor sets its height from the grid's layout.
     public enum Block: Hashable, Sendable {
-        case quote, code, row
+        case quote, code, row, table
     }
 
     public var font: FontRole?
@@ -119,6 +120,7 @@ public struct NotesTheme: Sendable {
             .syntax: Entry(TextStyle(collapsed: true), layer: 8),
             .syntaxRevealed: Entry(TextStyle(color: .tertiary), layer: 8),
             NotesRole.subpageBlock: Entry(TextStyle(block: .row, hidden: true), layer: 9),
+            NotesRole.tableGrid: Entry(TextStyle(block: .table, hidden: true), layer: 9),
         ]
         for level in 1...6 {
             entries[.heading(level)] = Entry(TextStyle(font: .heading(level), bold: true), layer: 1)
