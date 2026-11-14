@@ -47,6 +47,10 @@ public struct MainWindow: View {
     }
 
     @State private var columnVisibility = NavigationSplitViewVisibility.all
+    /// What the sidebar showed before the search results took it (nil: they haven't). The
+    /// source list stays mounted under the results, so its selection, sections and scroll are
+    /// exactly as they were when the search ends.
+    @State private var sidebarBeforeSearch: NavigationSplitViewVisibility?
 
     private var showsBook: Bool {
         if case .book = app.workspace.detail { true } else { false }
@@ -54,8 +58,17 @@ public struct MainWindow: View {
 
     public var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            SourceList(app: app)
-                .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 360)
+            // While a search runs inside a book, its results take the sidebar; the source list
+            // stays mounted underneath (hidden, not gone), so ending the search puts the same
+            /// sections, selection and scroll position back. No control switches between them:
+            /// ending the search is how the contents come back.
+            ZStack(alignment: .topLeading) {
+                SourceList(app: app)
+                if app.search.showsResultsInSidebar {
+                    SearchResults(app: app, placement: .sidebar)
+                }
+            }
+            .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 360)
         } detail: {
             detailColumn
                 // A click on empty space takes focus from the search field (and any other field):
@@ -69,6 +82,18 @@ public struct MainWindow: View {
         .onChange(of: showsBook, initial: true) { _, isBook in
             withAnimation { columnVisibility = isBook ? .detailOnly : .all }
         }
+        // The search opening its results in the sidebar opens the sidebar for them (a book
+        // usually keeps it closed) and puts it back exactly as it was when they go. Deliberately
+        // no animation: the owner removed the search transition as too slow.
+        .onChange(of: app.search.showsResultsInSidebar) { _, showing in
+            if showing {
+                sidebarBeforeSearch = columnVisibility
+                columnVisibility = .all
+            } else if let before = sidebarBeforeSearch {
+                sidebarBeforeSearch = nil
+                columnVisibility = before
+            }
+        }
         // The system's own inline title, after back/forward (the navigation placement goes "ahead
         // of the inline title"). It is also what splits the toolbar into a leading and a trailing
         // part: removing it (`toolbar(removing: .title)`) left nothing
@@ -77,7 +102,7 @@ public struct MainWindow: View {
         .toolbar { toolbar }
         .glossSearch(model: app.search)
         // Escape leaves the search from anywhere in the window, not only from the field.
-        .onExitCommand { if app.search.showsResults { app.search.dismiss() } }
+        .onExitCommand { if app.search.showsResults { Task { await app.endSearch() } } }
         .libraryFeatures(app: app)  // the drop zone, ⇧⌘A, the import alert, the details sheet, the sort menu
         .quickSwitcher(app: app, isPresented: Binding(get: { commands.showsSwitcher },
                                                        set: { commands.showsSwitcher = $0 }))
@@ -92,9 +117,10 @@ public struct MainWindow: View {
         .task(id: app.workspace.readerFocus) { await app.showReaderFocus() }
         .task(id: app.bookSidebarSubjects) {
             await app.showBookSidebar()
-            // The search scope follows the context: opening a book (or going home) adopts the
-            // default for where the user now is.
-            app.search.resetToDefaultScope()
+            // The search follows the context: a session keeps its book (switching to another
+            // one any other way ends it), and without a session the scope adopts the default
+            // for where the user now is.
+            await app.searchFollowsContext()
         }
         .task(id: app.workspace.pendingNoteReveal) {
             if let range = app.workspace.pendingNoteReveal, let page = app.workspace.page {
@@ -125,10 +151,12 @@ public struct MainWindow: View {
 
     @ViewBuilder private var detailColumn: some View {
             if started {
-                if app.search.showsResults {
-                    // Searching replaces the detail column, Mail-style; choosing a hit
-                    // dismisses the search and jumps there.
-                    SearchResults(app: app)
+                if app.search.showsResultsInMainPane {
+                    // On the library, searching replaces the detail column, Mail-style; choosing
+                    // a hit jumps there and the session follows into the book (its results take
+                    // the sidebar). Inside a book the results take the sidebar instead, and the
+                    // main pane keeps the book.
+                    SearchResults(app: app, placement: .mainPane)
                 } else {
                     switch app.workspace.detail {
                     case .library:

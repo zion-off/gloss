@@ -46,6 +46,21 @@ public final class WindowCommands {
         if let edit = try? await app.addReaderSelectionToNotes() { editor?.apply(edit) }
     }
 
+    // MARK: Find
+
+    /// Find… (⌘F): opens the toolbar search with the default scope for where the user is.
+    public func find() {
+        app?.search.isPresented = true
+    }
+
+    public var canStepSearch: Bool { app?.search.stepper.count ?? 0 > 0 }
+
+    /// Find Next/Previous (⌘G, ⇧⌘G), through the results with wraparound.
+    public func stepSearch(forward: Bool) {
+        guard let app else { return }
+        Task { await app.stepSearch(by: forward ? 1 : -1) }
+    }
+
     // MARK: Layout
 
     public var layout: SplitLayout {
@@ -66,7 +81,7 @@ public final class WindowCommands {
 
     public func goBack() {
         guard let app else { return }
-        if searching { app.search.dismiss(); return }
+        if searching { Task { await app.endSearch() }; return }
         if !paneCanGoBack { app.workspace.goHome(); return }
         Task {
             if notesFocused { try? await app.workspace.goBackInNotes() } else { try? await app.workspace.goBackInReader() }
@@ -114,6 +129,20 @@ public struct GlossWindowCommands: Commands {
             Button("forward") { commands?.goForward() }
                 .keyboardShortcut("]", modifiers: .command)
                 .disabled(commands?.canGoForward != true)
+        }
+        // Edit ▸ Find, after the system's text-editing group; ⌘F/⌘G/⇧⌘G are the system's find
+        // shortcuts, not ones gloss is taking.
+        CommandGroup(after: .textEditing) {
+            Button("find…") { commands?.find() }
+                .keyboardShortcut("f", modifiers: [.command])
+            Button("find next") { commands?.stepSearch(forward: true) }
+                .keyboardShortcut("g", modifiers: [.command])
+                .disabled(commands?.canStepSearch != true)
+                .help("the next result, wrapping around")
+            Button("find previous") { commands?.stepSearch(forward: false) }
+                .keyboardShortcut("g", modifiers: [.shift, .command])
+                .disabled(commands?.canStepSearch != true)
+                .help("the previous result, wrapping around")
         }
         CommandGroup(after: .textFormatting) {
             Divider()
