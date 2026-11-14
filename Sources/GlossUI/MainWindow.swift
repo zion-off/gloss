@@ -92,15 +92,16 @@ public struct MainWindow: View {
             withAnimation { columnVisibility = isBook ? .detailOnly : .all }
         }
         // The search opening its results in the sidebar opens the sidebar for them (a book
-        // usually keeps it closed) and puts it back exactly as it was when they go. Deliberately
-        // no animation: the owner removed the search transition as too slow.
+        // usually keeps it closed) and puts it back exactly as it was when they go. The sidebar
+        // slides in and out the standard way, like opening it by hand; the results themselves
+        // appear without any transition (the owner removed that one as too slow).
         .onChange(of: app.search.showsResultsInSidebar) { _, showing in
             if showing {
                 sidebarBeforeSearch = columnVisibility
-                columnVisibility = .all
+                withAnimation { columnVisibility = .all }
             } else if let before = sidebarBeforeSearch {
                 sidebarBeforeSearch = nil
-                columnVisibility = before
+                withAnimation { columnVisibility = before }
             }
             if !showing { sidebarRevealToken += 1 }  // the source list is back in view
         }
