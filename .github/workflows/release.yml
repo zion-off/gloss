@@ -135,12 +135,13 @@ jobs:
             echo "::error::the SPARKLE_PRIVATE_KEY secret isn't set (README, \"releasing\")"
             exit 1
           fi
-          # The release notes: the pull request's title and description, for the release page
-          # and for Sparkle's update window alike.
+          # The release notes: the pull request's description (its title when there is none), for
+          # the release page and for Sparkle's update window alike.
           notes="$RUNNER_TEMP/notes.md"
-          if [ -n "$PR_TITLE" ]; then
-            printf '## %s\n' "$PR_TITLE" > "$notes"
-            if [ -n "$PR_BODY" ]; then printf '\n%s\n' "$PR_BODY" >> "$notes"; fi
+          if [ -n "$PR_BODY" ]; then
+            printf '%s\n' "$PR_BODY" > "$notes"
+          elif [ -n "$PR_TITLE" ]; then
+            printf '%s\n' "$PR_TITLE" > "$notes"
           else
             printf 'a dry run of gloss %s.\n' "$VERSION" > "$notes"
           fi
