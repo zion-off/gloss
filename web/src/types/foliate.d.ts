@@ -31,6 +31,18 @@ declare module 'foliate/overlayer.js' {
     }
 }
 
+declare module 'foliate/search.js' {
+    /** foliate's matcher factory; the glue builds one to find a hit's own CFI in its section */
+    export const searchMatcher: (
+        textWalker: unknown,
+        opts: { defaultLocale?: string; matchCase?: boolean; matchDiacritics?: boolean; matchWholeWords?: boolean },
+    ) => (doc: Document, query: string) => Generator<{ range: unknown; excerpt: unknown }>
+}
+
+declare module 'foliate/text-walker.js' {
+    export const textWalker: unknown
+}
+
 declare module 'foliate/view.js' {
     /** one TOC entry as foliate produces it (nav doc or NCX) */
     export interface FoliateTocItem {
@@ -134,7 +146,15 @@ declare module 'foliate/view.js' {
         goLeft(): Promise<void>
         goRight(): Promise<void>
         deselect(): void
-        search(options: { query: string; index?: number }): AsyncGenerator<unknown, void, unknown>
+        search(options: {
+            query: string
+            index?: number
+            /** how the matches are drawn; foliate's default is a thick outline */
+            draw?: unknown
+            drawOptions?: { color?: string }
+        }): AsyncGenerator<unknown, void, unknown>
         clearSearch(): void
+        /** the book's language, as foliate's own search defaults to */
+        language: string
     }
 }

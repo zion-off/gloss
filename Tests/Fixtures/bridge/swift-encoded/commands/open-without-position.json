@@ -11,7 +11,11 @@
           "purple" : "rgba(160, 80, 220, 0.2)",
           "yellow" : "rgba(255, 200, 0, 0.3)"
         },
-        "marker" : "rgba(59, 47, 30, 0.45)"
+        "marker" : "rgba(59, 47, 30, 0.45)",
+        "search" : {
+          "current" : "rgba(255, 200, 0, 0.5)",
+          "soft" : "rgba(255, 200, 0, 0.2)"
+        }
       },
       "css" : ":root { color-scheme: light; }\nhtml { color: #3b2f1e !important; background: #f8f1e3 !important; }\nbody { color: inherit !important; background: transparent !important;\n       font-size: 17px; line-height: 1.6;\n       font-family: -apple-system, 'Iowan Old Style', Georgia, serif; }\np, li { text-align: justify; }\na { color: inherit; }\nimg, svg { max-width: 100%; }",
       "flow" : "paginated",

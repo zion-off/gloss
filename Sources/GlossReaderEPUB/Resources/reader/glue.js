@@ -35,6 +35,7 @@ let colors = null;
 let drawn = []; // annotations currently drawn
 let hadSelection = false; // suppress selectionCleared noise
 let quoteCfis = new Map(); // quote targets resolved in the open book
+let currentSearchMark = null;
 // -- events ----------------------------------------------------------------
 // foliate's custom events carry their payload in `detail`
 const eventDetail = (event) => event.detail;
@@ -101,6 +102,9 @@ view.addEventListener('create-overlay', e => {
         if (entry.index === index)
             view.addAnnotation({ value: entry.cfi })
                 .catch((error) => postError(error, 'setAnnotations'));
+    // The search session's current mark is ours, not foliate's; its section reload loses it.
+    if (currentSearchMark?.index === index)
+        drawCurrentSearchMark();
 });
 view.addEventListener('draw-annotation', e => {
     const { draw, annotation } = eventDetail(e);
@@ -132,6 +136,49 @@ view.addEventListener('external-link', e => {
         external: true,
     });
 });
+// -- search session ----------------------------------------------------------
+// The session's current match: a strong highlight drawn straight onto the section's overlayer,
+// under the soft matches foliate's own search draws. Not one of `drawn` (those are note
+// annotations); it lives in `currentSearchMark` so its section reloading can redraw it.
+const drawCurrentSearchMark = () => {
+    const mark = currentSearchMark;
+    const contents = view.renderer?.getContents?.() ?? [];
+    const content = contents.find(c => c.index === mark?.index);
+    if (!mark || !content?.overlayer)
+        return;
+    const anchored = mark.anchor(content.doc);
+    let range = null;
+    if (anchored instanceof Range)
+        range = anchored;
+    else if (anchored instanceof Element) {
+        const r = content.doc.createRange();
+        r.selectNodeContents(anchored);
+        range = r;
+    }
+    if (!range?.getClientRects)
+        return;
+    content.overlayer.remove('gloss-search-current');
+    content.overlayer.add('gloss-search-current', range, Overlayer.highlight, { color: colors?.search.current ?? 'rgba(255, 214, 10, 0.55)' });
+};
+const clearCurrentSearchMark = () => {
+    currentSearchMark = null;
+    for (const content of view.renderer?.getContents?.() ?? [])
+        content.overlayer?.remove('gloss-search-current');
+};
+/// The first match of `text` in a section, as a CFI: the reader's own per-hit find, run without
+/// `view.search` (which would clear and redraw the session's soft matches).
+const cfiOfFirstMatch = async (index, text) => {
+    const book = view.book;
+    if (!book?.sections[index]?.createDocument)
+        return null;
+    const doc = await book.sections[index].createDocument();
+    const { searchMatcher } = await import('foliate/search.js');
+    const { textWalker } = await import('foliate/text-walker.js');
+    const matcher = searchMatcher(textWalker, { defaultLocale: view.language });
+    for (const { range } of matcher(doc, text))
+        return view.getCFI(index, range);
+    return null;
+};
 // Briefly outline a navigation target (goTo flash, revealSearchHit).
 const flashTarget = async (resolved) => {
     const contents = view.renderer?.getContents?.() ?? [];
@@ -153,6 +200,19 @@ const flashTarget = async (resolved) => {
     const key = 'gloss-flash';
     content.overlayer.add(key, range, Overlayer.outline, { color: colors?.foreground ?? 'currentColor' });
     setTimeout(() => content.overlayer?.remove(key), FLASH_MS);
+};
+/// Goes to a hit and marks it as the session's current match (a strong highlight plus the
+/// navigation flash), replacing any previous one.
+const revealAndMark = async (resolved) => {
+    clearCurrentSearchMark();
+    await flashTarget(resolved);
+    const contents = view.renderer?.getContents?.() ?? [];
+    const content = contents.find(c => c.index === resolved?.index);
+    if (!content || typeof resolved?.anchor !== 'function')
+        return;
+    const anchor = resolved.anchor;
+    currentSearchMark = { index: resolved.index, anchor };
+    drawCurrentSearchMark();
 };
 // -- selection --------------------------------------------------------------
 const emitSelection = (doc, index) => {
@@ -659,29 +719,57 @@ const commands = {
     async revealSearchHit({ cfi, section, text }) {
         requireRenderer();
         if (cfi != null) {
-            await flashTarget(await view.goTo(cfi));
+            await revealAndMark(await view.goTo(cfi));
             return;
         }
         if (section == null)
             throw new Error('revealSearchHit needs a cfi or a section');
-        // Search within the spine section, off the command queue: a whole
-        // section scan must not hold back the commands sent after it. Foliate outlines every
-        // match like its search results do; we go to the first one and flash it.
+        // Find the hit's own CFI in its section, off the command queue (a whole section scan
+        // must not hold back the commands sent after it), then go to it: flash plus the
+        // session's current mark. Never view.search here — it clears and redraws the session's
+        // soft matches, and its own results draw as outlines (the red boxes this replaces).
         const generation = searchGeneration.bump();
         void (async () => {
             try {
-                for await (const result of view.search({ query: text, index: section })) {
-                    if (!searchGeneration.isCurrent(generation))
-                        return;
-                    if (protocol.isRecord(result) && typeof result.cfi === 'string') {
-                        await flashTarget(await view.goTo(result.cfi));
-                        return;
-                    }
-                }
+                const found = await cfiOfFirstMatch(section, text);
+                if (!searchGeneration.isCurrent(generation) || found == null)
+                    return;
+                await revealAndMark(await view.goTo(found));
             }
             catch (error) {
                 if (searchGeneration.isCurrent(generation))
                     postError(error, 'revealSearchHit');
+            }
+        })();
+    },
+    // The search session: every match of the query softly highlighted in the book, drawn by
+    // foliate's own search overlay with a soft draw (not its default outline), kept drawn as
+    // sections load, and cleared together. Off the command queue and generation-guarded: a
+    // whole book scan must not hold back the commands sent after it, and a newer query (or a
+    // clear) stops an older scan's overlays from landing.
+    async setSearchHighlights({ query }) {
+        requireRenderer();
+        searchGeneration.bump();
+        clearCurrentSearchMark();
+        if (query == null) {
+            view.clearSearch();
+            return;
+        }
+        const generation = searchGeneration.bump();
+        void (async () => {
+            try {
+                for await (const _result of view.search({
+                    query,
+                    draw: Overlayer.highlight,
+                    drawOptions: { color: colors?.search.soft ?? 'rgba(255, 214, 10, 0.22)' },
+                })) {
+                    if (!searchGeneration.isCurrent(generation))
+                        return;
+                }
+            }
+            catch (error) {
+                if (searchGeneration.isCurrent(generation))
+                    postError(error, 'setSearchHighlights');
             }
         })();
     },

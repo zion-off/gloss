@@ -60,7 +60,18 @@ public struct AppearanceStyler: Sendable {
             layout: ReaderLayout(margin: settings.margin, gap: 0.06, maxInlineSize: settings.maxInlineSize,
                                   maxColumnCount: settings.maxColumnCount),
             colors: ReaderColors(background: palette.background, foreground: palette.foreground,
-                                 marker: palette.marker, highlights: Self.pageHighlights(for: settings.theme)))
+                                 marker: palette.marker, highlights: Self.pageHighlights(for: settings.theme),
+                                 search: Self.searchHighlights(for: settings.theme)))
+    }
+
+    /// A search session's shades: the macOS find-highlight yellow, tuned per theme's paper —
+    /// soft for the matches around, stronger for the one being read.
+    public static func searchHighlights(for theme: ReaderSettings.Theme) -> ReaderColors.Search {
+        switch theme {
+        case .light: .init(soft: "rgba(255, 214, 10, 0.22)", current: "rgba(255, 214, 10, 0.55)")
+        case .sepia: .init(soft: "rgba(255, 200, 0, 0.2)", current: "rgba(255, 200, 0, 0.5)")
+        case .night: .init(soft: "rgba(255, 214, 10, 0.2)", current: "rgba(255, 214, 10, 0.5)")
+        }
     }
 
     /// How the five highlight colours are painted on a theme's page, one row per theme. The picker's

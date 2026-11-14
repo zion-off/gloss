@@ -146,5 +146,6 @@ const validAppearance = (): Appearance => ({
     colors: {
         background: '#f8f1e3', foreground: '#3b2f1e', marker: 'rgba(0,0,0,.4)',
         highlights: { yellow: 'y', green: 'g', blue: 'b', pink: 'p', purple: 'u' },
+        search: { soft: 's', current: 'c' },
     },
 })
