@@ -86,6 +86,8 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         textView.onTableCellClick = { [weak self] table, row, column in self?.cellClicked(table: table, row: row, column: column) }
         textView.onTableCommand = { [weak self] command, table in self?.run(command, onTable: table) }
         textView.onPaste = { [weak self] string in self?.paste(string) ?? false }
+        textView.onTableResize = { [weak self] table, fractions, done in self?.resizeColumns(ofTable: table, to: fractions, done: done) }
+        textView.onTableResetWidths = { [weak self] table in self?.resetColumnWidths(ofTable: table) }
         textView.onWidthChange = { [weak self] in self?.widthChanged() }
         textView.onAppearanceChange = { [weak self] in self?.appearanceChanged() }
         textView.onHover = { [weak self] point in self?.pointerMoved(to: point) }
@@ -96,6 +98,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
             self?.hoveredRowID = nil
             self?.setRowHover(nil)
             self?.textView?.hideTableHandles()
+            self?.isOverDivider = false
         }
         textView.onMouseSelectionEnd = { [weak self] in self?.reportSelection() }
 
@@ -138,6 +141,8 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     /// pixel: the task is cancelled and replaced when the link under the pointer changes.
     /// The subpage row under the pointer; the text view draws its highlight.
     private var hoveredRowID: PageID?
+    /// The pointer is on a drawn table's column divider (the resize cursor shows).
+    private var isOverDivider = false
 
     private func setRowHover(_ hit: (row: SubpageRow, rect: NSRect)?) {
         if hit != nil { NSCursor.pointingHand.set() }
@@ -157,6 +162,10 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         } else if !textView.isNearTableHandles(point) {
             textView.hideTableHandles()
         }
+        // Like the rows' hand: AppKit only resets the cursor on entering or leaving the view.
+        let onDivider = table.flatMap { textView.divider(at: $0) } != nil
+        if onDivider { NotesTextView.columnResizeCursor.set() } else if isOverDivider { NSCursor.iBeam.set() }
+        isOverDivider = onDivider
         // Over a drawn table the index lands in its hidden markdown, not on anything shown there.
         guard table == nil else { endHover(); return }
         let index = textView.characterIndexForInsertion(at: point)
@@ -331,6 +340,24 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         }
         guard let result else { return }
         apply(result)
+        refreshHoverSoon()
+    }
+
+    /// A divider drag: the grid follows the pointer and the widths are stored when the drag ends.
+    /// The text never changes, so the note is not marked edited.
+    private func resizeColumns(ofTable ordinal: Int, to fractions: [Double], done: Bool) {
+        textView?.hideTableHandles()  // the table's height changes under them
+        model.resizeColumns(ofTable: ordinal, to: fractions)
+        restyle()
+        if done {
+            model.saveColumnWidths()
+            refreshHoverSoon()
+        }
+    }
+
+    private func resetColumnWidths(ofTable ordinal: Int) {
+        model.setColumnWidths(nil, ofTable: ordinal)
+        restyle()
         refreshHoverSoon()
     }
 
