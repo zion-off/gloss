@@ -16,8 +16,11 @@ import GlossCore
     public private(set) var state: State = .idle
 
     private let backup: (any LibraryBackup)?
+    /// Shared with automatic backup, which waits while this one copies.
+    private let activity: BackupActivity
 
-    public init(services: GlossServices) {
+    public init(services: GlossServices, activity: BackupActivity = BackupActivity()) {
+        self.activity = activity
         // The composition root wires the capability; a store without it (none in practice)
         // makes the command explain itself instead of failing silently.
         self.backup = services.store as? any LibraryBackup
@@ -37,6 +40,8 @@ import GlossCore
             return
         }
         state = .running
+        activity.enter()
+        defer { activity.leave() }
         do {
             // Off the main actor: a big library must not stall the UI (brief 36's rule for
             // import applies to any long read of the store).
