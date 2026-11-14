@@ -550,12 +550,15 @@ import GlossReaderBridge
     }
 
     /// Where a chosen search hit goes: the page with the match revealed, the passage
-    /// in the book, or the book itself.
+    /// in the book, or the book itself. The session stays open (the results stay), and its
+    /// book moves with the hit.
     public func reveal(_ selection: SearchModel.Selection) async {
         switch selection {
-        case .page(let pageID, _, let match):
+        case .page(let pageID, let documentID, let match):
+            search.sessionMoves(to: documentID)
             try? await workspace.openPage(pageID, revealing: match)
         case .bookText(let documentID, let locator, let matchText):
+            search.sessionMoves(to: documentID)
             if reader.document?.id == documentID {
                 workspace.layout = workspace.layout.showsReader ? workspace.layout : .split
                 await reader.reveal(searchHit: locator, text: matchText)
@@ -567,8 +570,78 @@ import GlossReaderBridge
                 workspace.layout = workspace.layout.showsReader ? workspace.layout : .split
             }
         case .document(let documentID):
+            search.sessionMoves(to: documentID)
             try? await workspace.openDocument(documentID)
             workspace.layout = workspace.layout.showsReader ? workspace.layout : .split
+        }
+    }
+
+    // MARK: The search session
+
+    /// Find Next/Previous (⌘G, ⇧⌘G): steps through the results with wraparound and opens the hit
+    /// it lands on. The session stays open; the current row follows.
+    public func stepSearch(by delta: Int) async {
+        guard let hit = search.step(by: delta) else { return }
+        await reveal(SearchModel.Hit(hit: hit, section: "").selection)
+        await applySearchHighlights()
+    }
+
+    /// A click or a list selection: makes that result current and opens it.
+    public func openSearchResult(at index: Int) async {
+        guard let hit = search.selectResult(at: index) else { return }
+        await reveal(SearchModel.Hit(hit: hit, section: "").selection)
+        await applySearchHighlights()
+    }
+
+    /// Ends the search: the field, the results, and every highlight the session drew.
+    public func endSearch() async {
+        search.dismiss()
+        await clearSearchHighlights()
+    }
+
+    /// What a live query highlights: every match in what is shown — the open book's text when
+    /// the scope covers it, the open notes page when the scope covers it — with the current
+    /// result emphasised. Nothing when no query stands. Called whenever the query, the scope,
+    /// the results or where the user is changes.
+    public func applySearchHighlights() async {
+        guard search.hasQuery else {
+            await clearSearchHighlights()
+            return
+        }
+        let query = search.query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let book = reader.document?.id
+        await reader.setSearchHighlights(book.map { search.scope.coversText(of: $0) } == true ? query : nil)
+        let notesDocument = workspace.page?.documentID
+        notes.setSearch(query: notesDocument.map { search.scope.coversNotes(of: $0) } == true ? query : nil,
+                        current: currentNotesHighlight())
+    }
+
+    /// Clears every highlight the session drew, in the reader and the notes.
+    public func clearSearchHighlights() async {
+        await reader.clearSearchHighlights()
+        notes.setSearch(query: nil, current: nil)
+    }
+
+    /// The session's current hit when it is on the open notes page, else nil.
+    private func currentNotesHighlight() -> Range<Int>? {
+        guard let page = workspace.page, let hit = search.stepper.currentHit else { return nil }
+        guard case .page(let id, _, let match) = hit.destination, id == page.id else { return nil }
+        return match
+    }
+
+    /// The search follows where the user went (the window calls this whenever the context
+    /// changes): a session keeps its book — switching to another book any other way ends it,
+    /// and with it every highlight — while without a session the scope adopts the new context's
+    /// default, as before.
+    public func searchFollowsContext() async {
+        if search.hasQuery {
+            if search.followContextChange(currentDocument: workspace.document?.id) {
+                await clearSearchHighlights()
+            } else {
+                await applySearchHighlights()
+            }
+        } else {
+            search.resetToDefaultScope()
         }
     }
 }

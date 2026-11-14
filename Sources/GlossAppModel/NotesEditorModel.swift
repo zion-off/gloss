@@ -92,6 +92,11 @@ public enum NotesTableSettings {
     public private(set) var activeFormats: Set<String> = []
     public private(set) var slashMenu: SlashMenu?
     public private(set) var saveState: SaveState = .saved
+    /// A live search's highlights in the open page: every match of the query in the body (outside
+    /// hidden markdown and drawn tables), and which one is current. The editor draws them as
+    /// rendering attributes: the text, the undo stack and the edited state are untouched.
+    public private(set) var searchRanges: [Range<Int>] = []
+    public private(set) var searchCurrent: Range<Int>?
 
     /// Called after a save that added or removed `gloss://` links (markers need redrawing).
     public var linksDidChange: @MainActor () async -> Void = {}
@@ -308,6 +313,41 @@ public enum NotesTableSettings {
     /// The subpage row under an offset (a click opens the page).
     public func subpageRow(at offset: Int) -> SubpageRow? {
         subpageRows.first { $0.lineRange.contains(offset) || $0.lineRange.upperBound == offset }
+    }
+
+    // MARK: Search highlights
+
+    /// The search session's highlights for the open page: `query` nil clears them. `current` is
+    /// the session's current hit when it is on this page (the stronger highlight).
+    public func setSearch(query: String?, current: Range<Int>?) {
+        guard let query, !query.isEmpty else {
+            if searchRanges.isEmpty, searchCurrent == nil { return }
+            searchRanges = []
+            searchCurrent = nil
+            return
+        }
+        searchCurrent = current.map { clamp($0) }
+        searchRanges = Self.visibleMatches(of: query, in: document, concealed: concealedRanges())
+    }
+
+    /// The ranges of the page's text a search match should not highlight: hidden markdown syntax,
+    /// link destinations and drawn tables (a match inside a table's source shows once the caret
+    /// enters it and the table un-draws).
+    private func concealedRanges() -> [Range<Int>] {
+        spans.filter { $0.role == .syntax || $0.role == .linkDestination }.map(\.range)
+            + gridTables.map(\.table.range) + subpageRows.map(\.lineRange)
+    }
+
+    /// Every match of the query in the body, in order, skipping the concealed ranges.
+    static func visibleMatches(of query: String, in document: MarkdownDocument, concealed: [Range<Int>]) -> [Range<Int>] {
+        guard !TextMatcher(query: query).isEmpty else { return [] }
+        let text = document.text
+        return TextMatcher(query: query).matchRanges(in: text.string).compactMap { match in
+            let lower = text.string.utf16.distance(from: text.string.startIndex, to: match.lowerBound)
+            let upper = text.string.utf16.distance(from: text.string.startIndex, to: match.upperBound)
+            let range = lower..<upper
+            return concealed.contains { $0.overlaps(range) } ? nil : range
+        }
     }
 
     // MARK: Tables
