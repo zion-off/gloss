@@ -103,6 +103,9 @@ public struct MainWindow: View {
         .glossSearch(model: app.search)
         // Escape leaves the search from anywhere in the window, not only from the field.
         .onExitCommand { if app.search.showsResults { Task { await app.endSearch() } } }
+        // Results arriving (typing, a scope change) re-derive what the session highlights; the
+        // engines' searches are generation-guarded, so a query mid-typing cancels the last one.
+        .onChange(of: app.search.results) { _, _ in Task { await app.applySearchHighlights() } }
         .libraryFeatures(app: app)  // the drop zone, ⇧⌘A, the import alert, the details sheet, the sort menu
         .quickSwitcher(app: app, isPresented: Binding(get: { commands.showsSwitcher },
                                                        set: { commands.showsSwitcher = $0 }))
