@@ -71,7 +71,7 @@ public struct GlossSettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 480)
-        // As tall as its rows, but no taller than the screen: past that the form scrolls.
+        // As tall as its rows, but no taller than half the screen: past that the form scrolls.
         .frame(maxHeight: Self.tallest)
         .fixedSize(horizontal: false, vertical: true)
         .task { await model.load() }
@@ -79,10 +79,10 @@ public struct GlossSettingsView: View {
         .onDisappear { Task { await model.flushSave() } }
     }
 
-    /// The most the window's content can take: the screen it opens on, below the menu bar and
-    /// above the Dock, less its title bar and a little air.
+    /// The most the window's content can take: half the screen it opens on (below the menu bar
+    /// and above the Dock).
     private static var tallest: CGFloat {
-        (NSScreen.main?.visibleFrame.height ?? 800) - 80
+        (NSScreen.main?.visibleFrame.height ?? 800) / 2
     }
 
     /// One toggle, the one-line state under it, the folder, and "back up now".
