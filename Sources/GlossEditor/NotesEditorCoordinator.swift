@@ -28,6 +28,12 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     private let hover = NotesHoverPopover()
     private var hoverTask: Task<Void, Never>?
     let actions: NotesEditorActions
+    /// The tables drawn as grids, shared with the layout fragments that draw them.
+    nonisolated let tableStore = TableGridStore()
+    private lazy var tableBuilder = TableGridBuilder(theme: theme, notesTheme: notesTheme)
+    /// The grids as last drawn, to tell which ones changed.
+    private var drawnTables: [RenderedTable] = []
+    private var tableRelayoutPending = false
 
     /// A `gloss://` link was clicked (the window routes it).
     var openGlossLink: (@MainActor (GlossLink) async -> Void)?
@@ -71,7 +77,14 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
             self?.setRowHover(nil)
             self?.openPage?(row.pageID)
         }
-        textView.onFocusChange = { [weak self] focused in self?.actions.focusChanged(focused) }
+        textView.onFocusChange = { [weak self] focused in
+            self?.actions.focusChanged(focused)
+            // A table with the caret in it shows its markdown only while there is a caret to edit with.
+            self?.model.focusDidChange(focused)
+            self?.restyle()
+        }
+        textView.onWidthChange = { [weak self] in self?.widthChanged() }
+        textView.onAppearanceChange = { [weak self] in self?.appearanceChanged() }
         textView.onHover = { [weak self] point in self?.pointerMoved(to: point) }
         // The pointer left the text, or a floating view covers it: the view under it sets the
         // cursor now, so dropping the row must not put the I-beam back.
@@ -112,6 +125,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         actions.isEditing = false
         endHover()
         actions.focusChanged(false)  // the editor is gone: ⌘[ goes back to the reader
+        model.focusDidChange(false)
     }
 
     // MARK: Hover
@@ -133,6 +147,8 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     private func pointerMoved(to point: NSPoint) {
         guard let textView else { return }
         setRowHover(textView.rowHit(at: point))
+        // Over a drawn table the index lands in its hidden markdown, not on anything shown there.
+        guard textView.tableHit(at: point) == nil else { endHover(); return }
         let index = textView.characterIndexForInsertion(at: point)
         guard index != NSNotFound else { endHover(); return }
         // The whole link (label + destination) under the pointer, if it's a passage link.
@@ -169,8 +185,16 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     nonisolated func textLayoutManager(_ textLayoutManager: NSTextLayoutManager,
                                        textLayoutFragmentFor location: any NSTextLocation,
                                        in textElement: NSTextElement) -> NSTextLayoutFragment {
+        let paragraph = Self.offsets(of: textElement, in: textLayoutManager)
+        // A drawn table's line draws its band of the grid. The store is filled before any change
+        // that lays these lines out, and the fragment looks its table up again whenever it draws.
+        if let paragraph, tableStore.line(covering: paragraph) != nil {
+            let fragment = TableGridFragment(textElement: textElement, range: nil)
+            fragment.store = tableStore
+            return fragment
+        }
         let fragment = SubpageRowFragment(textElement: textElement, range: nil)
-        if let paragraph = Self.offsets(of: textElement, in: textLayoutManager) {
+        if let paragraph {
             // Dynamic colours resolve against the drawing appearance, which is not the view's while
             // a fragment draws: carry it along (dark mode drew black on black). AppKit objects,
             // touched here on the main thread only.
@@ -188,7 +212,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     }
 
     /// Where a paragraph sits in the text, in UTF-16 offsets (nil for anything but a paragraph).
-    nonisolated private static func offsets(of element: NSTextElement, in manager: NSTextLayoutManager) -> Range<Int>? {
+    nonisolated static func offsets(of element: NSTextElement, in manager: NSTextLayoutManager) -> Range<Int>? {
         guard element is NSTextParagraph,
               let content = manager.textContentManager as? NSTextContentStorage,
               let elementRange = element.elementRange else { return nil }
@@ -274,6 +298,53 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         }
         // Subpage rows are hit by where they're drawn (`NotesTextView.rowHit`), not by index.
         return false
+    }
+
+    // MARK: Tables
+
+    /// Drawn tables fill the width: lay them out again, after the frame change (which happens
+    /// during layout, when the text storage must not change).
+    private func widthChanged() {
+        guard !tableRelayoutPending else { return }
+        tableRelayoutPending = true
+        Task { @MainActor [weak self] in
+            self?.tableRelayoutPending = false
+            self?.restyle()
+        }
+    }
+
+    private func appearanceChanged() {
+        guard let textView else { return }
+        tableStore.replace(drawnTables, appearance: textView.effectiveAppearance)
+        for table in drawnTables { invalidateLayout(table.range) }
+    }
+
+    private func buildTables() -> [RenderedTable] {
+        guard let container = textView?.textContainer else { return [] }
+        return tableBuilder.build(model.gridTables, text: model.document.text, spans: model.spans,
+                                  containerWidth: container.size.width, padding: container.lineFragmentPadding)
+    }
+
+    /// Each drawn table's lines exactly as tall as their bands of the grid, never wrapping. Only
+    /// where a line's style differs: lines restyled just now lost theirs to `setAttributes`.
+    private func applyTableLineHeights(_ tables: [RenderedTable], in storage: NSTextStorage) {
+        for table in tables {
+            for (line, height) in zip(table.lines, table.layout.lineHeights) where !line.isEmpty && line.upperBound <= storage.length {
+                let style = theme.tableLineStyle(height: CGFloat(height))
+                let current = storage.attribute(.paragraphStyle, at: line.lowerBound, effectiveRange: nil) as? NSParagraphStyle
+                if current != style { storage.addAttribute(.paragraphStyle, value: style, range: NSRange(line)) }
+            }
+        }
+    }
+
+    /// Lays a stretch of text out again (a table whose grid changed while its lines' attributes
+    /// didn't, as on a width change, must draw again).
+    private func invalidateLayout(_ range: Range<Int>) {
+        guard let textView, let content = textView.textContentStorage, let manager = textView.textLayoutManager,
+              let start = content.location(content.documentRange.location, offsetBy: range.lowerBound),
+              let end = content.location(content.documentRange.location, offsetBy: range.upperBound),
+              let textRange = NSTextRange(location: start, end: end) else { return }
+        manager.invalidateLayout(for: textRange)
     }
 
     // MARK: NSTextViewDelegate
@@ -394,34 +465,50 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         let before = storage.attributes(at: caret - 1, effectiveRange: nil)
         let collapsed = ((before[.font] as? NSFont)?.pointSize ?? 12) < 1
         let invisible = (before[.foregroundColor] as? NSColor)?.alphaComponent == 0
-        if collapsed || invisible { textView.typingAttributes = theme.attributes(for: TextStyle(font: .body)) }
+        // Right after a drawn table, the line break carries the table line's fixed height.
+        let afterTable = model.gridTable(at: caret - 1) != nil
+        if collapsed || invisible || afterTable { textView.typingAttributes = theme.attributes(for: TextStyle(font: .body)) }
     }
 
     private func restyle() {
         guard let textView, let storage = textView.textStorage,
               storage.length == model.text.utf16.count else { return }  // not in step: the next change restyles
         displayedSpans = model.spans
+        // The grids first: the attribute changes below lay their lines out, and the fragments
+        // TextKit makes for them look their tables up in the store.
+        let tables = buildTables()
+        let redraw = tables.compactMap { table in
+            drawnTables.first { $0.ordinal == table.ordinal }.flatMap { $0.drawsSame(as: table) ? nil : table.range }
+        }
+        drawnTables = tables
+        tableStore.replace(tables, appearance: textView.effectiveAppearance)
+
         let length = model.text.utf16.count
         let runs = notesTheme.runs(for: model.spans, length: length)
         let changed = StyledRunDiff.changedRanges(from: lastRuns, to: runs)
         lastRuns = runs
-        guard !changed.isEmpty else { return }
 
         storage.beginEditing()
-        defer { storage.endEditing() }
         for range in changed {
             for run in runs where run.range.overlaps(range) {
                 storage.setAttributes(theme.attributes(for: run.style), range: NSRange(run.range))
             }
             applyLinkAttributes(in: range)
         }
+        applyTableLineHeights(tables, in: storage)
+        storage.endEditing()
+        for range in redraw { invalidateLayout(range) }
     }
 
     /// Clickable links: the `.link` attribute over each link's label (the value is the
     /// destination; gloss destinations route through the app).
     private func applyLinkAttributes(in range: Range<Int>) {
         guard let textView, let storage = textView.textStorage else { return }
-        for link in LinkScanner.links(in: model.document) where link.labelRange.overlaps(range) {
+        let grids = model.gridTables.map(\.table.range)
+        // Not under a drawn table: its markdown is hidden, and a link there would take clicks and
+        // show a hand cursor where the grid shows something else.
+        for link in LinkScanner.links(in: model.document) where link.labelRange.overlaps(range)
+            && !grids.contains(where: { $0.contains(link.range.lowerBound) }) {
             guard let url = URL(string: link.destination) else { continue }
             storage.addAttribute(.link, value: url, range: NSRange(link.labelRange))
         }
