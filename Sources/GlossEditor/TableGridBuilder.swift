@@ -12,19 +12,21 @@ import GlossNotes
     private let notesTheme: NotesTheme
     /// A table's measured content, keyed by everything it depends on, so a keystroke elsewhere in
     /// the page doesn't measure every table again.
-    private var cache: [Key: Content] = [:]
+    private var cache: [Key: Measured] = [:]
 
     private struct Key: Hashable {
         let source: String
         /// The spans inside the table, relative to its start.
         let spans: [StyleSpan]
-        let fractions: [Double]?
-        let available: Double
     }
 
-    private struct Content {
-        let layout: TableGridLayout
+    /// A table's measured content: everything that doesn't depend on the applied widths. The
+    /// widths, and the row heights their text wraps to, are derived on each build, so a divider
+    /// drag (or a window resize) re-uses the measurements.
+    private struct Measured {
         let cells: [[NSAttributedString]]
+        /// Each column's natural width: its widest cell, padding included.
+        let natural: [Double]
     }
 
     private static let measuring: NSString.DrawingOptions = [.usesLineFragmentOrigin, .usesFontLeading]
@@ -39,7 +41,7 @@ import GlossNotes
     func build(_ tables: [NotesEditorModel.GridTable], text: MarkdownText, spans: [StyleSpan],
                containerWidth: CGFloat, padding: CGFloat) -> [RenderedTable] {
         let available = max(Double(containerWidth - 2 * padding), metrics.minimumColumnWidth)
-        var kept: [Key: Content] = [:]
+        var kept: [Key: Measured] = [:]
         let rendered = tables.map { grid -> RenderedTable in
             let range = grid.table.range
             let local = spans.compactMap { span -> StyleSpan? in
@@ -49,17 +51,19 @@ import GlossNotes
                 shifted.element = span.element.map { ($0.lowerBound - range.lowerBound)..<($0.upperBound - range.lowerBound) }
                 return shifted
             }
-            let key = Key(source: text[range], spans: local, fractions: grid.columnFractions, available: available)
-            let content = kept[key] ?? cache[key] ?? measure(grid, text: text, spans: spans, available: available)
-            kept[key] = content
-            return RenderedTable(ordinal: grid.ordinal, lines: grid.table.lines.map(\.line), layout: content.layout,
-                                 cells: content.cells, originX: padding)
+            let key = Key(source: text[range], spans: local)
+            let measured = kept[key] ?? cache[key] ?? measure(grid, text: text, spans: spans)
+            kept[key] = measured
+            let widths = grid.columnFractions.map { TableWidths.widths(fractions: $0, available: available) }
+                ?? TableWidths.automatic(natural: measured.natural, available: available)
+            return RenderedTable(ordinal: grid.ordinal, lines: grid.table.lines.map(\.line), layout: layout(widths: widths, cells: measured.cells),
+                                 cells: measured.cells, originX: padding)
         }
         cache = kept  // only what is drawn now
         return rendered
     }
 
-    private func measure(_ grid: NotesEditorModel.GridTable, text: MarkdownText, spans: [StyleSpan], available: Double) -> Content {
+    private func measure(_ grid: NotesEditorModel.GridTable, text: MarkdownText, spans: [StyleSpan]) -> Measured {
         let table = grid.table
         let cells = table.gridRows.map { row in
             row.cells.enumerated().map { column, cell in
@@ -69,9 +73,12 @@ import GlossNotes
         }
         let unbounded = CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         let textWidths = cells.map { row in row.map { Double($0.boundingRect(with: unbounded, options: Self.measuring, context: nil).width.rounded(.up)) } }
-        let natural = TableGridLayout.naturalWidths(textWidths: textWidths, metrics: metrics)
-        let widths = grid.columnFractions.map { TableWidths.widths(fractions: $0, available: available) }
-            ?? TableWidths.automatic(natural: natural, available: available)
+        return Measured(cells: cells, natural: TableGridLayout.naturalWidths(textWidths: textWidths, metrics: metrics))
+    }
+
+    /// The grid for measured cells at applied widths: the columns, and the row heights their text
+    /// wraps to.
+    private func layout(widths: [Double], cells: [[NSAttributedString]]) -> TableGridLayout {
         let columns = TableGridLayout(columnWidths: widths, rowHeights: [], metrics: metrics)
         let heights = cells.map { row in
             TableGridLayout.rowHeight(textHeights: row.enumerated().map { column, cell in
@@ -80,7 +87,7 @@ import GlossNotes
                 return Double(cell.boundingRect(with: size, options: Self.measuring, context: nil).height.rounded(.up))
             }, lineHeight: lineHeight, metrics: metrics)
         }
-        return Content(layout: TableGridLayout(columnWidths: widths, rowHeights: heights, metrics: metrics), cells: cells)
+        return TableGridLayout(columnWidths: widths, rowHeights: heights, metrics: metrics)
     }
 
     /// One line of body text: the height an empty cell still takes.
