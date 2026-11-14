@@ -10,7 +10,7 @@ import GlossReaderPDFSupport
 /// pure lives in `GlossReaderPDFSupport` (Linux-tested); this file only measures, draws and
 /// forwards.
 @MainActor
-final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDelegate, PDFPageOverlayViewProvider {
+final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHighlighting, PDFViewDelegate, PDFPageOverlayViewProvider {
     var view: NSView { pdfView }
     var driver: any ReaderDriving { self }
 
@@ -27,6 +27,14 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
     private var overlays: [Int: PDFPageOverlay] = [:]
     /// Passages pinned by their words (`gloss link`), found in this document's pages.
     private var quotes = PDFQuoteResolver()
+    /// The search session's matches, collected as the background find finds them; shown softly
+    /// once the find ends, so a partial page's worth never flickers in.
+    private var searchMatches: [PDFSelection] = []
+    /// Bumped by every session change: a find's end only lands if it is still the newest
+    /// (a newer query, a clear, another book).
+    private var searchGeneration = 0
+    /// The generation of the find that is running, or that just ended.
+    private var findGeneration = 0
 
     init(library: LibraryService, appearance: ReaderAppearance,
          deliver: @escaping @MainActor @Sendable (ReaderEngineEvent) async -> Void) {
@@ -54,6 +62,15 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
         observers.append(NotificationCenter.default.addObserver(forName: .PDFViewSelectionChanged, object: pdfView, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.selectionChanged() }
         })
+        // A background find's matches arrive one at a time; the session is the document's find
+        // delegate and collects them (PDFKit posts them as notifications too, but the delegate
+        // needs no userInfo key spelunking and lands on the main actor with the session).
+        // The Swift spelling of these two names is the one the importer gives the ObjC
+        // constants; the docs JSON only carries the extern.
+        observers.append(NotificationCenter.default.addObserver(forName: .PDFDocumentDidEndFind, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.findEnded() }
+        })
+
         // PDFKit has no page to load, so the session can take commands at once. The controller
         // holds every `open` back until it hears this (the EPUB page says it from script).
         inbox.post(.ready)
@@ -81,7 +98,11 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
         }
         overlays = [:]
         quotes = PDFQuoteResolver()
+        searchMatches = []
+        searchGeneration += 1
         self.document = pdf
+        findCollector.session = self
+        pdf.delegate = findCollector
         pageCount = pdf.pageCount
         pdfView.document = pdf
         inbox.post(.opened(toc: Self.toc(of: pdf), openID: openID))
@@ -95,6 +116,9 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
     }
 
     func close() async throws {
+        document?.cancelFindString()
+        searchMatches = []
+        searchGeneration += 1
         document = nil
         pageCount = 0
         annotations = PDFAnnotationLayout(.init())
@@ -140,8 +164,72 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
         pdfView.clearSelection()
     }
 
+    // MARK: The search session
+
+    /// Shows every match of `query` in the document softly, in the background: `beginFindString`
+    /// searches off the main thread (a huge pdf never blocks it) and the session collects the
+    /// matches as the delegate, showing them when the find ends. A newer call cancels the last
+    /// find and drops what it had found. Nil clears them (and the current one).
+    func setSearchHighlights(_ query: String?) async throws {
+        guard let pdf = document, let query, !query.isEmpty else {
+            stopFinding()
+            return
+        }
+        pdf.cancelFindString()  // a find still running for an earlier query
+        searchGeneration += 1
+        findGeneration = searchGeneration
+        pdf.beginFindString(query, withOptions: [.caseInsensitive, .diacriticInsensitive])
+    }
+
+    /// The running find's newest match (from the find delegate).
+    private func collectMatch(_ instance: PDFSelection) {
+        guard findGeneration == searchGeneration else { return }
+        searchMatches.append(instance)
+    }
+
+    /// The background find ended: the matches it collected become the soft highlights. A find
+    /// that was superseded (or whose document closed) never lands.
+    private func findEnded() {
+        guard let pdf = document, pdfView.document === pdf, findGeneration == searchGeneration else { return }
+        let matches = searchMatches
+        searchMatches = []
+        pdfView.highlightedSelections = matches.isEmpty ? nil : matches
+    }
+
+    /// Cancels a running find and forgets its matches (a newer query, a clear, a close).
+    private func stopFinding() {
+        searchGeneration += 1
+        searchMatches = []
+        document?.cancelFindString()
+        pdfView.highlightedSelections = nil
+        pdfView.clearSelection()
+    }
+
+    /// The document's find delegate. PDFKit's protocol is unisolated but calls on the main
+    /// thread (its find notifications arrive on the main queue); the hop is stated with
+    /// `assumeIsolated`, exactly like the session's notification observers.
+    @MainActor
+    private final class FindCollector: NSObject, PDFDocumentDelegate {
+        weak var session: PDFReaderSession?
+        nonisolated func didMatchString(_ instance: PDFSelection) {
+            // PDFSelection is not Sendable, and PDFKit hands the delegate a fresh, main-thread
+            // object per match (its find notifications carry the same objects on the main
+            // queue); the hop is stated, and the collector is the only reader.
+            nonisolated(unsafe) let match = instance
+            MainActor.assumeIsolated { self.session?.collectMatch(match) }
+        }
+    }
+    private lazy var findCollector = FindCollector()
+
+    /// Emphasises the current hit: PDFKit draws the current selection in its stronger find style,
+    /// on top of the soft highlights.
+    private func emphasise(_ selection: PDFSelection) {
+        pdfView.currentSelection = selection
+    }
+
     /// A search hit: its own occurrence on its own page when it has a locator (search chunks
-    /// are pages); the document's first occurrence only when it has none.
+    /// are pages); the document's first occurrence only when it has none. The hit becomes the
+    /// current selection, which PDFKit draws in its stronger find style over the soft ones.
     func reveal(searchHit locator: Locator?, text: String) async throws {
         guard let pdf = document else { return }
         if let locator {
@@ -150,6 +238,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
                let match = page.string.flatMap({ PDFTextMatch.range(of: text, in: $0) }),
                let selection = page.selection(for: NSRange(location: match.lowerBound, length: match.count)) {
                 pdfView.go(to: selection)
+                emphasise(selection)
                 flashRect(on: page, rect: Self.pageRect(selection.bounds(for: page)))
             } else {
                 try await go(to: locator, flash: true)
@@ -159,6 +248,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
         guard let hit = pdf.findString(text, withOptions: [.caseInsensitive, .diacriticInsensitive]).first,
               let page = hit.pages.first else { return }
         pdfView.go(to: hit)
+        emphasise(hit)
         flashRect(on: page, rect: Self.pageRect(hit.bounds(for: page)))
     }
 
