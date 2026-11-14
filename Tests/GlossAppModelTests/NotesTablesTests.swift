@@ -79,4 +79,17 @@ struct NotesTablesTests {
         #expect(pasted.apply(to: model.text).hasPrefix("| x |\n|---|\n\n| a | b |"))
         #expect(model.paste("plain words") == nil)
     }
+
+    @Test("/table inserts a 2×2 table with the caret in its first header cell")
+    func slashTable() async throws {
+        let (_, model, _) = try await loaded("")
+        model.textDidChange("/table", selection: 6..<6)
+        #expect(model.slashMenu?.items.first?.id == "table")
+        let result = try #require(try await model.confirmSlashMenu())
+        let applied = EditResult(edits: [result.edit], selection: result.selection)
+        apply(applied, to: model)
+        #expect(model.text == "|  |  |\n| --- | --- |\n|  |  |")
+        #expect(model.selection == 2..<2)
+        #expect(model.tables.first?.columnCount == 2)
+    }
 }

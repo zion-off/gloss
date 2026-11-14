@@ -74,7 +74,8 @@ struct SlashCommandTests {
     @Test("matching ranks exact, prefix, word, keyword, then fuzzy")
     func ranking() {
         let registry = SlashCommandRegistry.standard(pages: TestLibrary().services.pages)
-        #expect(registry.matches("").count == 10)
+        #expect(registry.matches("").count == 11)
+        #expect(registry.matches("tab").first?.id == "table")
         #expect(registry.matches("page").first?.id == "page")
         #expect(registry.matches("h2").first?.id == "h2")
         #expect(registry.matches("list").map(\.id).prefix(2) == ["bullet", "numbered"])

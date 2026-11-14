@@ -131,7 +131,7 @@ struct NotesEditorModelTests {
         let model = editor(lib)
         try await model.load(root)
         model.textDidChange("note\n/", selection: 6..<6)
-        #expect(model.slashMenu?.items.count == 10)
+        #expect(model.slashMenu?.items.count == 11)
         model.textDidChange("note\n/to", selection: 8..<8)
         #expect(model.slashMenu?.items.first?.id == "todo")
         model.moveSlashSelection(by: -1)
