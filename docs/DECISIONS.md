@@ -194,6 +194,14 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   silently. They now exit 64 naming the flags and what to drop. An error and not a warning: no
   combination means anything (`--section` with `--offset` stays, since `--offset` counts in that
   part), and a script that passes `--nth 2` expects it to take effect.
+- **D-197 The nouns for a part of a book come from the formats, not the CLI.** `QuoteLocating.partName`
+  already names a format's parts ("section", "page"); the registry lists them (`quotePartNames`), the
+  composition root hands them to `CLIEnvironment.partNames`, and `PartFlags` rewrites `--section 5`
+  into `--part section:5` before ArgumentParser runs (its options are fixed at compile time, so one
+  `--part` option stands in for whatever flags the formats name). `--part 5` works for any format;
+  using the wrong noun for a book still says what to use. The help text is built from the names. A
+  new format with `partName = "chapter"` gets `--chapter`-style flags with no CLI change, unless it
+  collides with an existing option such as `--chapter` (the title filter): choose another noun then.
 
 ## Storage
 

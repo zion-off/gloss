@@ -17,11 +17,13 @@ import Darwin
 let processEnvironment = ProcessInfo.processInfo.environment
 let stdout = Terminal.detect(environment: processEnvironment)
 
+let formats = FormatRegistry([EPUBFormat(), PDFFormat()])
+
 let environment = CLIEnvironment(
     makeServices: { explicitPath in
         let url = LibraryLocation.resolve(explicit: explicitPath, environment: processEnvironment)
         let store = try SQLiteLibraryStore.open(at: url, origin: "cli-\(ProcessInfo.processInfo.processIdentifier)")
-        let core = GlossServices(store: store, blobs: store.blobs, formats: FormatRegistry([EPUBFormat(), PDFFormat()]))
+        let core = GlossServices(store: store, blobs: store.blobs, formats: formats)
         return CLIServices(core: core, export: ExportService(store: store), backup: store, libraryLocation: url.path)
     },
     output: .standard,
@@ -55,6 +57,7 @@ let environment = CLIEnvironment(
             throw CLIFailure("the editor exited with an error, so gloss kept the page as it was")
         }
     },
-    currentDirectory: URL(fileURLWithPath: FileManager.default.currentDirectoryPath))
+    currentDirectory: URL(fileURLWithPath: FileManager.default.currentDirectoryPath),
+    partNames: formats.quotePartNames)
 
 exit(await CLI.run(Array(CommandLine.arguments.dropFirst()), environment: environment))

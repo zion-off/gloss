@@ -5,6 +5,22 @@ import GlossCore
 import GlossTerminal
 import GlossTestSupport
 
+@Suite("cli: part flags")
+struct PartFlagsTests {
+    @Test("the names formats supply become --part, after link only")
+    func rewrite() {
+        let names = ["section", "page"]
+        #expect(PartFlags.rewrite(["link", "n", "--section", "5", "--offset", "1-2"], names: names)
+            == ["link", "n", "--part", "section:5", "--offset", "1-2"])
+        #expect(PartFlags.rewrite(["--json", "link", "--page=3", "n"], names: names) == ["--json", "link", "--part=page:3", "n"])
+        #expect(PartFlags.rewrite(["read", "--page", "2"], names: names) == ["read", "--page", "2"])
+        #expect(PartFlags.rewrite(["link", "n", "--", "--page"], names: names) == ["link", "n", "--", "--page"])
+        #expect(PartFlags.Selection("section:7") == PartFlags.Selection("section:7"))
+        #expect(PartFlags.Selection("7")?.noun == nil)
+        #expect(PartFlags.Selection("page:x") == nil)
+    }
+}
+
 @Suite("cli: link")
 struct CLILinkTests {
     static let chapters = [
@@ -92,6 +108,10 @@ struct CLILinkTests {
         #expect(nowhere.code == 64)
         let noun = await cli.run("link", "Moby", "--text", "a note", "--page", "2", "--quote", "whale")
         #expect(noun.err.contains("this book has sections, not pages"))
+        // --part works whatever the format calls its parts
+        let plain = await cli.run("link", "Moby", "--text", "a note", "--part", "2", "--offset", "26-35", "--dry-run")
+        #expect(plain.code == 0, "\(plain.err)")
+        #expect(await cli.run("link", "Moby", "--text", "a note", "--section", "2", "--page", "2", "--offset", "26-35").code == 64)
     }
 
     @Test("ambiguous words in the page are listed too; on a terminal gloss asks which")

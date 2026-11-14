@@ -16,6 +16,13 @@ extension FormatRegistry {
     public func quoteLocator(for kind: DocumentKind) -> (any QuoteLocating)? {
         format(for: kind) as? any QuoteLocating
     }
+
+    /// What the registered formats call one part of their text ("section", "page"), in
+    /// registration order, without duplicates: the flag nouns `gloss link` accepts.
+    public var quotePartNames: [String] {
+        formats.compactMap { ($0 as? any QuoteLocating)?.partName }
+            .reduce(into: []) { names, name in if !names.contains(name) { names.append(name) } }
+    }
 }
 
 /// An exact stretch of a book's extracted text: a text chunk's locator plus a UTF-16 range

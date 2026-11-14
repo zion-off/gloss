@@ -7,26 +7,34 @@ import GlossTerminal
 // MARK: link
 
 struct LinkCommand: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(
-        commandName: "link", abstract: "link words in a notes page to a passage in a book",
-        discussion: """
-        say which words in the page with --text (or --text-offset), and which passage in the book with --quote, \
-        --from/--through, --match or --section/--page with --offset. without --text, gloss adds the passage to the \
-        page as a quote line instead.
+    /// The part flags (`--section`, `--page`) come from the registered formats (D-197), so the
+    /// help is built when it's asked for, inside a run.
+    static var configuration: CommandConfiguration {
+        let names = CLIEnvironment.current.partNames
+        let flags = names.isEmpty ? "--part" : names.map { "--\($0)" }.joined(separator: "/")
+        return CommandConfiguration(
+            commandName: "link", abstract: "link words in a notes page to a passage in a book",
+            discussion: """
+            say which words in the page with --text (or --text-offset), and which passage in the book with --quote, \
+            --from/--through, --match or \(flags) with --offset. without --text, gloss adds the passage to the \
+            page as a quote line instead.
 
-        gloss never guesses: when words appear more than once it lists every match with the flag that picks it \
-        (--nth, --match, --text-nth) and stops, or asks which one on a terminal. matching ignores spacing and line \
-        breaks; add -i to ignore case. offsets count utf-16 units, 0-based, end exclusive: in the page as \
-        gloss read --raw prints it, in the book's extracted text as --list shows it.
+            gloss never guesses: when words appear more than once it lists every match with the flag that picks it \
+            (--nth, --match, --text-nth) and stops, or asks which one on a terminal. matching ignores spacing and line \
+            breaks; add -i to ignore case. offsets count utf-16 units, 0-based, end exclusive: in the page as \
+            gloss read --raw prints it, in the book's extracted text as --list shows it. a book's parts are called \
+            \(names.isEmpty ? "parts" : names.map { "\($0)s" }.joined(separator: " or ")) depending on its format; \
+            --part N works for all of them.
 
-        examples:
-          gloss link "moby dick" --text "his obsession" --quote "the white whale"
-          gloss link notes --text "the sea" --to "the waves" --quote "the sea" --nth 2
-          gloss link notes --text "that speech" --from "Call me Ishmael" --through "the watery part of the world"
-          gloss link notes --quote "the whale" --list --json      (see every match and its --match ref)
-          gloss link notes --text "here" --match epub-section:4@1204-1213 --quote "the whale"
-          gloss link notes --text-offset 10-14 --section 5 --offset 1204-1213 --dry-run
-        """)
+            examples:
+              gloss link "moby dick" --text "his obsession" --quote "the white whale"
+              gloss link notes --text "the sea" --to "the waves" --quote "the sea" --nth 2
+              gloss link notes --text "that speech" --from "Call me Ishmael" --through "the watery part of the world"
+              gloss link notes --quote "the whale" --list --json      (see every match and its --match ref)
+              gloss link notes --text "here" --match epub-section:4@1204-1213 --quote "the whale"
+              gloss link notes --text-offset 10-14 --\(names.first ?? "part") 5 --offset 1204-1213 --dry-run
+            """)
+    }
 
     @OptionGroup var global: GlobalOptions
     @Argument(help: "the notes page (or book, for its main page): title, id or gloss:// link") var page: String
@@ -40,10 +48,10 @@ struct LinkCommand: AsyncParsableCommand {
     @Option(help: "a longer passage: where it starts") var from: String?
     @Option(help: "a longer passage: where it ends") var through: String?
     @Option(help: "an exact match from a listing (epub-section:4@1204-1213), or a search hit's place (epub-section:4)") var match: String?
-    @Option(help: "the passage by its place in the --section or --page text: START-END") var offset: String?
+    @Option(help: "the passage by its place in the text of the part --part (or its format's own flag) names: START-END") var offset: String?
     @Option(help: "which match in the book, counting from 1 in reading order") var nth: Int?
-    @Option(help: "only this section of an epub (1 is the first)") var section: Int?
-    @Option(name: .customLong("page"), help: "only this page of a pdf") var pageNumber: Int?
+    @Option(help: "only this part of the book, counting from 1 (a format's own word for its parts works as a flag too, see above)",
+            transform: { try Self.selection($0) }) var part: [PartFlags.Selection] = []
     @Option(help: "only sections whose title has these words (\"3\", \"loomings\")") var chapter: String?
     @Option(help: "words that come right before the passage") var before: String?
     @Option(help: "words that come right after the passage") var after: String?
@@ -58,18 +66,19 @@ struct LinkCommand: AsyncParsableCommand {
         if (from == nil) != (through == nil) { throw ValidationError("a longer passage needs both --from and --through") }
         if from != nil, quote != nil { throw ValidationError("pick either --quote or --from/--through") }
         if from != nil, offset != nil || isExactRef { throw ValidationError("--from/--through finds text, so it doesn't go with --match or --offset") }
-        if section != nil, pageNumber != nil { throw ValidationError("pick either --section or --page") }
-        if offset != nil, section == nil, pageNumber == nil { throw ValidationError("--offset counts within one part: add --section N or --page N") }
+        if part.count > 1 { throw ValidationError("pick one part of the book: \(partFlags)") }
+        if offset != nil, part.isEmpty { throw ValidationError("--offset counts within one part: add \(partFlags) N") }
         if quote == nil, from == nil, match == nil || !isExactRef, offset == nil {
-            throw ValidationError("which passage? give --quote, --from/--through, --match or --section/--page with --offset")
+            throw ValidationError("which passage? give --quote, --from/--through, --match or \(partFlags) with --offset")
         }
         if textNth != nil, text == nil { throw ValidationError("--text-nth picks among the matches of --text") }
         if textOffset != nil, Self.range(textOffset) == nil { throw ValidationError("--text-offset needs START-END, like 10-24") }
         if offset != nil, Self.range(offset) == nil { throw ValidationError("--offset needs START-END, like 1204-1251") }
         if let match, isExactRef, BookTextRef(string: match) == nil { throw ValidationError("--match needs a ref like epub-section:4@1204-1251") }
-        for (name, value) in [("--nth", nth), ("--text-nth", textNth), ("--section", section), ("--page", pageNumber)] {
+        for (name, value) in [("--nth", nth), ("--text-nth", textNth)] {
             if let value, value < 1 { throw ValidationError("\(name) counts from 1") }
         }
+        if let selection = part.first, selection.number < 1 { throw ValidationError("\(selection.flag) counts from 1") }
         if list, dryRun { throw ValidationError("pick either --list or --dry-run") }
         try rejectFlagsAnExactPlaceIgnores()
     }
@@ -82,8 +91,8 @@ struct LinkCommand: AsyncParsableCommand {
         if isExact {
             var ignored = [("--nth", nth != nil), ("--chapter", chapter != nil), ("--before", before != nil),
                            ("--after", after != nil)]
-            // --offset counts within the part --section/--page names; a --match range already says which.
-            if isExactRef { ignored += [("--section", section != nil), ("--page", pageNumber != nil)] }
+            // --offset counts within the part --part (or --section, --page) names; a --match range already says which.
+            if isExactRef { ignored += [(part.first?.flag ?? "--part", !part.isEmpty)] }
             let given = ignored.filter(\.1).map(\.0)
             if !given.isEmpty {
                 let place = isExactRef ? "--match with a range" : "--offset"
@@ -101,6 +110,20 @@ struct LinkCommand: AsyncParsableCommand {
     private var isExactRef: Bool { match?.contains("@") ?? false }
 
     static func range(_ text: String?) -> Range<Int>? { text.flatMap(BookTextRef.range) }
+
+    static func selection(_ text: String) throws -> PartFlags.Selection {
+        guard let selection = PartFlags.Selection(text) else {
+            let flag = text.firstIndex(of: ":").map { "--" + text[..<$0] } ?? "--part"
+            throw ValidationError("\(flag) needs a number, like 3")
+        }
+        return selection
+    }
+
+    /// "--section/--page" (or "--part"): the flags that name a part, as the registered formats call it.
+    private var partFlags: String {
+        let names = CLIEnvironment.current.partNames
+        return names.isEmpty ? "--part" : names.map { "--\($0)" }.joined(separator: "/")
+    }
 
     func run() async throws {
         let context = try Context(global)
@@ -172,13 +195,10 @@ struct LinkCommand: AsyncParsableCommand {
 
     private func bookQuery(for text: BookText) throws -> BookTextQuery {
         let noun = text.partName
-        if let section, noun != "section" {
-            throw CLIFailure("this book has \(noun)s, not sections", hint: "use --\(noun) \(section)", code: CLIFailure.usageCode)
+        if let used = part.first?.noun, used != noun {
+            throw CLIFailure("this book has \(noun)s, not \(used)s", hint: "use --\(noun) \(part[0].number)", code: CLIFailure.usageCode)
         }
-        if let pageNumber, noun != "page" {
-            throw CLIFailure("this book has \(noun)s, not pages", hint: "use --\(noun) \(pageNumber)", code: CLIFailure.usageCode)
-        }
-        let part = section ?? pageNumber
+        let part = part.first?.number
         let target: BookTextQuery.Target
         var scope: Locator?
         if let match, let ref = BookTextRef(string: match), isExactRef {
@@ -216,8 +236,8 @@ struct LinkCommand: AsyncParsableCommand {
         let what = from.map { "“\($0)” … “\(through ?? "")”" } ?? "“\(quote ?? "")”"
         guard !candidates.isEmpty else {
             var hints = [ignoreCase ? nil : "try -i to ignore case", "see where words appear: gloss search \"\(quote ?? from ?? "")\" --book \(Format.shortID(document.id)) --in text"]
-            if section != nil || pageNumber != nil || chapter != nil || before != nil || after != nil || match != nil {
-                hints.insert("or drop --section/--page/--chapter/--before/--after to look everywhere", at: 0)
+            if !part.isEmpty || chapter != nil || before != nil || after != nil || match != nil {
+                hints.insert("or drop \(partFlags)/--chapter/--before/--after to look everywhere", at: 0)
             }
             throw CLIFailure("couldn't find \(what) in \(document.title)", hint: hints.compactMap { $0 }.joined(separator: "\n"))
         }

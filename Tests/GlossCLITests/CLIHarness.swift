@@ -68,7 +68,9 @@ final class CLIHarness: @unchecked Sendable {
                 try Data(edit(text).utf8).write(to: url)
             },
             currentDirectory: directory,
-            now: { library.clock.now() })
+            now: { library.clock.now() },
+            // what the real composition root gets from its epub and pdf formats
+            partNames: ["section", "page"])
         let code = await CLI.run(arguments, environment: environment)
         return lock.withLock { Result(out: out, err: err, code: code) }
     }

@@ -60,12 +60,15 @@ public struct CLIEnvironment: Sendable {
     public var editFile: @Sendable (URL) throws -> Void
     public var currentDirectory: URL
     public var now: @Sendable () -> Date
+    /// The nouns the registered formats use for a part of a book ("section", "page"): each is a
+    /// flag of `gloss link` (`--section 5`), so the CLI doesn't know which formats exist.
+    public var partNames: [String]
 
     public init(makeServices: @escaping @Sendable (String?) throws -> CLIServices, output: OutputSink, terminal: Terminal,
                 stderrColor: Bool, stdinIsTTY: Bool, readStdin: @escaping @Sendable () -> String,
                 readLine: @escaping @Sendable () -> String?, openURL: @escaping @Sendable (URL) throws -> OpenResult,
                 editFile: @escaping @Sendable (URL) throws -> Void, currentDirectory: URL,
-                now: @escaping @Sendable () -> Date = { Date() }) {
+                now: @escaping @Sendable () -> Date = { Date() }, partNames: [String] = []) {
         self.makeServices = makeServices
         self.output = output
         self.terminal = terminal
@@ -77,6 +80,7 @@ public struct CLIEnvironment: Sendable {
         self.editFile = editFile
         self.currentDirectory = currentDirectory
         self.now = now
+        self.partNames = partNames
     }
 
     @TaskLocal public static var current = CLIEnvironment.unconfigured

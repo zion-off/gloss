@@ -7,7 +7,8 @@ import GlossTerminal
 /// own failures are printed with its styling and a hint.
 public enum CLI {
     public static func run(_ arguments: [String], environment: CLIEnvironment) async -> Int32 {
-        await CLIEnvironment.$current.withValue(environment) {
+        let arguments = PartFlags.rewrite(arguments, names: environment.partNames)
+        return await CLIEnvironment.$current.withValue(environment) {
             let printer = Printer(environment: environment, colorEnabled: !arguments.contains("--no-color"))
             do {
                 var command = try await GlossCommand.asyncParseAsRoot(arguments)
