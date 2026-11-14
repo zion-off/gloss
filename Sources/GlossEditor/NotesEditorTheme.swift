@@ -54,7 +54,8 @@ import GlossNotes
         case .text?: break
         case .secondary?: attributes[.foregroundColor] = NSColor.secondaryLabelColor
         case .tertiary?: attributes[.foregroundColor] = NSColor.tertiaryLabelColor
-        case .link?: attributes[.foregroundColor] = NSColor.linkColor
+        // Links are muted, not blue (Notion's): grey that follows light and dark mode.
+        case .link?: attributes[.foregroundColor] = NSColor.secondaryLabelColor
         case .accent?: attributes[.foregroundColor] = NSColor.controlAccentColor
         case .warning?: attributes[.foregroundColor] = NSColor.systemRed
         case nil: break
@@ -64,6 +65,9 @@ import GlossNotes
         switch style.underline {
         case .single?: attributes[.underlineStyle] = NSNumber(value: NSUnderlineStyle.single.rawValue)
         case .dotted?: attributes[.underlineStyle] = NSNumber(value: NSUnderlineStyle.single.union(.patternDot).rawValue)
+        case .subtle?:
+            attributes[.underlineStyle] = NSNumber(value: NSUnderlineStyle.single.rawValue)
+            attributes[.underlineColor] = NSColor.tertiaryLabelColor
         case nil: break
         }
 
