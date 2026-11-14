@@ -6,6 +6,11 @@ name: release
 # when there's none (scripts/next-version.sh). The labels job goes red before the merge when a
 # pull request has more than one of them.
 #
+# The release runs on the push to main rather than on the pull request closing, so its check sits
+# on main's commit (a pull_request run is always filed under the branch's head commit). Merges
+# are rebase-and-merge only, so the push ends at the pull request's last rebased commit (GitHub's
+# merge_commit_sha), which is how the pull request job finds the labels and the notes.
+#
 # Run it by hand (workflow_dispatch) for a dry run: it builds and signs everything for the given
 # version and keeps it as a workflow artifact, but tags and publishes nothing.
 #
@@ -13,8 +18,10 @@ name: release
 # "releasing").
 
 on:
+  push:
+    branches: [main]
   pull_request:
-    types: [opened, reopened, labeled, unlabeled, synchronize, closed]
+    types: [opened, reopened, labeled, unlabeled, synchronize]
     branches: [main]
   workflow_dispatch:
     inputs:
@@ -38,7 +45,7 @@ env:
 
 jobs:
   labels:
-    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -50,24 +57,67 @@ jobs:
           LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
         run: scripts/next-version.sh --check
 
+  pull-request:
+    name: find the pull request
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      number: ${{ steps.find.outputs.number }}
+      labels: ${{ steps.find.outputs.labels }}
+      release: ${{ steps.find.outputs.release }}
+    steps:
+      - name: the pull request whose rebase ends at this commit
+        id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          # GitHub can take a moment to link a fresh commit on main to its pull request.
+          pr=""
+          for attempt in 1 2 3 4 5; do
+            pr="$(gh api "repos/$REPOSITORY/commits/$SHA/pulls" \
+              --jq "[.[] | select(.merged_at != null and .merge_commit_sha == \"$SHA\")][0] // empty")"
+            [ -n "$pr" ] && break
+            [ "$attempt" = 5 ] || sleep 10
+          done
+          if [ -z "$pr" ]; then
+            echo "no merged pull request ends at $SHA, nothing to release"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          number="$(jq -r .number <<<"$pr")"
+          labels="$(jq -c '[.labels[].name]' <<<"$pr")"
+          release="$(jq -r 'any(.labels[]; .name == "release")' <<<"$pr")"
+          echo "#$number, labels $labels"
+          {
+            echo "number=$number"
+            echo "labels=$labels"
+            echo "release=$release"
+          } >> "$GITHUB_OUTPUT"
+
   release:
+    needs: pull-request
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.action == 'closed' && github.event.pull_request.merged == true &&
-       contains(github.event.pull_request.labels.*.name, 'release'))
+      !cancelled() &&
+      (github.event_name == 'workflow_dispatch' || needs.pull-request.outputs.release == 'true')
     runs-on: macos-26
     timeout-minutes: 60
     permissions:
       contents: write
+      pull-requests: read
     # One release at a time, in order; label events never wait on it.
     concurrency:
       group: release
       cancel-in-progress: false
     steps:
-      - name: check out the merge commit
+      - name: check out the pushed commit
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
           # All history and tags: the build number is the commit count, the version comes
           # from the newest v* tag.
           fetch-depth: 0
@@ -75,7 +125,7 @@ jobs:
       - name: work out the version
         id: version
         env:
-          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          LABELS: ${{ needs.pull-request.outputs.labels }}
           DRY_RUN_VERSION: ${{ inputs.version }}
         run: |
           if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
@@ -126,8 +176,8 @@ jobs:
       - name: sign the update and write the appcast
         env:
           VERSION: ${{ steps.version.outputs.version }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_BODY: ${{ github.event.pull_request.body }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ needs.pull-request.outputs.number }}
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
           REPOSITORY: ${{ github.repository }}
         run: |
@@ -138,6 +188,11 @@ jobs:
           # The release notes: the pull request's description (its title when there is none), for
           # the release page and for Sparkle's update window alike.
           notes="$RUNNER_TEMP/notes.md"
+          PR_TITLE="" PR_BODY=""
+          if [ -n "$PR_NUMBER" ]; then
+            PR_TITLE="$(gh api "repos/$REPOSITORY/pulls/$PR_NUMBER" --jq .title)"
+            PR_BODY="$(gh api "repos/$REPOSITORY/pulls/$PR_NUMBER" --jq '.body // ""')"
+          fi
           if [ -n "$PR_BODY" ]; then
             printf '%s\n' "$PR_BODY" > "$notes"
           elif [ -n "$PR_TITLE" ]; then
@@ -169,11 +224,11 @@ jobs:
           cat dist/appcast.xml
 
       - name: publish v${{ steps.version.outputs.version }}
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
-          TARGET: ${{ github.event.pull_request.merge_commit_sha }}
+          TARGET: ${{ github.sha }}
         run: |
           gh release create "v$VERSION" --target "$TARGET" --title "gloss $VERSION" --latest \
             --notes-file "$RUNNER_TEMP/notes.md" \
