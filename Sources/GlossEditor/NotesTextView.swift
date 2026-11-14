@@ -32,6 +32,10 @@ final class NotesTextView: NSTextView {
     }
     /// A paste of this plain text: `true` when the coordinator took it.
     var onPaste: ((String) -> Bool)?
+    /// A divider dragged: the table's ordinal, its columns' new fractions, whether the drag ended.
+    var onTableResize: ((Int, [Double], Bool) -> Void)?
+    /// A double-click on a divider: that table back to automatic widths.
+    var onTableResetWidths: ((Int) -> Void)?
     /// The view got wider or narrower (drawn tables fill the width).
     var onWidthChange: (() -> Void)?
     /// Light, dark or Increase Contrast changed (drawn tables resolve their colours with it).
@@ -88,6 +92,18 @@ final class NotesTextView: NSTextView {
         let local: NSPoint
 
         var rect: NSRect { NSRect(x: origin.x, y: origin.y, width: CGFloat(table.layout.width), height: CGFloat(table.layout.height)) }
+    }
+
+    /// The cursor over a column divider.
+    static var columnResizeCursor: NSCursor {
+        if #available(macOS 15, *) { return .columnResize }
+        return .resizeLeftRight
+    }
+
+    /// The column divider a table hit is on, if any.
+    func divider(at hit: TableHit) -> Int? {
+        guard case .divider(let divider)? = hit.table.layout.hit(x: Double(hit.local.x), y: Double(hit.local.y)) else { return nil }
+        return divider
     }
 
     func tableHit(at point: NSPoint) -> TableHit? {
@@ -229,6 +245,10 @@ final class NotesTextView: NSTextView {
                 NSMenu.popUpContextMenu(tableMenu(for: hit.table.ordinal), with: event, for: self)
                 return
             }
+            if let divider = divider(at: hit) {
+                if event.clickCount >= 2 { onTableResetWidths?(hit.table.ordinal) } else { trackDividerDrag(divider, of: hit, from: point) }
+                return
+            }
             // A drawn cell isn't edited in place: the click puts the caret in the cell's markdown,
             // and the table shows as text until the caret leaves it.
             let cell = hit.table.layout.nearestCell(x: Double(hit.local.x), y: Double(hit.local.y))
@@ -247,6 +267,27 @@ final class NotesTextView: NSTextView {
         super.mouseDown(with: event)
         isSelectingWithMouse = false
         onMouseSelectionEnd?()
+    }
+
+    /// Follows a divider drag until the button comes up: the two columns beside it trade width
+    /// as the pointer moves. Nothing changes until it does move, so the first click of a
+    /// double-click (a reset) stores nothing.
+    private func trackDividerDrag(_ divider: Int, of hit: TableHit, from start: NSPoint) {
+        let widths = hit.table.layout.columnWidths
+        let minimum = hit.table.layout.metrics.minimumColumnWidth
+        var moved = false
+        Self.columnResizeCursor.set()
+        while let event = window?.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) {
+            let x = convert(event.locationInWindow, from: nil).x
+            let done = event.type == .leftMouseUp
+            moved = moved || x != start.x
+            if moved {
+                let resized = TableWidths.resizing(widths, divider: divider, by: Double(x - start.x), minimum: minimum)
+                onTableResize?(hit.table.ordinal, TableWidths.fractions(of: resized), done)
+            }
+            if done { break }
+            Self.columnResizeCursor.set()
+        }
     }
 
     /// Whether a point (this view's coordinates) is on a laid-out line rather than empty space.
