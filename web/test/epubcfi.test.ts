@@ -112,7 +112,7 @@ test('joinIndir with a section base CFI produces a string the bridge accepts', (
         },
     }), { ok: true })
     assert.deepEqual(validateCommand({
-        v: 1, type: 'goTo', payload: { target: { cfi }, flash: false },
+        v: 1, type: 'goTo', payload: { target: { cfi } },
     }), { ok: true })
 
     // and it resolves back to the same text the way foliate does it in

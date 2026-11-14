@@ -144,7 +144,7 @@ import GlossReaderBridge
     public func open(_ document: Document, at locator: Locator? = nil) async {
         if self.document?.id == document.id, isShowingBook || pendingOpen != nil || awaitedOpenID != nil {
             // Already open or opening: just go to the passage (once the book is there).
-            if let locator { await go(to: locator, flash: true) }
+            if let locator { await go(to: locator) }
             return
         }
         openRequests += 1
@@ -190,7 +190,7 @@ import GlossReaderBridge
             await refreshAnnotations()
             if let focus = pendingFocus {
                 pendingFocus = nil
-                await go(to: focus, flash: true)
+                await go(to: focus)
             }
             if let search = pendingSearchReveal {
                 pendingSearchReveal = nil
@@ -240,12 +240,12 @@ import GlossReaderBridge
 
     /// Goes to a locator in the open book; while the book is still opening, it lands there
     /// once it has.
-    public func go(to locator: Locator, flash: Bool = false) async {
+    public func go(to locator: Locator) async {
         guard isShowingBook else {
             if document != nil { pendingFocus = locator }
             return
         }
-        do { try await driver?.go(to: locator, flash: flash) } catch { errorMessage = Self.describe(error) }
+        do { try await driver?.go(to: locator) } catch { errorMessage = Self.describe(error) }
     }
 
     /// Re-opens the current book after a failed open (the placeholder's "try again").
@@ -296,7 +296,7 @@ import GlossReaderBridge
     public func reveal(searchHit locator: Locator?, text: String) async {
         guard let document else { return }
         guard isShowingBook else {
-            // The book is still opening: land on the hit once it shows (like `go(to:flash:)`).
+            // The book is still opening: land on the hit once it shows (like `go(to:)`).
             pendingSearchReveal = (document.id, locator, text)
             return
         }

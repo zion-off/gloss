@@ -26,7 +26,7 @@ public final class EPUBBridgeDriver: ReaderDriving, ReflowableAppearanceApplying
         try await send(.close)
     }
 
-    public func go(to locator: Locator, flash: Bool) async throws {
+    public func go(to locator: Locator) async throws {
         let target: ReaderTarget
         switch locator.scheme {
         case EPUBLocators.cfiScheme: target = .cfi(locator.value)
@@ -36,7 +36,7 @@ public final class EPUBBridgeDriver: ReaderDriving, ReflowableAppearanceApplying
             target = .quote(quote)
         default: throw ReaderDrivingError.unsupportedLocator(locator.scheme)
         }
-        try await send(.goTo(ReaderGoToPayload(target: target, flash: flash)))
+        try await send(.goTo(ReaderGoToPayload(target: target)))
     }
 
     public func turnPage(forward: Bool) async throws {

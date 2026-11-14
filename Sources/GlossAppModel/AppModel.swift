@@ -406,7 +406,7 @@ import GlossReaderBridge
             guard let highlight = bookSidebar.highlights.first(where: { $0.id == id }) else { return }
             workspace.sidebar = selection
             if !workspace.layout.showsReader { workspace.layout = .split }
-            await reader.go(to: highlight.passage.locator, flash: true)
+            await reader.go(to: highlight.passage.locator)
         case .page(let id):
             // The outline is the notes pane's book: picking a page moves only the notes.
             do { try await workspace.openPage(id) } catch { return }

@@ -6,6 +6,7 @@ import {
     normalizeText,
     makeSelectionPayload,
     makeDebouncer,
+    makeSelectionGate,
     type DebouncerTimers,
 } from '../src/bridge/selection.ts'
 
@@ -145,4 +146,34 @@ test('debouncer can fire again after being cancelled', () => {
     debounced('two')
     timers.flush()
     assert.deepEqual(calls, ['two'])
+})
+
+test('gate holds a selection made while the button is down until it comes up', () => {
+    let reports = 0
+    const gate = makeSelectionGate(() => { reports += 1 })
+    gate.press()
+    gate.changed(false)
+    gate.changed(false)
+    assert.equal(reports, 0)
+    gate.release()
+    assert.equal(reports, 1)
+})
+
+test('gate reports a cleared selection even while the button is down', () => {
+    let reports = 0
+    const gate = makeSelectionGate(() => { reports += 1 })
+    gate.press()
+    gate.changed(true)
+    assert.equal(reports, 1)
+})
+
+test('gate reports keyboard selections as they settle', () => {
+    let reports = 0
+    const gate = makeSelectionGate(() => { reports += 1 })
+    gate.changed(false)
+    assert.equal(reports, 1)
+    gate.press()
+    gate.release()
+    gate.changed(false)
+    assert.equal(reports, 3)
 })

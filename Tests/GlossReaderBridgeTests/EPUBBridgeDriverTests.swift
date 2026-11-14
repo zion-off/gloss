@@ -21,16 +21,16 @@ struct EPUBBridgeDriverTests {
         let (driver, sent) = driver()
         let cfi = Locator(scheme: EPUBLocators.cfiScheme, value: "epubcfi(/6/8!/4/2/1:3)")
         try await driver.open(document, at: cfi, openID: 7)
-        try await driver.go(to: cfi, flash: true)
-        try await driver.go(to: Locator(scheme: EPUBLocators.hrefScheme, value: "ch1.xhtml"), flash: false)
+        try await driver.go(to: cfi)
+        try await driver.go(to: Locator(scheme: EPUBLocators.hrefScheme, value: "ch1.xhtml"))
         try await driver.turnPage(forward: false)
         try await driver.clearSelection()
         try await driver.reveal(searchHit: Locator(scheme: EPUBLocators.sectionScheme, value: "3"), text: "whale")
         try await driver.close()
         #expect(sent() == [
             .open(ReaderOpenPayload(openID: 7, url: "gloss-reader://app/book/\(document.id)", position: cfi.value, appearance: appearance)),
-            .goTo(ReaderGoToPayload(target: .cfi(cfi.value), flash: true)),
-            .goTo(ReaderGoToPayload(target: .href("ch1.xhtml"), flash: false)),
+            .goTo(ReaderGoToPayload(target: .cfi(cfi.value))),
+            .goTo(ReaderGoToPayload(target: .href("ch1.xhtml"))),
             .turnPage(ReaderTurnPagePayload(direction: .backward)),
             .clearSelection,
             .revealSearchHit(ReaderRevealSearchHitPayload(cfi: nil, section: 3, text: "whale")),
@@ -45,7 +45,7 @@ struct EPUBBridgeDriverTests {
         guard case .open(let payload) = sent().first else { Issue.record(); return }
         #expect(payload.position == nil)
         await #expect(throws: ReaderDrivingError.unsupportedLocator(EPUBLocators.sectionScheme)) {
-            try await driver.go(to: Locator(scheme: EPUBLocators.sectionScheme, value: "1"), flash: false)
+            try await driver.go(to: Locator(scheme: EPUBLocators.sectionScheme, value: "1"))
         }
     }
 
@@ -69,19 +69,19 @@ struct EPUBBridgeDriverTests {
         let anchor = QuoteAnchor(text: "the whale", prefix: "Not", suffix: ", said", occurrence: 1)
         let quote = EPUBQuoteLocator(section: 4, quote: anchor).locator
         let target = ReaderQuoteTarget(section: 4, text: "the whale", prefix: "Not", suffix: ", said", occurrence: 1)
-        try await driver.go(to: quote, flash: true)
+        try await driver.go(to: quote)
         try await driver.show(ReaderAnnotations(markers: [
             .init(id: LinkTargetID(GlossID(high: 1, low: 3)), locator: quote),
             .init(id: LinkTargetID(GlossID(high: 1, low: 4)), locator: Locator(scheme: EPUBLocators.quoteScheme, value: "{broken")),
         ]))
         #expect(sent() == [
-            .goTo(ReaderGoToPayload(target: .quote(target), flash: true)),
+            .goTo(ReaderGoToPayload(target: .quote(target))),
             .setAnnotations(ReaderSetAnnotationsPayload(markers: [
                 ReaderMarkerAnnotation(id: LinkTargetID(GlossID(high: 1, low: 3)).stringValue, quote: target),
             ])),
         ])
         await #expect(throws: ReaderDrivingError.unsupportedLocator(EPUBLocators.quoteScheme)) {
-            try await driver.go(to: Locator(scheme: EPUBLocators.quoteScheme, value: "{broken"), flash: false)
+            try await driver.go(to: Locator(scheme: EPUBLocators.quoteScheme, value: "{broken"))
         }
         // A marker carries exactly one of cfi or quote.
         #expect(throws: DecodingError.self) {

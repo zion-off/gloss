@@ -139,7 +139,6 @@ export interface OpenPayload {
 
 export interface GoToPayload {
     target: GoToTarget
-    flash: boolean
 }
 
 export interface TurnPagePayload {
@@ -419,7 +418,6 @@ export const COMMAND_PAYLOAD_SPECS: Record<CommandType, Record<string, FieldSpec
     close: {},
     goTo: {
         target: goToTargetSpec,
-        flash: BOOL,
     },
     turnPage: {
         direction: { t: 'enum', values: PAGE_DIRECTIONS },

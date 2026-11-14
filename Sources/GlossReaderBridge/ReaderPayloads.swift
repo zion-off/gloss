@@ -242,12 +242,9 @@ public enum ReaderTarget: Codable, Hashable, Sendable {
 
 public struct ReaderGoToPayload: Codable, Hashable, Sendable {
     public var target: ReaderTarget
-    /// Briefly outline the destination after arriving.
-    public var flash: Bool
 
-    public init(target: ReaderTarget, flash: Bool = false) {
+    public init(target: ReaderTarget) {
         self.target = target
-        self.flash = flash
     }
 }
 

@@ -1,6 +1,5 @@
 {
   "payload" : {
-    "flash" : true,
     "target" : {
       "cfi" : "epubcfi(/6/10!/4/2/2/1:12)"
     }

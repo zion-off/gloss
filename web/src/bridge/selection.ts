@@ -104,3 +104,32 @@ export const makeDebouncer = <A extends unknown[]>(
         },
     )
 }
+
+export interface SelectionGate {
+    /** the primary button went down: a selection made now grows until it comes up */
+    press(): void
+    /** the button came up: the selection is final, report it */
+    release(): void
+    /** the selection settled (debounced); `collapsed` when there is none */
+    changed(collapsed: boolean): void
+}
+
+// A selection dragged out with the mouse is reported once the button comes up, like the system's
+// own edit menus: a pause mid-drag must not open the selection popover under the pointer. A
+// selection that went away (a click elsewhere) is reported at once, so the popover closes, and
+// one made from the keyboard (no button down) is reported as it settles.
+export const makeSelectionGate = (report: () => void): SelectionGate => {
+    let pressed = false
+    return {
+        press(): void {
+            pressed = true
+        },
+        release(): void {
+            pressed = false
+            report()
+        },
+        changed(collapsed: boolean): void {
+            if (!pressed || collapsed) report()
+        },
+    }
+}

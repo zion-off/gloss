@@ -1,6 +1,5 @@
 {
   "payload" : {
-    "flash" : false,
     "target" : {
       "href" : "text/ch001.xhtml"
     }

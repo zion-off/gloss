@@ -22,6 +22,10 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
     private var annotations = PDFAnnotationLayout(.init())
     private let colors: ReaderColors
     private var observers: [any NSObjectProtocol] = []
+    /// Watches for the mouse button coming up, which reports a selection dragged out with it.
+    private var mouseUpMonitor: Any?
+    /// A selection made while the button was down, waiting for it to come up.
+    private var selectionHeld = false
     /// The overlays PDFKit is showing, by page index: a new set of annotations reaches the
     /// pages already on screen through these (PDFKit only asks for an overlay once per page).
     private var overlays: [Int: PDFPageOverlay] = [:]
@@ -84,6 +88,11 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
             MainActor.assumeIsolated { self?.findEnded() }
         })
 
+        mouseUpMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseUp) { [weak self] event in
+            let window = event.window
+            MainActor.assumeIsolated { self?.mouseCameUp(in: window) }
+            return event
+        }
         // PDFKit has no page to load, so the session can take commands at once. The controller
         // holds every `open` back until it hears this (the EPUB page says it from script).
         inbox.post(.ready)
@@ -93,6 +102,8 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
         // There is no plural removeObservers: one call per observer token.
         for observer in observers { NotificationCenter.default.removeObserver(observer) }
         observers = []
+        if let mouseUpMonitor { NSEvent.removeMonitor(mouseUpMonitor) }
+        mouseUpMonitor = nil
         pdfView.delegate = nil
         pdfView.pageOverlayViewProvider = nil
         overlays = [:]
@@ -122,7 +133,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
         inbox.post(.opened(toc: toc, openID: openID))
         // A position this engine can't read (another engine's, or malformed) opens at the top.
         if let position, (try? PDFReaderTarget(position)) != nil {
-            try await go(to: position, flash: false)
+            try await go(to: position)
         } else if let first = pdf.page(at: 0) {
             pdfView.go(to: first)
         }
@@ -145,11 +156,11 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
         pdfView.document = nil
     }
 
-    func go(to locator: Locator, flash: Bool) async throws {
+    func go(to locator: Locator) async throws {
         if let fallback = PDFQuoteResolver.fallback(for: locator) {
-            // Words the page doesn't have (any more) still land on their page, unflashed.
-            guard let passage = resolvedQuote(locator) else { return try await go(to: fallback, flash: false) }
-            return try await go(to: passage, flash: flash)
+            // Words the page doesn't have (any more) still land on their page.
+            guard let passage = resolvedQuote(locator) else { return try await go(to: fallback) }
+            return try await go(to: passage)
         }
         let target = try PDFReaderTarget(locator)
         guard let pdf = document, let page = pdf.page(at: clamped(target.pageIndex)) else { return }
@@ -162,7 +173,6 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
             // The top of the passage's first line (page space is bottom-left: maxY is the top).
             pdfView.go(to: PDFDestination(page: page, at: NSPoint(x: rect.x, y: rect.y + rect.height)))
         }
-        if flash { flashRect(target: target) }
     }
 
     func turnPage(forward: Bool) async throws {
@@ -264,9 +274,8 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
                let selection = page.selection(for: NSRange(location: match.lowerBound, length: match.count)) {
                 pdfView.go(to: selection)
                 emphasise(selection)
-                flashRect(on: page, rect: Self.pageRect(selection.bounds(for: page)))
             } else {
-                try await go(to: locator, flash: true)
+                try await go(to: locator)
             }
             return
         }
@@ -294,7 +303,6 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
     private func revealMatch(_ match: PDFSelection) {
         pdfView.go(to: match)
         emphasise(match)
-        if let page = match.pages.first { flashRect(on: page, rect: Self.pageRect(match.bounds(for: page))) }
     }
 
     private func clamped(_ index: Int) -> Int { min(max(index, 0), max(pageCount - 1, 0)) }
@@ -370,14 +378,32 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
         inbox.post(.relocated(location))
     }
 
+    /// The button came up: a selection held while it was down is final now. Reported after the
+    /// view has handled the mouse-up, which may still change the selection.
+    private func mouseCameUp(in window: NSWindow?) {
+        guard selectionHeld, window === pdfView.window else { return }
+        Task { @MainActor [weak self] in
+            guard let self, self.selectionHeld else { return }
+            self.selectionChanged()
+        }
+    }
+
     private func selectionChanged() {
         guard !isEmphasisingSearchMatch else { return }  // the search session's, not the user's
         guard let pdf = document else { return }
         guard let selection = pdfView.currentSelection,
               let text = selection.string, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            selectionHeld = false
             inbox.post(.selectionCleared)
             return
         }
+        // A selection still being dragged out is reported when the button comes up, like the
+        // system's edit menus: the popover must not open under the pointer mid-drag.
+        if NSEvent.pressedMouseButtons & 1 != 0 {
+            selectionHeld = true
+            return
+        }
+        selectionHeld = false
         // Group the selection's lines into pages (the portable mapping does the rest).
         var byPage: [Int: PDFPageSelection] = [:]
         for line in selection.selectionsByLine() {
@@ -427,29 +453,6 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
     }
 
     // MARK: Drawing help
-
-    private func flashRect(target: PDFReaderTarget) {
-        guard let pdf = document, let page = pdf.page(at: clamped(target.pageIndex)) else { return }
-        let rect: PDFPageRect
-        if case .passage(let passage) = target, let span = passage.pages.min(by: { $0.page < $1.page }),
-           let first = span.rects.compactMap(PDFPageRect.init).first {
-            rect = first
-        } else {
-            let bounds = page.bounds(for: .mediaBox)
-            rect = PDFPageRect(x: bounds.minX, y: bounds.midY - 20, width: bounds.width, height: 40)
-        }
-        flashRect(on: page, rect: rect)
-    }
-
-    /// A brief outline over a target, like the reader's flash in the web view.
-    private func flashRect(on page: PDFPage, rect: PDFPageRect) {
-        let flash = PDFFlashView(frame: pdfView.convert(Self.nsRect(rect), from: page).insetBy(dx: -2, dy: -2))
-        pdfView.addSubview(flash)
-        Task { @MainActor [weak flash] in
-            try? await Task.sleep(for: .seconds(1.5))
-            flash?.removeFromSuperview()
-        }
-    }
 
     static func color(_ css: String) -> NSColor? {
         guard let color = CSSColor(palette: css) else { return nil }
@@ -548,15 +551,3 @@ final class PDFPageOverlay: NSView {
     }
 }
 
-/// The flash outline over a revealed target (its frame is the target grown by the stroke).
-@MainActor
-final class PDFFlashView: NSView {
-    override func draw(_ dirtyRect: NSRect) {
-        NSColor.controlAccentColor.setStroke()
-        let path = NSBezierPath(rect: bounds.insetBy(dx: 1, dy: 1))
-        path.lineWidth = 2
-        path.stroke()
-    }
-
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
-}
