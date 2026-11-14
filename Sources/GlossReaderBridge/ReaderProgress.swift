@@ -44,16 +44,4 @@ public enum ReaderEventMapping {
         guard !parts.isEmpty else { return nil }
         return parts.joined(separator: " · ")
     }
-
-    /// The `setAnnotations` payload for the current highlights and note-linked passages.
-    public static func annotationsPayload(highlights: [Highlight], linkedPassages: [LinkedPassage]) -> ReaderSetAnnotationsPayload {
-        ReaderSetAnnotationsPayload(
-            highlights: highlights.map {
-                ReaderHighlightAnnotation(id: $0.id.stringValue, cfi: $0.passage.locator.value,
-                                          color: ReaderColorName($0.color))
-            },
-            markers: linkedPassages.map {
-                ReaderMarkerAnnotation(id: $0.target.id.stringValue, cfi: $0.target.passage.locator.value)
-            })
-    }
 }

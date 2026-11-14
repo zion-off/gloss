@@ -199,21 +199,6 @@ struct ReaderProgressTests {
         #expect(ReaderEventMapping.progressLabel(of: relocated(tocLabel: nil)) == "section 4")
         #expect(ReaderEventMapping.progressLabel(of: relocated(tocLabel: "Loomings")) == "Loomings")
     }
-
-    @Test("highlights and linked passages become the annotation payload")
-    func annotations() {
-        let now = Date.testEpoch
-        let document = DocumentID(GlossID(high: 1, low: 1))
-        let highlight = Highlight(id: HighlightID(GlossID(high: 2, low: 1)), documentID: document,
-                                  passage: Passage(locator: Locator(scheme: EPUBLocators.cfiScheme, value: "cfi-a"), quote: "q"),
-                                  color: .green, createdAt: now, updatedAt: now)
-        let target = LinkTarget(id: LinkTargetID(GlossID(high: 2, low: 2)), documentID: document,
-                                passage: Passage(locator: Locator(scheme: EPUBLocators.cfiScheme, value: "cfi-b"), quote: "q2"),
-                                createdAt: now, updatedAt: now)
-        let payload = ReaderEventMapping.annotationsPayload(highlights: [highlight], linkedPassages: [LinkedPassage(target: target, pages: [])])
-        #expect(payload.highlights == [ReaderHighlightAnnotation(id: highlight.id.stringValue, cfi: "cfi-a", color: .green)])
-        #expect(payload.markers == [ReaderMarkerAnnotation(id: target.id.stringValue, cfi: "cfi-b")])
-    }
 }
 
 @Suite("reader rects")
