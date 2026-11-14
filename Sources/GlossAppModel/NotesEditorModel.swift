@@ -185,6 +185,7 @@ public enum NotesTableSettings {
             text = fresh.body
             selection = clamp(selection)
             reparse()  // same reason as in `load`: the view hears the text before the next await ends
+            pruneColumnWidths()
         }
         page = fresh
         // The title may have changed too (a rename, a details edit): keep the crumbs honest.
@@ -387,6 +388,16 @@ public enum NotesTableSettings {
         columnWidths = TableWidths.pruned(merged, tableCount: tables.count)
         refreshPresentation()
         if columnWidths != byOrdinal { saveColumnWidths() }
+    }
+
+    /// Keeps the stored widths honest after the tables changed without this editor (the cli,
+    /// another window): drop entries for tables the page no longer has, as loading it would.
+    private func pruneColumnWidths() {
+        let pruned = TableWidths.pruned(columnWidths, tableCount: tables.count)
+        guard pruned != columnWidths else { return }
+        columnWidths = pruned
+        refreshPresentation()
+        saveColumnWidths()
     }
 
     /// A paste of plain text: one holding a table goes in on lines of its own with the caret
