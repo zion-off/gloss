@@ -82,6 +82,12 @@ struct CLILinkTests {
         #expect(try await body(cli, book) == "a note about the whale and the whale")
         let forced = await cli.run("link", "Moby", "--text-offset", "0-6", "--match", "fake:section-1@26-35", "--quote", "the sea", "--force")
         #expect(forced.code == 0)
+        // the "[" shifted the words, but the same offsets still mean them: nothing changes
+        let linked = try await body(cli, book)
+        let rerun = await cli.run("link", "Moby", "--text-offset", "0-6", "--match", "fake:section-1@26-35", "--quote", "the sea", "--force")
+        #expect(rerun.code == 0, "\(rerun.err)")
+        #expect(rerun.out.contains("already links"))
+        #expect(try await body(cli, book) == linked)
         let nowhere = await cli.run("link", "Moby", "--text", "a note", "--section", "9", "--offset", "0-3")
         #expect(nowhere.code == 64)
         let noun = await cli.run("link", "Moby", "--text", "a note", "--page", "2", "--quote", "whale")

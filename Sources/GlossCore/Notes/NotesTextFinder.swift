@@ -34,6 +34,20 @@ public enum NotesTextFinder {
         return match(at: range, in: parser.parse(body))
     }
 
+    /// The words at `range` as they are once a link has wrapped them: the same range, one
+    /// character on (after the "["), inside a link that starts where the range did. Lets a
+    /// repeated `--text-offset` find the link its earlier run made; a range that starts on a
+    /// link's "[" can't be linked as it is, so it never means anything else.
+    public static func match(wrappedAt range: Range<Int>, in body: String, parser: MarkdownParser = .standard) -> NotesTextMatch? {
+        guard range.lowerBound >= 0, !range.isEmpty, range.upperBound < body.utf16.count else { return nil }
+        let document = parser.parse(body)
+        let content = (range.lowerBound + 1)..<(range.upperBound + 1)
+        guard document.allInlines.contains(where: {
+            $0.kind == .link && $0.range.lowerBound == range.lowerBound && $0.contentRange == content
+        }) else { return nil }
+        return match(at: content, in: document)
+    }
+
     static func match(at range: Range<Int>, in document: MarkdownDocument) -> NotesTextMatch? {
         let text = document.text
         // Offsets must not split a surrogate pair (an emoji): the edit would destroy it.

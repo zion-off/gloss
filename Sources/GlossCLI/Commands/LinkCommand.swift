@@ -232,7 +232,8 @@ struct LinkCommand: AsyncParsableCommand {
     /// Every match of the words, or nil when the command isn't linking words.
     private func notesMatches(in body: String) throws -> [NotesTextMatch]? {
         if let textOffset, let range = Self.range(textOffset) {
-            guard let match = NotesTextFinder.match(at: range, in: body) else {
+            // After an earlier run the link's "[" has shifted the words by one.
+            guard let match = NotesTextFinder.match(wrappedAt: range, in: body) ?? NotesTextFinder.match(at: range, in: body) else {
                 throw CLIFailure("gloss can't link the words at \(textOffset)",
                                  hint: "links need a few words on one line, outside code (offsets count utf-16 units in gloss read --raw)",
                                  code: CLIFailure.usageCode)

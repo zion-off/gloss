@@ -182,6 +182,12 @@ One line of rationale per decision. Newest entries go at the bottom of each sect
   always at an edge (Latin next to Han still checks its own side). Only the CLI checks word edges;
   the readers' resolver (`bridge/quote.ts`) matches anywhere, so the TypeScript twin needed no
   change, only the shared fixture cases (Chinese, kana that decompose, Thai) that keep folding in step.
+- **D-195 A repeated `--text-offset` finds the link its first run made.** The "[" a link inserts
+  shifts the words one character on, so the same offsets no longer named them. `NotesTextFinder.
+  match(wrappedAt:)` accepts a range that is exactly one character before a link's label (a link
+  starting where the range starts, label = range + 1): such a range starts on a link's "[" and could
+  never be linked as it is, so it can't mean anything else. The outcome is the usual one: same
+  target says "already links", another target re-points it.
 
 ## Storage
 
