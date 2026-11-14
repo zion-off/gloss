@@ -53,6 +53,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     /// anchors to it).
     var slashAnchorChanged: ((SlashAnchor?) -> Void)?
     private var reportedSlashAnchor: SlashAnchor?
+    private var settledReportPending = false
 
     init(model: NotesEditorModel, actions: NotesEditorActions) {
         self.model = model
@@ -505,6 +506,9 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         textView.hideTableHandles()
         normalizeTypingAttributes()
         reportSelection()
+        // A slash typed on a line the view hasn't laid out yet (it scrolls there after this) has no
+        // rect until it has.
+        reportSettledSelectionSoon()
     }
 
     func textViewDidChangeSelection(_ notification: Notification) {
@@ -712,8 +716,16 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
 
     /// Where the overlays anchor: the selection's first line, and the slash that opened the
     /// slash menu (not the caret, which moves on as the filter is typed).
-    private func reportSelection() {
+    ///
+    /// Measured against settled layout. Right after an edit, TextKit 2 places the lines from
+    /// estimates until the text view next lays out (the slash came out a line or more above where
+    /// it's drawn, and a line not laid out yet has no rect at all), and nothing re-reported once
+    /// it had. So the text view lays out first — except from the scroll notification
+    /// (`layingOut: false`), which can arrive in the middle of a layout pass; that one is measured
+    /// again once the pass is over.
+    private func reportSelection(layingOut: Bool = true) {
         guard let textView else { return }
+        if layingOut { textView.layoutSubtreeIfNeeded() }
         let selection = textView.selectedRange()
         // The format bar waits for a drag selection to end, like the system's edit menus: shown
         // mid-drag it chased the pointer and could land under it.
@@ -737,6 +749,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     private func overlayRect(for range: NSRange) -> OverlayRect? {
         guard let textView, let scrollView else { return nil }
         let screenRect = textView.firstRect(forCharacterRange: range, actualRange: nil)
+        guard screenRect != .zero else { return nil }  // not laid out: no rect, not the screen's corner
         let windowRect = textView.window.map { $0.convertFromScreen(screenRect) } ?? screenRect
         let inView = scrollView.convert(windowRect, from: nil)
         return OverlayGeometry.topLeft(OverlayRect(x: inView.minX, y: inView.minY, width: inView.width, height: inView.height),
@@ -744,8 +757,20 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     }
 
     @objc private func boundsChanged() {
-        reportSelection()
+        reportSelection(layingOut: false)
+        reportSettledSelectionSoon()
         refreshHoverFromCurrentPointer()
+    }
+
+    /// The anchors once the current layout pass is over, when they can be measured settled.
+    /// Unchanged anchors re-render nothing.
+    private func reportSettledSelectionSoon() {
+        guard !settledReportPending else { return }
+        settledReportPending = true
+        Task { @MainActor [weak self] in
+            self?.settledReportPending = false
+            self?.reportSelection()
+        }
     }
 
     /// After a scroll the pointer may not have moved (a trackpad scroll, keyboard scrolling), so
