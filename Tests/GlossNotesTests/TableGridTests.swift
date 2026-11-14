@@ -4,8 +4,11 @@ import GlossMarkdown
 
 @Suite("table grid")
 struct TableGridTests {
+    /// Fixed metrics, so tuning the standard ones doesn't rewrite these tests.
+    static let metrics = TableGridMetrics(cellPaddingX: 8, cellPaddingY: 5, margin: 6, ruleBand: 1, cornerRadius: 6,
+                                          minimumColumnWidth: 44, dividerReach: 4, borderReach: 3, handleSize: 18, handleSlop: 3)
     /// Two columns, a 30 pt header and two body rows; margin 6, rule band 1.
-    let layout = TableGridLayout(columnWidths: [100, 200], rowHeights: [30, 20, 25])
+    let layout = TableGridLayout(columnWidths: [100, 200], rowHeights: [30, 20, 25], metrics: metrics)
 
     @Test("each source line draws one band of the grid, the margins on the first and last")
     func bands() {
@@ -19,7 +22,7 @@ struct TableGridTests {
         #expect((0...3).map(TableGridLayout.gridRow(ofLine:)) == [0, nil, 1, 2])
         #expect([0, 1, 2].map(TableGridLayout.lineIndex(ofGridRow:)) == [0, 2, 3])
         // A header with no body rows: the delimiter line closes the grid, with no rule inside.
-        let bare = TableGridLayout(columnWidths: [100], rowHeights: [30])
+        let bare = TableGridLayout(columnWidths: [100], rowHeights: [30], metrics: Self.metrics)
         #expect(bare.lineHeights == [36, 7] && bare.rowRules.isEmpty && bare.gridBottom == 37)
     }
 
@@ -41,9 +44,26 @@ struct TableGridTests {
         #expect(layout.textFrame(row: 1, column: 1) == GridRect(x: 108, y: 42, width: 184, height: 10))
         #expect(layout.addRowHandle == GridRect(x: 141, y: 73, width: 18, height: 18))
         #expect(layout.addColumnHandle == GridRect(x: 291, y: 35, width: 18, height: 18))
-        #expect(TableGridLayout.naturalWidths(textWidths: [[10, 40], [30, 5]]) == [46, 56])
-        #expect(TableGridLayout.rowHeight(textHeights: [12, 40], lineHeight: 16) == 50)
-        #expect(TableGridLayout.rowHeight(textHeights: [0], lineHeight: 16) == 26)
+        #expect(TableGridLayout.naturalWidths(textWidths: [[10, 40], [30, 5]], metrics: Self.metrics) == [46, 56])
+        #expect(TableGridLayout.rowHeight(textHeights: [12, 40], lineHeight: 16, metrics: Self.metrics) == 50)
+        #expect(TableGridLayout.rowHeight(textHeights: [0], lineHeight: 16, metrics: Self.metrics) == 26)
+    }
+
+    @Test("cursor zones tile the table without overlaps: arrow on the chrome, resize on dividers, i-beam in cells")
+    func cursorZones() {
+        let zones = layout.cursorZones()
+        #expect(zones.map { $0.rect.width * $0.rect.height }.reduce(0, +) == layout.width * layout.height)
+        for (index, a) in zones.enumerated() {
+            for b in zones[(index + 1)...] {
+                #expect(a.rect.maxX <= b.rect.x || b.rect.maxX <= a.rect.x || a.rect.maxY <= b.rect.y || b.rect.maxY <= a.rect.y)
+            }
+        }
+        let cursor = { (x: Double, y: Double) in zones.first { $0.rect.x <= x && x < $0.rect.maxX && $0.rect.y <= y && y < $0.rect.maxY }?.cursor }
+        #expect(cursor(150, 2) == .arrow)  // the top margin
+        #expect(cursor(1, 40) == .arrow && cursor(299, 40) == .arrow)  // the side borders
+        #expect(cursor(101, 40) == .columnResize)
+        #expect(cursor(50, 40) == .text && cursor(50, 57) == .text)  // a rule between rows is the cells'
+        #expect(cursor(150, 87) == .arrow)  // the bottom margin
     }
 
     @Test("drawn cells keep their inline styles and drop the markdown syntax")

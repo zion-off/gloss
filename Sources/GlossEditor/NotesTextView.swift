@@ -30,6 +30,8 @@ final class NotesTextView: NSTextView {
         get { tableTarget.perform }
         set { tableTarget.perform = newValue }
     }
+    /// The drawn tables (the coordinator's), for cursor zones.
+    var tableStore: TableGridStore?
     /// A paste of this plain text: `true` when the coordinator took it.
     var onPaste: ((String) -> Bool)?
     /// A divider dragged: the table's ordinal, its columns' new fractions, whether the drag ended.
@@ -43,11 +45,10 @@ final class NotesTextView: NSTextView {
 
     private var hoverArea: NSTrackingArea?
     private let tableTarget = TableActionTarget()
-    private lazy var addRowHandle = TableHandle(command: .addRow, target: tableTarget, action: #selector(TableActionTarget.addRowHandle(_:)))
-    private lazy var addColumnHandle = TableHandle(command: .addColumn, target: tableTarget,
-                                                   action: #selector(TableActionTarget.addColumnHandle(_:)))
-    /// The table whose handles show, as a rect in this view.
-    private var handleTableRect: NSRect?
+    private lazy var addRowHandle = makeHandle(.addRow)
+    private lazy var addColumnHandle = makeHandle(.addColumn)
+    /// The table whose handles show (its ordinal), and its rect in this view.
+    private var handleTable: (ordinal: Int, rect: NSRect)?
 
     /// The subpage row under the pointer (this view's coordinates): Notion's soft rounded block.
     /// A view of its own beneath the text's: TextKit 2 renders layout fragments into
@@ -111,39 +112,112 @@ final class NotesTextView: NSTextView {
         let container = textContainerOrigin
         let inContainer = NSPoint(x: point.x - container.x, y: point.y - container.y)
         guard let fragment = manager.textLayoutFragment(for: inContainer) as? TableGridFragment, let band = fragment.band else { return nil }
-        let frame = fragment.layoutFragmentFrame
-        let bandTop = container.y + frame.minY + band.top
+        let (origin, bandTop) = placement(of: fragment, band)
         // Not the empty last line TextKit may keep in the same fragment.
         guard point.y >= bandTop, point.y < bandTop + CGFloat(band.table.layout.lineHeights[band.line]) else { return nil }
-        let origin = NSPoint(x: container.x + frame.minX + band.table.originX, y: bandTop - CGFloat(band.table.layout.lineTops[band.line]))
         return TableHit(table: band.table, origin: origin, local: NSPoint(x: point.x - origin.x, y: point.y - origin.y))
+    }
+
+    /// Where a table line's fragment puts its table (top-left, this view's coordinates) and the band.
+    private func placement(of fragment: NSTextLayoutFragment, _ band: (table: RenderedTable, line: Int, top: CGFloat)) -> (origin: NSPoint, bandTop: CGFloat) {
+        let container = textContainerOrigin
+        let frame = fragment.layoutFragmentFrame
+        let bandTop = container.y + frame.minY + band.top
+        return (NSPoint(x: container.x + frame.minX + band.table.originX, y: bandTop - CGFloat(band.table.layout.lineTops[band.line])), bandTop)
+    }
+
+    /// A drawn table's top-left in this view, if its first line is laid out (it is when on screen).
+    func origin(of table: RenderedTable) -> NSPoint? {
+        guard let manager = textLayoutManager, let content = textContentStorage, let first = table.lines.first,
+              let location = content.location(content.documentRange.location, offsetBy: first.lowerBound),
+              let fragment = manager.textLayoutFragment(for: location) as? TableGridFragment,
+              fragment.state == .layoutAvailable, let band = fragment.band, band.table.ordinal == table.ordinal else { return nil }
+        return placement(of: fragment, band).origin
+    }
+
+    // MARK: Cursor zones
+
+    /// The text view's I-beam is a cursor rect over its visible area. Each drawn table on screen
+    /// adds its zones inside it (arrow on the chrome, resize on dividers, I-beam in cells): AppKit
+    /// lets cursor rects nest but not partly overlap, and the zones tile the grid. As cursor rects
+    /// they are rebuilt with everything else after an edit or a scroll, so the cursor never flickers
+    /// back to the I-beam until the next move.
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        guard let tables = tableStore?.all, !tables.isEmpty, let manager = textLayoutManager else { return }
+        let visible = visibleRect
+        let container = textContainerOrigin
+        manager.ensureLayout(for: visible.offsetBy(dx: -container.x, dy: -container.y))
+        for table in tables {
+            guard let origin = origin(of: table) else { continue }
+            for zone in table.layout.cursorZones() {
+                let rect = NSRect(x: origin.x + CGFloat(zone.rect.x), y: origin.y + CGFloat(zone.rect.y),
+                                  width: CGFloat(zone.rect.width), height: CGFloat(zone.rect.height)).intersection(visible)
+                guard !rect.isEmpty else { continue }
+                let cursor: NSCursor = switch zone.cursor {
+                case .arrow: .arrow
+                case .text: .iBeam
+                case .columnResize: Self.columnResizeCursor
+                }
+                addCursorRect(rect, cursor: cursor)
+            }
+        }
+    }
+
+    private func makeHandle(_ command: TableCommand) -> TableHandle {
+        let handle = TableHandle(command: command)
+        handle.onPress = { [weak self] in
+            guard let self, let ordinal = self.handleTable?.ordinal else { return }
+            self.onTableCommand?(command, ordinal)
+        }
+        return handle
     }
 
     /// Shows the "+" handles on a drawn table's bottom and right edges, like Notes. Subviews, not
     /// drawn by the fragments: a fragment's rendering is cached and doesn't repaint on hover.
+    /// They fade in (0.12 s) when they appear, and move without a fade when the table moves.
     func showTableHandles(for hit: TableHit) {
         let layout = hit.table.layout
+        let appearing = handleTable == nil
+        let slop = CGFloat(layout.metrics.handleSlop)
+        let pointer = window.map { convert($0.mouseLocationOutsideOfEventStream, from: nil) }
         for (handle, rect) in [(addRowHandle, layout.addRowHandle), (addColumnHandle, layout.addColumnHandle)] {
             if handle.superview !== self { addSubview(handle) }
-            handle.frame = NSRect(x: hit.origin.x + CGFloat(rect.x), y: hit.origin.y + CGFloat(rect.y), width: CGFloat(rect.width), height: CGFloat(rect.height))
-            handle.isHidden = false
+            let frame = NSRect(x: hit.origin.x + CGFloat(rect.x), y: hit.origin.y + CGFloat(rect.y),
+                               width: CGFloat(rect.width), height: CGFloat(rect.height)).insetBy(dx: -slop, dy: -slop)
+            if handle.frame != frame || appearing {
+                handle.frame = frame
+                handle.circleInset = slop
+                handle.resetHover(pointerInside: pointer.map { frame.contains($0) } ?? false)
+            }
+            if appearing {
+                handle.alphaValue = 0
+                handle.isHidden = false
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = 0.12
+                    handle.animator().alphaValue = 1
+                }
+            }
         }
-        tableTarget.handleOrdinal = hit.table.ordinal
-        handleTableRect = hit.rect
+        handleTable = (hit.table.ordinal, hit.rect)
     }
 
+    /// Hides the handles at once (after an action, an edit, a scroll, the pointer leaving).
     func hideTableHandles() {
-        addRowHandle.isHidden = true
-        addColumnHandle.isHidden = true
-        tableTarget.handleOrdinal = nil
-        handleTableRect = nil
+        guard handleTable != nil else { return }
+        for handle in [addRowHandle, addColumnHandle] {
+            handle.isHidden = true
+            handle.resetHover(pointerInside: false)
+        }
+        handleTable = nil
     }
 
     /// Whether the pointer is still where the shown handles belong: over their table or them.
     func isNearTableHandles(_ point: NSPoint) -> Bool {
-        guard let handleTableRect else { return false }
-        let reach = CGFloat(TableGridMetrics.standard.handleSize)
-        return handleTableRect.insetBy(dx: -reach, dy: -reach).contains(point)
+        guard let handleTable else { return false }
+        let metrics = TableGridMetrics.standard
+        let reach = CGFloat(metrics.handleSize / 2 + metrics.handleSlop)
+        return handleTable.rect.insetBy(dx: -reach, dy: -reach).contains(point)
     }
 
     /// The grid's context menu: its own commands only (a text menu would act on hidden markdown).
@@ -302,8 +376,8 @@ final class NotesTextView: NSTextView {
     }
 }
 
-/// Receives the grid's handle clicks and menu choices: a plain object, so the text view's own
-/// menu validation never sees (and disables) actions it doesn't know.
+/// Receives the grid's menu choices: a plain object, so the text view's own menu validation
+/// never sees (and disables) actions it doesn't know.
 @MainActor
 private final class TableActionTarget: NSObject {
     struct Choice {
@@ -312,16 +386,6 @@ private final class TableActionTarget: NSObject {
     }
 
     var perform: ((TableCommand, Int) -> Void)?
-    /// The table whose handles show.
-    var handleOrdinal: Int?
-
-    @objc func addRowHandle(_ sender: Any?) {
-        if let handleOrdinal { perform?(.addRow, handleOrdinal) }
-    }
-
-    @objc func addColumnHandle(_ sender: Any?) {
-        if let handleOrdinal { perform?(.addColumn, handleOrdinal) }
-    }
 
     @objc func menuItem(_ sender: NSMenuItem) {
         if let choice = sender.representedObject as? Choice { perform?(choice.command, choice.ordinal) }

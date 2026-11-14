@@ -34,6 +34,9 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     /// The grids as last drawn, to tell which ones changed.
     private var drawnTables: [RenderedTable] = []
     private var tableRelayoutPending = false
+    private var cursorRectsPending = false
+    /// A divider drag's widths before it began, for its undo step.
+    private var widthsBeforeDrag: (ordinal: Int, widths: TableColumnWidths?)?
 
     /// A `gloss://` link was clicked (the window routes it).
     var openGlossLink: (@MainActor (GlossLink) async -> Void)?
@@ -83,6 +86,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
             self?.model.focusDidChange(focused)
             self?.restyle()
         }
+        textView.tableStore = tableStore
         textView.onTableCellClick = { [weak self] table, row, column in self?.cellClicked(table: table, row: row, column: column) }
         textView.onTableCommand = { [weak self] command, table in self?.run(command, onTable: table) }
         textView.onPaste = { [weak self] string in self?.paste(string) ?? false }
@@ -98,7 +102,6 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
             self?.hoveredRowID = nil
             self?.setRowHover(nil)
             self?.textView?.hideTableHandles()
-            self?.isOverDivider = false
         }
         textView.onMouseSelectionEnd = { [weak self] in self?.reportSelection() }
 
@@ -141,8 +144,6 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     /// pixel: the task is cancelled and replaced when the link under the pointer changes.
     /// The subpage row under the pointer; the text view draws its highlight.
     private var hoveredRowID: PageID?
-    /// The pointer is on a drawn table's column divider (the resize cursor shows).
-    private var isOverDivider = false
 
     private func setRowHover(_ hit: (row: SubpageRow, rect: NSRect)?) {
         if hit != nil { NSCursor.pointingHand.set() }
@@ -162,10 +163,6 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         } else if !textView.isNearTableHandles(point) {
             textView.hideTableHandles()
         }
-        // Like the rows' hand: AppKit only resets the cursor on entering or leaving the view.
-        let onDivider = table.flatMap { textView.divider(at: $0) } != nil
-        if onDivider { NotesTextView.columnResizeCursor.set() } else if isOverDivider { NSCursor.iBeam.set() }
-        isOverDivider = onDivider
         // Over a drawn table the index lands in its hidden markdown, not on anything shown there.
         guard table == nil else { endHover(); return }
         let index = textView.characterIndexForInsertion(at: point)
@@ -331,34 +328,92 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         textView.setSelectedRange(NSRange(location: caret, length: 0))
     }
 
-    /// A "+" handle or the grid's menu: one undoable edit; the caret stays on its text.
+    /// A "+" handle or the grid's menu: one edit, one undo step; the caret stays on its text.
     private func run(_ command: TableCommand, onTable ordinal: Int) {
         guard let textView, textView.string == model.text else { return }
         let result = switch command {
         case .addRow: model.addRow(toTable: ordinal)
         case .addColumn: model.addColumn(toTable: ordinal)
         }
-        guard let result else { return }
-        apply(result)
+        guard let result, let edit = result.coalesced(in: textView.string) else { return }
+        let scroll = scrollView?.contentView.bounds.origin
+        replaceText(NSRange(edit.range), with: edit.replacement, selecting: NSRange(result.selection), scroll: scroll,
+                    undoSelection: textView.selectedRange(), undoScroll: scroll, actionName: command.title)
         refreshHoverSoon()
     }
 
-    /// A divider drag: the grid follows the pointer and the widths are stored when the drag ends.
-    /// The text never changes, so the note is not marked edited.
+    /// Replaces text as an undo step of its own that puts back the text, the caret and the scroll
+    /// position, and whose redo does the same the other way. The text view's own undo would put
+    /// the caret at the change, inside the table (turning it back into markdown), and scroll to it.
+    private func replaceText(_ range: NSRange, with replacement: String, selecting selection: NSRange, scroll: NSPoint?,
+                             undoSelection: NSRange, undoScroll: NSPoint?, actionName: String) {
+        guard let textView, let storage = textView.textStorage, NSMaxRange(range) <= storage.length else { return }
+        let original = (storage.string as NSString).substring(with: range)
+        textView.breakUndoCoalescing()
+        // The change APIs still run (input methods, delegates, the model hears it), but the text
+        // view registers no undo of its own: this step registers the whole thing below.
+        let allowsUndo = textView.allowsUndo
+        textView.allowsUndo = false
+        let allowed = textView.shouldChangeText(in: range, replacementString: replacement)
+        if allowed {
+            storage.replaceCharacters(in: range, with: replacement)
+            textView.didChangeText()
+        }
+        textView.allowsUndo = allowsUndo
+        guard allowed else { return }
+        textView.setSelectedRange(selection)
+        restoreScroll(scroll)
+        let inserted = NSRange(location: range.location, length: replacement.utf16.count)
+        textView.undoManager?.registerUndo(withTarget: self) { coordinator in
+            coordinator.replaceText(inserted, with: original, selecting: undoSelection, scroll: undoScroll,
+                                    undoSelection: selection, undoScroll: scroll, actionName: actionName)
+        }
+        textView.undoManager?.setActionName(actionName)
+    }
+
+    private func restoreScroll(_ origin: NSPoint?) {
+        guard let origin, let scrollView else { return }
+        scrollView.contentView.scroll(to: origin)
+        scrollView.reflectScrolledClipView(scrollView.contentView)
+    }
+
+    /// A divider drag: the grid follows the pointer, and when the drag ends the widths are stored
+    /// as one undo step. The text never changes, so the note isn't marked edited.
     private func resizeColumns(ofTable ordinal: Int, to fractions: [Double], done: Bool) {
         textView?.hideTableHandles()  // the table's height changes under them
+        if widthsBeforeDrag?.ordinal != ordinal { widthsBeforeDrag = (ordinal, model.columnWidths(ofTable: ordinal)) }
         model.resizeColumns(ofTable: ordinal, to: fractions)
         restyle()
-        if done {
-            model.saveColumnWidths()
-            refreshHoverSoon()
-        }
+        guard done else { return }
+        let before = widthsBeforeDrag?.widths
+        widthsBeforeDrag = nil
+        model.saveColumnWidths()
+        registerWidthsUndo(ofTable: ordinal, back: before, forward: model.columnWidths(ofTable: ordinal), actionName: "resize columns")
+        refreshHoverSoon()
     }
 
+    /// A double-click on a divider: automatic widths again, as one undo step.
     private func resetColumnWidths(ofTable ordinal: Int) {
-        model.setColumnWidths(nil, ofTable: ordinal)
+        let before = model.columnWidths(ofTable: ordinal)
+        guard before != nil else { return }
+        setColumnWidths(nil, ofTable: ordinal, undoTo: before, actionName: "reset column widths")
+    }
+
+    private func setColumnWidths(_ widths: TableColumnWidths?, ofTable ordinal: Int, undoTo previous: TableColumnWidths?, actionName: String) {
+        textView?.hideTableHandles()
+        model.setColumnWidths(widths, ofTable: ordinal)
         restyle()
+        registerWidthsUndo(ofTable: ordinal, back: previous, forward: widths, actionName: actionName)
         refreshHoverSoon()
+    }
+
+    private func registerWidthsUndo(ofTable ordinal: Int, back: TableColumnWidths?, forward: TableColumnWidths?, actionName: String) {
+        guard back != forward, let textView else { return }
+        textView.breakUndoCoalescing()
+        textView.undoManager?.registerUndo(withTarget: self) { coordinator in
+            coordinator.setColumnWidths(back, ofTable: ordinal, undoTo: forward, actionName: actionName)
+        }
+        textView.undoManager?.setActionName(actionName)
     }
 
     /// Plain text pasted: a table goes in on lines of its own with the caret after it.
@@ -561,6 +616,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         let redraw = tables.compactMap { table in
             drawnTables.first { $0.ordinal == table.ordinal }.flatMap { $0.drawsSame(as: table) ? nil : table.range }
         }
+        let hadTables = !drawnTables.isEmpty
         drawnTables = tables
         tableStore.replace(tables, appearance: textView.effectiveAppearance)
 
@@ -579,6 +635,21 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         applyTableLineHeights(tables, in: storage)
         storage.endEditing()
         for range in redraw { invalidateLayout(range) }
+        // Their zones move with any change above them, and go when the tables do.
+        if hadTables || !tables.isEmpty { invalidateCursorRectsSoon() }
+    }
+
+    /// The tables' cursor zones follow their tables, once the change is laid out (after this turn
+    /// of the run loop, not in the middle of the text view's own change handling).
+    private func invalidateCursorRectsSoon() {
+        guard !cursorRectsPending else { return }
+        cursorRectsPending = true
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            self.cursorRectsPending = false
+            guard let textView = self.textView else { return }
+            textView.window?.invalidateCursorRects(for: textView)
+        }
     }
 
     /// Clickable links: the `.link` attribute over each link's label (the value is the
