@@ -71,7 +71,7 @@ assemble_app() {
     <key>CFBundleVersion</key><string>$build</string>
     <key>LSMinimumSystemVersion</key><string>$min_macos</string>
     <key>LSApplicationCategoryType</key><string>public.app-category.books</string>
-    <key>NSHumanReadableCopyright</key><string>Copyright © 2026 the gloss authors. MIT license.</string>
+    <key>NSHumanReadableCopyright</key><string>Copyright © 2026 zion. MIT license.</string>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSPrincipalClass</key><string>NSApplication</string>
     <!-- gloss:// links from other apps, \`gloss open\` and scripts (brief 16). -->

@@ -67,10 +67,18 @@ public struct GlossSettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 480)
+        // As tall as its rows, but no taller than the screen: past that the form scrolls.
+        .frame(maxHeight: Self.tallest)
         .fixedSize(horizontal: false, vertical: true)
         .task { await model.load() }
         // Closing the window is when open books change: store what's pending, then announce it.
         .onDisappear { Task { await model.flushSave() } }
+    }
+
+    /// The most the window's content can take: the screen it opens on, below the menu bar and
+    /// above the Dock, less its title bar and a little air.
+    private static var tallest: CGFloat {
+        (NSScreen.main?.visibleFrame.height ?? 800) - 80
     }
 
     /// One toggle, the one-line state under it, the folder, and "back up now".
