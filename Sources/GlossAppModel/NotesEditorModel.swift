@@ -381,9 +381,12 @@ public enum NotesTableSettings {
         let stored = (try? await services.settings.value(NotesTableSettings.columnWidths(for: id))) ?? [:]
         guard page?.id == id else { return }
         let byOrdinal = Dictionary(stored.compactMap { key, value in Int(key).map { ($0, value) } }, uniquingKeysWith: { first, _ in first })
-        columnWidths = TableWidths.pruned(byOrdinal, tableCount: tables.count)
+        // The page's text is already up while this read was in flight, so a drag may have been
+        // made: it wins over what was stored before it.
+        let merged = columnWidths.merging(byOrdinal) { current, _ in current }
+        columnWidths = TableWidths.pruned(merged, tableCount: tables.count)
         refreshPresentation()
-        if columnWidths.count != stored.count { saveColumnWidths() }
+        if columnWidths != byOrdinal { saveColumnWidths() }
     }
 
     /// A paste of plain text: one holding a table goes in on lines of its own with the caret
