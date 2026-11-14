@@ -5,7 +5,7 @@ import GlossCore
 import GlossReaderBridge
 import GlossTestSupport
 
-/// D-102: each pane moves on its own. A link changes the pane it points into, so the reader and
+/// Each pane moves on its own. A link changes the pane it points into, so the reader and
 /// the notes can show different books (brief 15: "following a cross-book link swaps the book
 /// pane"; every pane has its own back and forward).
 @MainActor

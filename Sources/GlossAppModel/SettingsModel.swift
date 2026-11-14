@@ -23,13 +23,13 @@ public let glossReaderSettingsKey = "readerSettings"
 /// through `services.settings` into the one SQLite file — never UserDefaults (brief
 /// "Constraints"). Edits save debounced (a dragged slider is one save) but stay quiet: only
 /// `flushSave()`, which the window calls as it closes, announces them with
-/// `glossSettingsChanged`, so open books take the final values once, on close (D-149).
+/// `glossSettingsChanged`, so open books take the final values once, on close.
 @MainActor @Observable public final class AppSettingsModel {
-    /// Days things stay in the trash; nil keeps them forever (brief 39).
+    /// Days things stay in the trash; nil keeps them forever.
     public var retentionDays: Int? = 30 {
         didSet { guard !suppressSave else { return }; scheduleSave() }
     }
-    /// The reading settings, edited field by field (D-061: one JSON blob, one key).
+    /// The reading settings, edited field by field (one JSON blob, one key).
     public var reader: ReaderSettings = ReaderSettings() {
         didSet { guard !suppressSave else { return }; scheduleSave() }
     }

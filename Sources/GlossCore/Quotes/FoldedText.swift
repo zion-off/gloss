@@ -1,7 +1,7 @@
 import Foundation
 
 /// Text folded for quote matching, with a map from every folded unit back to the UTF-16 range
-/// of the source it came from (docs/DECISIONS.md D-190).
+/// of the source it came from.
 ///
 /// Folding works scalar by scalar, so it is the same on every platform and in the reader's
 /// TypeScript twin (`web/src/bridge/quote.ts`), which must stay in step with it:

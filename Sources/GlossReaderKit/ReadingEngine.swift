@@ -4,7 +4,7 @@ import GlossCore
 import GlossReaderBridge
 
 /// One engine's live reader: the view it draws in and the commands it takes. The EPUB engine
-/// keeps one session for every EPUB (books switch in place, D-080); the pane makes a new session
+/// keeps one session for every EPUB (books switch in place); the pane makes a new session
 /// only when the kind of document changes.
 ///
 /// Every session must post `.ready` once it can take commands: `ReaderController` holds back
@@ -16,7 +16,7 @@ public protocol ReaderSession: AnyObject {
     var view: NSView { get }
     var driver: any ReaderDriving { get }
     /// Stops delivering events and waits until the queued ones were delivered, so nothing from
-    /// this session lands after the next one is attached (review 4).
+    /// this session lands after the next one is attached.
     func invalidate() async
 }
 

@@ -25,7 +25,7 @@ public struct SearchScopeOption: Hashable, Sendable, Identifiable {
     public var id: String { title }
 }
 
-/// Derives the scope menu (default first) from the context (docs/ARCHITECTURE.md §6).
+/// Derives the scope menu (default first) from the context.
 public enum SearchScopeResolver {
     public static func options(for context: SearchContext) -> [SearchScopeOption] {
         let library = SearchScopeOption(scope: .library, title: "library")

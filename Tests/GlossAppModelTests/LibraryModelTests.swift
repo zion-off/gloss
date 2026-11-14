@@ -187,7 +187,7 @@ struct ImportSummaryTests {
         #expect(summary.openActionTitle == "open them")
     }
 
-    @Test("file › import takes ⇧⌘A, which is now gloss-reserved (D-113)")
+    @Test("file › import takes ⇧⌘A, which is now gloss-reserved")
     func importShortcut() {
         #expect(FormatBar.reservedShortcuts.contains("⇧⌘A"))
     }
@@ -239,7 +239,7 @@ struct DocumentDetailsModelTests {
         #expect(saved.title == "New")
         #expect(saved.author == "Someone")
         #expect(!model.hasChanges)  // the draft now matches the document
-        // The root page followed the rename (D-034: it still carried the old title).
+        // The root page followed the rename (it still carried the old title).
         #expect(try await lib.services.pages.page(root.id)?.title == "New")
 
         // A customized root title no longer follows.

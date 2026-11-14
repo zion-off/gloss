@@ -20,7 +20,7 @@ if ! swift test --skip-build >"$log" 2>&1; then
 fi
 grep -E "^✔ Test run with" "$log" | awk '{tests += $5; suites += $8} END {printf "✔ %d swift tests in %d suites\n", tests, suites}'
 
-# The stub type-check is the Linux stand-in for a real Mac build (D-099); on a Mac the build
+# The stub type-check is the Linux stand-in for a real Mac build; on a Mac the build
 # above already type-checks the Mac targets, and the stub round there would only test the stubs.
 if [ "$(uname -s)" != Darwin ]; then
   python3 scripts/mac-typecheck.py || exit 1

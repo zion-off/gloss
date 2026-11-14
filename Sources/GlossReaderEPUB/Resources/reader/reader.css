@@ -1,4 +1,4 @@
-/* gloss reader page. The whole page is the theme's background (D-144): the glue sets
+/* gloss reader page. The whole page is the theme's background: the glue sets
    --gloss-background/--gloss-foreground from the appearance, so foliate's margins, the column
    gap, the blank pages around a section and anything the iframe leaves uncovered are the same
    colour as the book's own page. Until the first appearance it follows the system (Canvas).

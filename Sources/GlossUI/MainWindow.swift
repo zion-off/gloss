@@ -8,7 +8,7 @@ import GlossNotes
 import GlossReaderBridge
 import GlossReaderKit
 
-/// One window: the source list in the sidebar (D-101); the library, the trash or the open book in
+/// One window: the source list in the sidebar; the library, the trash or the open book in
 /// the detail column. Each window has its own models (AppModel is one window's state) over the
 /// shared services, which the composition root (GlossMac) hands in with the reading engines.
 public struct MainWindow: View {
@@ -70,12 +70,12 @@ public struct MainWindow: View {
         }
         // The system's own inline title, after back/forward (the navigation placement goes "ahead
         // of the inline title"). It is also what splits the toolbar into a leading and a trailing
-        // part: removing it (`toolbar(removing: .title)`, D-150's custom title item) left nothing
-        // between them, and every item packed in after the chevrons (D-157).
+        // part: removing it (`toolbar(removing: .title)`) left nothing
+        // between them, and every item packed in after the chevrons.
         .navigationTitle(title)
         .toolbar { toolbar }
         .glossSearch(model: app.search)
-        // Escape leaves the search from anywhere in the window, not only from the field (D-159).
+        // Escape leaves the search from anywhere in the window, not only from the field.
         .onExitCommand { if app.search.showsResults { app.search.dismiss() } }
         .libraryFeatures(app: app)  // the drop zone, ⇧⌘A, the import alert, the details sheet, the sort menu
         .quickSwitcher(app: app, isPresented: Binding(get: { commands.showsSwitcher },
@@ -92,7 +92,7 @@ public struct MainWindow: View {
         .task(id: app.bookSidebarSubjects) {
             await app.showBookSidebar()
             // The search scope follows the context: opening a book (or going home) adopts the
-            // default for where the user now is (brief 32).
+            // default for where the user now is.
             app.search.resetToDefaultScope()
         }
         .task(id: app.workspace.pendingNoteReveal) {
@@ -104,7 +104,7 @@ public struct MainWindow: View {
         .alert("this page has unsaved changes", isPresented: Binding(get: { unsavedFailure != nil },
                                                                         set: { if !$0 { unsavedFailure = nil } })) {
             // Cancel role so Escape means "keep editing" too: the natural way out of a
-            // refuse-to-switch alert (review 5).
+            // refuse-to-switch alert.
             Button("keep editing", role: .cancel) { Task { await keepEditing() } }
             Button("discard and switch", role: .destructive) { Task { await switchDiscarding() } }
         } message: {
@@ -112,9 +112,9 @@ public struct MainWindow: View {
         }
         .onDisappear {
             // The window is going away: nothing will fire the debounced save or the position
-            // write anymore. Flush both so up to half a second of typing isn't lost (review 5),
+            // write anymore. Flush both so up to half a second of typing isn't lost,
             // and the layout and sort choices too — their persist chains hold the window weakly,
-            // so the last ⌥⌘1/2/3 or sort click would otherwise die with it (review 7).
+            // so the last ⌥⌘1/2/3 or sort click would otherwise die with it.
             Task { await app.notes.flushSave() }
             Task { await app.reader.flushPosition() }
             Task { await app.workspace.flushLayoutPersistence() }
@@ -125,7 +125,7 @@ public struct MainWindow: View {
     @ViewBuilder private var detailColumn: some View {
             if started {
                 if app.search.showsResults {
-                    // Searching replaces the detail column, Mail-style (D-130); choosing a hit
+                    // Searching replaces the detail column, Mail-style; choosing a hit
                     // dismisses the search and jumps there.
                     SearchResults(app: app)
                 } else {
@@ -162,7 +162,7 @@ public struct MainWindow: View {
                           addToNotes: { await commands.addToNotes() })
             .clipShape(shape)
             .background { shape.fill(.background).shadow(color: .black.opacity(0.28), radius: 7, y: 2) }
-            // One margin all round (D-154); beside the notes the notes' own margin is the gap, so
+            // One margin all round; beside the notes the notes' own margin is the gap, so
             // the card's edge is exactly one margin from the notes text.
             .padding(EdgeInsets(top: SheetMetrics.margin, leading: SheetMetrics.margin, bottom: SheetMetrics.margin,
                                 trailing: app.workspace.layout == .split ? 0 : SheetMetrics.margin))
@@ -187,24 +187,23 @@ public struct MainWindow: View {
     /// Back and forward, then the title, on the leading edge (Finder, Safari); the layout switch
     /// right beside the search field on the trailing side. Back/forward is its own item, a
     /// `ControlGroup` in the navigation style, so the system draws Finder's grouped pair (one
-    /// capsule, system chevrons, hover and disabled states); the system's inline title follows it
-    /// (D-150, D-157).
+    /// capsule, system chevrons, hover and disabled states); the system's inline title follows it.
     @ToolbarContentBuilder private var toolbar: some ToolbarContent {
         ToolbarItem(placement: .navigation) { backForward }
         // No `DefaultToolbarItem(kind: .title)`: on macOS 26 it drew an empty glass capsule of its
-        // own while `navigationTitle` drew the title beside it (D-158). The system title already
+        // own while `navigationTitle` drew the title beside it. The system title already
         // follows the navigation items.
         // The trailing cluster, flush right like Finder's, after the system title: `.automatic`
-        // items, a flexible spacer first on macOS 26 (D-156), search last (D-157).
+        // items, a flexible spacer first on macOS 26, search last.
         if #available(macOS 26.0, *) {
             ToolbarSpacer(.flexible, placement: .automatic)
         }
         // An import's progress, like Safari's downloads or Mail's activity, wherever the window is
-        // (a Finder or gloss:// import can run while a book is open), D-148.
+        // (a Finder or gloss:// import can run while a book is open).
         if app.library.importing {
             ToolbarItem(placement: .automatic) { ImportActivity(library: app.library) }
         }
-        // The sort menu only on the library, right before the search (D-152).
+        // The sort menu only on the library, right before the search.
         if case .library = app.workspace.detail {
             ToolbarItem(placement: .automatic) { LibrarySortMenu(app: app) }
         }
@@ -227,9 +226,8 @@ public struct MainWindow: View {
             }
         }
         // Search last, at the right edge. Every trailing item is declared here, in this order, so
-        // nothing a detail view contributes can land after it (D-153). On macOS 26 it rests as a
-        // magnifying glass and the field takes its place while the search is open (`glossSearch`),
-        // D-152.
+        // nothing a detail view contributes can land after it. On macOS 26 it rests as a
+        // magnifying glass and the field takes its place while the search is open (`glossSearch`).
         if #available(macOS 26.0, *) {
             if app.search.showsResults {
                 DefaultToolbarItem(kind: .search, placement: .automatic)
@@ -293,7 +291,7 @@ public struct MainWindow: View {
     }
 }
 
-/// The sheet's one margin, shared with the notes editor's text inset (D-154).
+/// The sheet's one margin, shared with the notes editor's text inset.
 enum SheetMetrics {
     static let margin = NotesEditorMetrics.margin
 }
@@ -380,10 +378,10 @@ struct NotesPane: View {
         }
     }
 
-    /// The page's own title, above its body (brief 21). It wraps onto as many lines as it needs,
+    /// The page's own title, above its body. It wraps onto as many lines as it needs,
     /// like a Notes or Notion title; Return saves it and moves on into the body, leaving the field
     /// saves it too. A title is one line of text: Return never becomes a newline, and pasted line
-    /// breaks become spaces (D-155).
+    /// breaks become spaces.
     private var titleField: some View {
         TextField("untitled", text: titleText, axis: .vertical)
             .lineLimit(1...)
@@ -392,7 +390,7 @@ struct NotesPane: View {
             .focused($titleFocused)
             .onSubmit { submitTitle() }
             .onChange(of: titleFocused) { _, focused in if !focused { commitTitle() } }
-            // The body's glyphs start one margin in (D-154): the title and breadcrumbs share that edge.
+            // The body's glyphs start one margin in: the title and breadcrumbs share that edge.
             .padding(.horizontal, SheetMetrics.margin)
             .padding(.top, app.notes.breadcrumbs.count > 1 ? 4 : SheetMetrics.margin)
     }
@@ -489,7 +487,7 @@ private struct ReaderNotesLayout<Reader: View, Notes: View>: View {
                     notes
                         .frame(width: layout == .split ? width : nil)
                         // The grab area lies over the notes' leading margin instead of taking width,
-                        // so the gap between the card and the text is exactly one margin (D-154).
+                        // so the gap between the card and the text is exactly one margin.
                         .overlay(alignment: .leading) {
                             if layout == .split { grabArea(current: width, widest: widest) }
                         }

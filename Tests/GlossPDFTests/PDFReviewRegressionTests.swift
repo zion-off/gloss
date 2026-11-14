@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import GlossPDF
 
-/// Regressions from the first independent review (docs/REVIEWS.md, review 1).
+/// Regressions from the first independent review.
 @Suite("pdf review regressions")
 struct PDFReviewRegressionTests {
     func metadataTitle(_ text: String) throws -> String? {

@@ -109,7 +109,7 @@ public struct NotesTheme: Sendable {
             .taskBoxChecked: Entry(TextStyle(font: .monospaced, color: .accent), layer: 6),
             .taskDone: Entry(TextStyle(color: .secondary, strikethrough: true), layer: 6),
             .thematicBreak: Entry(TextStyle(color: .tertiary), layer: 6),
-            // Syntax and link destinations are in the text but not on the page (D-141); the cursor
+            // Syntax and link destinations are in the text but not on the page; the cursor
             // touching their element brings them back, dimmed.
             .linkDestination: Entry(TextStyle(collapsed: true), layer: 7),
             .linkDestinationRevealed: Entry(TextStyle(color: .tertiary, underline: nil), layer: 7),

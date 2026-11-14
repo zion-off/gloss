@@ -2,7 +2,7 @@ import Foundation
 import Observation
 import GlossCore
 
-/// The undo toast after something moved to the trash (brief 39): what the capsule says, and
+/// The undo toast after something moved to the trash: what the capsule says, and
 /// the entry "undo" restores. A failure to trash is the same shape with no entry.
 public struct TrashToast: Equatable, Sendable {
     public var message: String
@@ -15,7 +15,7 @@ public struct TrashToast: Equatable, Sendable {
     }
 }
 
-/// Moving things to the trash, with the undo toast (brief 39). `AppModel` orchestrates what the
+/// Moving things to the trash, with the undo toast. `AppModel` orchestrates what the
 /// window does afterwards; this model owns the toast and the service call.
 ///
 /// The toast goes away on its own after `dismissDelay`, or when a newer one replaces it. Time
@@ -53,7 +53,7 @@ public struct TrashToast: Equatable, Sendable {
         }
     }
 
-    /// Restores an entry's whole batch (D-029). Returns what came back, or nil when it was
+    /// Restores an entry's whole batch. Returns what came back, or nil when it was
     /// already gone (restored twice, purged from the cli, …). A matching toast goes with it.
     public func undo(_ entry: TrashEntry) async -> [TrashEntry]? {
         do {
@@ -62,7 +62,7 @@ public struct TrashToast: Equatable, Sendable {
             return restored
         } catch {
             // The entry was purged from the cli between the toast and its undo, or the read
-            // failed: say so instead of leaving a dead Undo button on screen (review 7).
+            // failed: say so instead of leaving a dead Undo button on screen.
             publish(TrashToast(message: "couldn't put it back — it may have gone for good", entry: nil))
             return nil
         }

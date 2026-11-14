@@ -1,5 +1,5 @@
-// Stand-in for PDFKit, for scripts/mac-typecheck.py (D-099). Declarations copied from Apple's
-// documentation JSON (documentation/pdfkit/...), as recorded in docs/MAC_API_NOTES.md. PDFKit's
+// Stand-in for PDFKit, for scripts/mac-typecheck.py. Declarations copied from Apple's
+// documentation JSON (documentation/pdfkit/...). PDFKit's
 // classes and protocols carry no actor annotation in the docs; `PDFView` is an NSView subclass
 // and so main-actor isolated by inheritance.
 
@@ -108,7 +108,7 @@ extension PDFPageOverlayViewProvider {
 
 extension Notification.Name {
     /// pdfkit/pdfviewpagechangednotification — the JSON only carries the ObjC extern; this is
-    /// the importer's standard Swift spelling (UNVERIFIED, MAC_API_NOTES.md).
+    /// the importer's standard Swift spelling (UNVERIFIED).
     public static let PDFViewPageChanged = Notification.Name("PDFViewChangedPage")
     public static let PDFViewSelectionChanged = Notification.Name("PDFViewSelectionChanged")
 }

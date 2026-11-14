@@ -1,5 +1,5 @@
 // generated from web/src/bridge/protocol.ts by pnpm build; do not edit
-// gloss reader bridge protocol — see docs/READER_BRIDGE.md.
+// gloss reader bridge protocol. The Swift twin is GlossReaderBridge; both are tested against Tests/Fixtures/bridge/.
 //
 // Every message is an envelope `{ v, type, payload }`. Swift → JS messages are
 // "commands" (validated by `validateCommand`); JS → Swift messages are "events"

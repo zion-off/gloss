@@ -1,4 +1,4 @@
-// Stand-in for SwiftUI, for scripts/mac-typecheck.py (D-099). Declarations only, copied from
+// Stand-in for SwiftUI, for scripts/mac-typecheck.py. Declarations only, copied from
 // Apple's documentation JSON (developer.apple.com/tutorials/data/documentation/swiftui/...).
 //
 // Where the newest docs spell a signature with SDK-internal machinery (`@ContentBuilder`,

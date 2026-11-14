@@ -4,7 +4,7 @@ import GRDB
 ///
 /// Authoritative tables hold content that would need syncing. Tables prefixed with `derived_`,
 /// plus `page_refs`, `fts_entries` and `fts`, can be dropped and rebuilt at any time
-/// (`DerivedDataRebuilder`) and are never synced (docs/DECISIONS.md D-042).
+/// (`DerivedDataRebuilder`) and are never synced.
 enum Schema {
     static var migrator: DatabaseMigrator {
         var migrator = DatabaseMigrator()

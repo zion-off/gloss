@@ -2,7 +2,7 @@
 import SwiftUI
 import GlossAppModel
 
-/// File › import… — ⇧⌘A, Apple Books' "add to library" shortcut (D-113). The command reaches
+/// File › import… — ⇧⌘A, Apple Books' "add to library" shortcut. The command reaches
 /// the key window's library presentation state through a focused value, so the panel and its
 /// import land in the window the menu acted on.
 public struct LibraryCommands: Commands {

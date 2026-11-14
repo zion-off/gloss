@@ -43,7 +43,7 @@ public struct HighlightService: Sendable {
         }
     }
 
-    /// Deletes a highlight. Never touches link targets (docs/ARCHITECTURE.md §3).
+    /// Deletes a highlight. Never touches link targets.
     /// Returns the deleted highlight so the caller can offer undo via `restore`.
     @discardableResult
     public func delete(_ id: HighlightID) async throws -> Highlight? {

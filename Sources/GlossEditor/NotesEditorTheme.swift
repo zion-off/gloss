@@ -6,7 +6,7 @@ import GlossNotes
 /// Increase Contrast and Dynamic Type come from the system rather than our own palette. The
 /// buffer is the raw markdown; these attributes are presentation only and never saved.
 ///
-/// A class: `baseFont` caches the system fonts it resolves (review 5).
+/// A class: `baseFont` caches the system fonts it resolves.
 @MainActor final class NotesEditorTheme {
     /// Resolved fonts per role, before bold/italic traits.
     private var fonts: [TextStyle.FontRole: NSFont] = [:]
@@ -72,7 +72,7 @@ import GlossNotes
         }
         if style.block == .row {
             // A subpage row's line: always one row tall, never wrapped by its hidden markdown, so
-            // the row drawn over it and the line after it sit where the layout says (D-146).
+            // the row drawn over it and the line after it sit where the layout says.
             let paragraph = NSMutableParagraphStyle()
             paragraph.minimumLineHeight = Self.rowHeight
             paragraph.maximumLineHeight = Self.rowHeight

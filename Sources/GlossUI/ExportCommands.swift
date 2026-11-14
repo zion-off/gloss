@@ -8,7 +8,7 @@ import GlossCore
 
 /// The File menu's export and print actions for the focused window. The portable half is
 /// `ExportModel` (what to export, the file name, failures); this is the AppKit half: the save
-/// panel, and printing the html export from an offscreen web view (D-133, D-134).
+/// panel, and printing the html export from an offscreen web view.
 @MainActor @Observable public final class ExportActions {
     @ObservationIgnored weak var app: AppModel?
     /// A save or print panel is up (menus stay quiet meanwhile).
@@ -34,7 +34,7 @@ import GlossCore
 
     // MARK: Export
 
-    /// The open book's notes as one markdown file (brief 41).
+    /// The open book's notes as one markdown file.
     public func exportBookNotes() {
         Task { await exportBookNotesNow() }
     }

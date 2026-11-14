@@ -16,7 +16,7 @@ final class SubpageRowFragment: NSTextLayoutFragment {
     }
 
     /// Where the row is, in the fragment's own coordinates: the paragraph's first line, as wide as
-    /// the text container. Not the whole fragment (D-146): when the row is the last paragraph and
+    /// the text container. Not the whole fragment: when the row is the last paragraph and
     /// the text ends with its newline, TextKit 2 puts the empty last line (the extra line fragment)
     /// in this same fragment, and a row centred on both lines slid down over the new line, and
     /// answered clicks there.

@@ -1,7 +1,7 @@
 import GlossMarkdown
 
 /// A line in a page body that consists only of a link to another page — the marker for where
-/// a subpage renders as a block row (docs/DECISIONS.md D-027).
+/// a subpage renders as a block row.
 public struct PageBlockLine: Hashable, Sendable {
     public var pageID: PageID
     /// The whole line (no newline).

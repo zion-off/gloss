@@ -1,7 +1,7 @@
 /// The kind of a document ("epub", "pdf", later "article", "mobi", "comic"…).
 ///
 /// An open struct rather than an enum: formats register their kind, and nothing in the core
-/// switches over kinds (docs/DECISIONS.md D-021).
+/// switches over kinds.
 public struct DocumentKind: RawRepresentable, Hashable, Codable, Sendable, CustomStringConvertible {
     public let rawValue: String
 

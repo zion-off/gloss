@@ -39,7 +39,7 @@ const isRefresh = (element: Element): boolean =>
     && (element.getAttribute('http-equiv') ?? '').trim().toLowerCase() === 'refresh'
 
 // Also used by the glue to give documents it parses itself the shape of the rendered ones
-// (quote resolution, D-190), so CFIs computed in them match.
+// (quote resolution), so CFIs computed in them match.
 export const shouldRemove = (element: Element): boolean =>
     element.localName === 'script' || element.localName === 'base'
     || isRefresh(element) || isLinkAnimation(element)
@@ -74,13 +74,13 @@ export const sanitizeMarkup = (
     // markup through (WebKit would render it up to the error, scripts included)
     const fellBack = type !== 'text/html' && doc.getElementsByTagName('parsererror').length > 0
     if (fellBack) doc = parser.parseFromString(markup, 'text/html')
-    // Template content is a separate tree the walker never reaches (review 4); walk it too.
+    // Template content is a separate tree the walker never reaches; walk it too.
     const allElements = (root: ParentNode): Element[] => {
         const found: Element[] = Array.from(root.querySelectorAll('*'))
         for (const template of root.querySelectorAll('template')) {
             // Under the HTML/XHTML parsers template content is a DocumentFragment; under the
             // generic XML parser a <template> is an ordinary element with no .content
-            // (review 5) — its children are already in the walk. Duck-typed: this module is
+            // — its children are already in the walk. Duck-typed: this module is
             // pure and never touches globals.
             const content = (template as { content?: unknown }).content
             if (content && typeof (content as DocumentFragment).querySelectorAll === 'function')

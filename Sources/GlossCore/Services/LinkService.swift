@@ -61,9 +61,8 @@ public struct LinkService: Sendable {
         self.time = time
     }
 
-    /// The target for a passage, reusing an existing one at the same locator
-    /// (docs/DECISIONS.md D-026). New targets start orphaned until a page links to them, so
-    /// abandoned ones are swept.
+    /// The target for a passage, reusing an existing one at the same locator.
+    /// New targets start orphaned until a page links to them, so abandoned ones are swept.
     public func target(for passage: Passage, in documentID: DocumentID) async throws -> LinkTarget {
         let now = time.now()
         let id: LinkTargetID = ids.make()
@@ -140,7 +139,7 @@ public struct LinkService: Sendable {
     }
 
     /// Wraps words of a page in a link to a passage (`gloss link`), creating or reusing the
-    /// passage's target (D-026), in one write. `range` is where the caller found `text` in the
+    /// passage's target, in one write. `range` is where the caller found `text` in the
     /// body; if the page changed since, nothing is written. Words already linked to this target
     /// stay as they are; words inside another link re-point it, as the editor's gesture does.
     public func link(_ range: Range<Int>, expecting text: String, in pageID: PageID, to passage: Passage,

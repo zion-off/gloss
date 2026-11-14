@@ -119,7 +119,7 @@ import GlossCore
 
     /// Whether the results pane replaces the detail column: while the search is open, even with
     /// the field cleared (an empty search state, not a jump home), or while a query stands after
-    /// the field lost focus (D-151).
+    /// the field lost focus.
     public var showsResults: Bool { isPresented || hasQuery }
 
     /// The current scope's name, for the empty search state ("this book", "everything").

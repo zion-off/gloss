@@ -24,7 +24,7 @@ final class NotesTextView: NSTextView {
     private var hoverArea: NSTrackingArea?
 
     /// The subpage row under the pointer (this view's coordinates): Notion's soft rounded block.
-    /// A view of its own beneath the text's (D-146): TextKit 2 renders layout fragments into
+    /// A view of its own beneath the text's: TextKit 2 renders layout fragments into
     /// their own cached layers, so a block painted in this view's `draw(_:)` was either covered or
     /// never repainted when the pointer moved.
     var hoverRowRect: NSRect? {
@@ -87,7 +87,7 @@ final class NotesTextView: NSTextView {
     }
 
     /// `characterIndexForInsertion(at:)` takes view coordinates and is the documented call for
-    /// clicks; `characterIndex(for:)` wants screen coordinates and serves input methods (review 6).
+    /// clicks; `characterIndex(for:)` wants screen coordinates and serves input methods.
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         if let hit = rowHit(at: point), let onRowClick {

@@ -3,7 +3,7 @@ import SwiftUI
 import GlossAppModel
 import GlossCore
 
-/// "open quickly" (⇧⌘O, D-071): a small sheet over the window, one field, up/down/return to
+/// "open quickly" (⇧⌘O): a small sheet over the window, one field, up/down/return to
 /// open, escape to close — after Xcode's switcher. The list and the debounced search live in
 /// the portable `QuickSwitcherModel`; this is only the presentation.
 struct QuickSwitcherSheet: View {

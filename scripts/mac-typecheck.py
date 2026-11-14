@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Type-checks the macOS-only modules on Linux against stub Apple frameworks (D-099).
+"""Type-checks the macOS-only modules on Linux against stub Apple frameworks.
 
 The Mac targets compile to empty modules on Linux (every file sits in `#if os(macOS)`), so the
 compiler never sees their bodies. This script compiles them for real:

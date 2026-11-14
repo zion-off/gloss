@@ -4,7 +4,7 @@ import SwiftUI
 import GlossAppModel
 import GlossCore
 
-/// The "back up library…" flow (brief 40): the save panel, then the copy (which runs off the
+/// The "back up library…" flow: the save panel, then the copy (which runs off the
 /// main actor, in the model), then the report. One per window; the File menu command reaches
 /// the key window's instance through a focused value.
 @MainActor @Observable public final class BackupCommands {

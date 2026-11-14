@@ -3,13 +3,13 @@ import SwiftUI
 import GlossAppModel
 import GlossCore
 
-/// The toolbar search (brief 31): `.searchable` puts the field in the toolbar, `.searchScopes`
+/// The toolbar search: `.searchable` puts the field in the toolbar, `.searchScopes`
 /// hangs the scope menu off it (the options come from where the user is, via `SearchModel`),
 /// and the results replace the detail column while the search is open or a query stands —
-/// Mail's search, with Books' "choosing a result closes the search" (D-130, D-151).
+/// Mail's search, with Books' "choosing a result closes the search".
 ///
 /// On macOS 26 the search rests as a magnifying-glass toolbar button (`SearchToolbarButton`) and
-/// the field exists only while the search is open or holds a query, like Mail's (D-152):
+/// the field exists only while the search is open or holds a query, like Mail's:
 /// `searchToolbarBehavior(.minimize)` is unavailable on macOS, so the field's `searchable` sits on
 /// a background view that comes and goes, leaving the window's own view tree untouched. Earlier
 /// systems keep the standard always-visible field.
@@ -42,7 +42,7 @@ private struct SearchField: ViewModifier {
     func body(content: Content) -> some View {
         content
             .searchable(text: Binding(get: { model.query }, set: { model.query = $0 }),
-                        // Opening and closing switch at once: deliberately no transition (D-160).
+                        // Opening and closing switch at once: deliberately no transition.
                         isPresented: Binding(get: { model.isPresented }, set: { model.isPresented = $0 }),
                         placement: .toolbar,
                         prompt: "search")
@@ -90,7 +90,7 @@ struct SearchResults: View {
         }
         .overlay {
             if !app.search.hasQuery {
-                // The search is open but the field is empty: say what it will look through (D-151).
+                // The search is open but the field is empty: say what it will look through.
                 ContentUnavailableView {
                     Label("search your books and notes", systemImage: "magnifyingglass")
                 } description: {
@@ -111,7 +111,7 @@ struct SearchResults: View {
         // Escape closes the search even when nothing has keyboard focus. A click on a blank part
         // of the results (or the reader having had focus before the book was swapped out) leaves
         // the window itself as first responder, where `.onExitCommand` never fires; a key
-        // equivalent is looked up through the window's views regardless of focus (D-162). Not
+        // equivalent is looked up through the window's views regardless of focus. Not
         // `.hidden()`: hidden controls take no key equivalents.
         .background {
             Button("close search") { app.search.dismiss() }

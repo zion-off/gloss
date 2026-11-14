@@ -40,7 +40,7 @@ public struct AppearanceStyler: Sendable {
     public func appearance(for settings: ReaderSettings) -> ReaderAppearance {
         let palette = Palette.for(settings.theme)
         let dark = settings.theme == .night
-        // One page colour (D-144): the theme's background on `html` only, which paints the whole
+        // One page colour: the theme's background on `html` only, which paints the whole
         // section document and is what foliate copies to its margins; book backgrounds on `body`
         // would paint just the column boxes, so they go. Text takes the theme colour; a dark
         // theme also overrides the book's own text and box colours, which assume a light page.

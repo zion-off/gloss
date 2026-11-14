@@ -9,8 +9,8 @@ import GlossReaderBridge
 /// The Settings window (⌘,): one grouped form like System Settings, "reading" first (it is what
 /// people come here for), then "trash". Tabs are the other Apple pattern, but the only tab API a
 /// macOS 14 target can use (`tabItem`) is deprecated in the newest SDK, and its replacement needs
-/// macOS 15 (D-121). A sample page at the top shows the reading settings as they change; open
-/// books take them once, when the window closes (D-149).
+/// macOS 15. A sample page at the top shows the reading settings as they change; open
+/// books take them once, when the window closes.
 public struct GlossSettingsView: View {
     @Bindable var model: AppSettingsModel
 
@@ -55,7 +55,7 @@ public struct GlossSettingsView: View {
             } header: {
                 Text("trash")
             } footer: {
-                // A save that didn't store says so here rather than pretending it landed (review 7).
+                // A save that didn't store says so here rather than pretending it landed.
                 if let problem = model.saveProblem {
                     Text(verbatim: problem)
                         .font(.callout)

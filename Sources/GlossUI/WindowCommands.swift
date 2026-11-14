@@ -22,7 +22,7 @@ public final class WindowCommands {
         self.app = app
     }
 
-    /// File › open quickly… (D-071): opens the switcher sheet over the window.
+    /// File › open quickly…: opens the switcher sheet over the window.
     public func openQuickly() {
         showsSwitcher = true
     }
@@ -59,7 +59,7 @@ public final class WindowCommands {
     private var paneCanGoBack: Bool { notesFocused ? (app?.workspace.canGoBackInNotes ?? false) : (app?.workspace.canGoBackInReader ?? false) }
     private var paneCanGoForward: Bool { notesFocused ? (app?.workspace.canGoForwardInNotes ?? false) : (app?.workspace.canGoForwardInReader ?? false) }
     /// While the search shows, back leaves it (the field folds away, the previous view returns)
-    /// and forward has nowhere to go (D-159). At the start of a book's trail, back leaves for the
+    /// and forward has nowhere to go. At the start of a book's trail, back leaves for the
     /// library, and forward comes back.
     private var searching: Bool { app?.search.showsResults == true }
     public var canGoBack: Bool { searching || paneCanGoBack || app?.workspace.canGoHome == true }
@@ -130,7 +130,7 @@ public struct GlossWindowCommands: Commands {
 }
 
 extension GlossWindowCommands {
-    /// The View menu's layout items, Preview-style ⌥⌘ numbers (D-095).
+    /// The View menu's layout items, Preview-style ⌥⌘ numbers.
     static let layouts: [(layout: SplitLayout, title: String, key: KeyEquivalent)] = [
         (.split, "reader and notes", "1"),
         (.readerOnly, "reader only", "2"),

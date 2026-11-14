@@ -11,7 +11,7 @@ public enum PDFLocators {
     /// A passage inside a PDF; the value is compact `PDFPassageLocator` JSON. Used by
     /// highlights and note links.
     public static let passageScheme = LocatorScheme("pdf")
-    /// A passage pinned by its words (`gloss link`, D-190): `PDFQuoteLocator` JSON, resolved by
+    /// A passage pinned by its words (`gloss link`): `PDFQuoteLocator` JSON, resolved by
     /// the PDFKit reader against the page's text.
     public static let quoteScheme = LocatorScheme("pdf-quote")
 }

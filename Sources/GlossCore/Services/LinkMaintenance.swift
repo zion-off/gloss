@@ -52,7 +52,7 @@ public struct LinkMaintenance: Sendable {
     }
 
     /// Rewrites every page linking to `target`, replacing `[label](gloss://…)` with `label`.
-    /// The line of text survives; only the link goes (docs/DECISIONS.md D-025).
+    /// The line of text survives; only the link goes.
     static func degradeReferences(to target: ReferenceTarget, in tx: any WriteTransaction, now: Date,
                                   skipping skipped: Set<PageID> = []) throws {
         for pageID in try tx.references.referringPages(to: target) where !skipped.contains(pageID) {

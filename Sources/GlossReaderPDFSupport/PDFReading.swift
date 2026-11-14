@@ -237,7 +237,7 @@ public enum PDFSelectionMapping {
     }
 }
 
-/// Passages the CLI pinned by their words (`pdf-quote`, D-190), turned into the passage locators the
+/// Passages the CLI pinned by their words (`pdf-quote`), turned into the passage locators the
 /// engine draws and jumps to: the words are found in PDFKit's page text (context first, then the
 /// occurrence; `QuoteAnchor.resolve`), PDFKit measures their lines, and the result is remembered
 /// while the document is open. Other locators pass through untouched.

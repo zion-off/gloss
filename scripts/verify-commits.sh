@@ -17,7 +17,7 @@ status=0
 for commit in $(git rev-list --reverse "$range"); do
   subject=$(git log -1 --format=%s "$commit")
   git -C "$tree" checkout -q --detach "$commit"
-  # Commits from D-099 on also type-check their Mac modules against the stub frameworks — a
+  # Commits that have scripts/mac-typecheck.py also type-check their Mac modules against the stub frameworks — a
   # Linux-only round (on a Mac the real build already type-checks them; the stub round there
   # would only test the stubs).
   if (cd "$tree" && swift build --build-tests --scratch-path "$scratch" >/tmp/gloss-verify.log 2>&1 \

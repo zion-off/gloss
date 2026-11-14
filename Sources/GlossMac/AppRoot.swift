@@ -21,7 +21,7 @@ struct CompositionFailure: Error {
 @MainActor final class AppRoot {
     let services: GlossServices
     let engines: ReadingEngineRegistry
-    /// Export and print for the windows: the same service the cli wires (D-133).
+    /// Export and print for the windows: the same service the cli wires.
     let export: ExportModel
     let libraryURL: URL
     /// The Settings window's model (⌘,); the Settings scene reads it.

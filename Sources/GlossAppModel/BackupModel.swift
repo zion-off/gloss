@@ -2,7 +2,7 @@ import Foundation
 import Observation
 import GlossCore
 
-/// The "back up library…" flow's portable half (brief 40): the never-overwrite rule, the copy
+/// The "back up library…" flow's portable half: the never-overwrite rule, the copy
 /// running off the main actor, and the result the window reports. The save panel is the Mac
 /// layer's; this model takes the chosen url.
 @MainActor @Observable public final class BackupModel {

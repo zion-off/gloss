@@ -62,7 +62,7 @@ extension FocusedValues {
     @Entry public var notesEditorActions: NotesEditorActions?
 }
 
-/// The Format menu: the format bar's commands with Apple Notes' shortcuts (D-070). It replaces
+/// The Format menu: the format bar's commands with Apple Notes' shortcuts. It replaces
 /// the system's text formatting group, whose Font › Bold would set rich-text traits that the
 /// markdown buffer can't hold.
 public struct NotesFormatCommands: Commands {

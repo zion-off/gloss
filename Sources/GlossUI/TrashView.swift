@@ -3,13 +3,13 @@ import SwiftUI
 import GlossAppModel
 import GlossCore
 
-/// The trash (brief 39): what's in it, when each thing goes away for good, put back, delete
+/// The trash: what's in it, when each thing goes away for good, put back, delete
 /// for good, and empty. The source list's badge is `TrashModel.items.count`, which every
 /// restore, purge and empty here reloads.
 struct TrashView: View {
     let trash: TrashModel
     /// Holds the "empty the trash?" question: its button lives in the window's toolbar, so the
-    /// trailing toolbar order is the window's to decide (D-153).
+    /// trailing toolbar order is the window's to decide.
     let presentation: LibraryPresentationModel
     /// The row about to be deleted for good (a confirmation, like the cli's question).
     @State private var confirmDelete: TrashOverview.Item?
@@ -34,8 +34,8 @@ struct TrashView: View {
         }
         .overlay(alignment: .bottom) {
             if let problem = trash.restoreProblem {
-                // A restore that brought nothing back says so (review 7), and goes when the
-                // situation is over (review 8) — floating like its sibling below.
+                // A restore that brought nothing back says so, and goes when the
+                // situation is over — floating like its sibling below.
                 Text(verbatim: problem)
                     .font(.callout)
                     .foregroundStyle(.secondary)

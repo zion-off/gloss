@@ -20,7 +20,7 @@ public struct StyleRole: RawRepresentable, Hashable, Sendable, CustomStringConve
     public static let link = StyleRole("link")
     public static let linkDestination = StyleRole("linkDestination")
     public static let thematicBreak = StyleRole("thematicBreak")
-    /// Markdown syntax characters: kept in the text, not shown (D-141).
+    /// Markdown syntax characters: kept in the text, not shown.
     public static let syntax = StyleRole("syntax")
     /// Syntax characters of the element the cursor touches: shown, dimmed.
     public static let syntaxRevealed = StyleRole("syntaxRevealed")

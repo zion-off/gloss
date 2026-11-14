@@ -420,7 +420,7 @@ const applyMotion = (): void => {
 }
 reducedMotion.addEventListener('change', applyMotion)
 
-// The reader page itself takes the theme's colours (reader.css, D-144): foliate's margins and
+// The reader page itself takes the theme's colours (reader.css): foliate's margins and
 // column gap show the page through, so it must match the section documents' background.
 const applyPageColors = (pageColors: protocol.AppearanceColors): void => {
     const root = document.documentElement.style
@@ -503,7 +503,7 @@ const sectionDocument = async (index: number): Promise<Document | null> => {
     return doc ?? null
 }
 
-// The CFIs of passages pinned by their words (`epub-quote` locators from `gloss link`, D-190),
+// The CFIs of passages pinned by their words (`epub-quote` locators from `gloss link`),
 // all in one section: the section is parsed once, each quote's words are found in it (context
 // first, then the occurrence; bridge/quote.ts, bridge/quote-dom.ts) and the range's CFI is taken
 // the way foliate's own search does. Null for words that aren't there; answers are remembered for
@@ -712,7 +712,7 @@ const commands: { [K in protocol.CommandType]: (payload: protocol.CommandPayload
         }
         if (section == null)
             throw new Error('revealSearchHit needs a cfi or a section')
-        // Search within the spine section, off the command queue (review 4): a whole
+        // Search within the spine section, off the command queue: a whole
         // section scan must not hold back the commands sent after it. Foliate outlines every
         // match like its search results do; we go to the first one and flash it.
         const generation = searchGeneration.bump()

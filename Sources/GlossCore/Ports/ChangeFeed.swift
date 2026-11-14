@@ -28,7 +28,7 @@ public struct ChangeRecord: Hashable, Sendable {
 }
 
 /// Every write is journaled with the writing process's `origin`, so one process can notice
-/// what another (the CLI, say) changed (docs/DECISIONS.md D-041).
+/// what another (the CLI, say) changed.
 public protocol ChangeFeed: Sendable {
     /// Identifies this process's writes.
     var origin: String { get }

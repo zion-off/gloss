@@ -187,7 +187,7 @@ struct NotesEditorRepresentable: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSView, context: Context) {
         // Rewired every update: the closures capture this view's values, which a future caller
-        // could change between renders (review 5).
+        // could change between renders.
         context.coordinator.openGlossLink = onOpenGlossLink
         context.coordinator.openWebLink = onOpenWebLink
         context.coordinator.openPage = onOpenPage

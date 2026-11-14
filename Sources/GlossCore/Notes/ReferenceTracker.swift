@@ -1,7 +1,6 @@
 import Foundation
 
-/// Keeps `PageReference`s and link-target orphan marks in step with page bodies
-/// (docs/ARCHITECTURE.md §3, docs/DECISIONS.md D-023/D-024).
+/// Keeps `PageReference`s and link-target orphan marks in step with page bodies.
 public enum ReferenceTracker {
     /// Re-derives the references of `page` from its body.
     public static func update(_ page: Page, in tx: any WriteTransaction, now: Date) throws {

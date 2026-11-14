@@ -145,13 +145,13 @@ import GlossReaderBridge
         openRequests += 1
         let request = openRequests
         self.document = document
-        errorMessage = nil  // a stale error must not speak for this open (review 4)
+        errorMessage = nil  // a stale error must not speak for this open
         stopShowingBook()
         toc = []
         location = nil
         pendingFocus = locator
         // A failed read proves nothing: opening at the start would let the first relocation
-        // overwrite the real saved position (review 4). Don't open; the user can retry.
+        // overwrite the real saved position. Don't open; the user can retry.
         let saved: Locator?
         do {
             saved = locator == nil ? try await services.library.position(of: document.id)?.locator : nil
@@ -195,7 +195,7 @@ import GlossReaderBridge
             }
         case .openFailed(let message, let openID):
             // Only the open in flight counts; a failure of an open a newer one replaced
-            // must not cancel it (review 4).
+            // must not cancel it.
             guard openID == awaitedOpenID else { return }
             awaitedOpenID = nil
             pendingFocus = nil
@@ -394,7 +394,7 @@ import GlossReaderBridge
         } catch {
             // The engine threw instead of reporting `.openFailed` (the web content process died
             // mid-open, a command failed). Unwedge exactly like the event path, or the next
-            // open of the same book short-circuits forever (review 5).
+            // open of the same book short-circuits forever.
             guard openID == awaitedOpenID else { return }  // a newer open already took over
             awaitedOpenID = nil
             pendingFocus = nil

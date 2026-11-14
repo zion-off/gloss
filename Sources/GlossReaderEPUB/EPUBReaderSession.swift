@@ -4,7 +4,7 @@ import WebKit
 import GlossReaderBridge
 import GlossReaderKit
 
-/// foliate-js in a WKWebView (docs/READER_BRIDGE.md): the reader page and books come from the
+/// foliate-js in a WKWebView (protocol: `web/src/bridge/protocol.ts`): the reader page and books come from the
 /// scheme handler, events arrive as JSON text from the `gloss` message handler and go through
 /// the inbox, commands go in through `callAsyncJavaScript`.
 @MainActor
@@ -37,7 +37,7 @@ final class EPUBReaderSession: NSObject, ReaderSession, WKNavigationDelegate {
         self.inbox = ReaderEventInbox(deliver: deliver)
         self.bridge = EPUBBridgeDriver(appearance: appearance) { [weak webView] command in
             guard let webView else { throw ReaderDrivingError.notReady }
-            // JSON text in, parsed in the page: the glue validates exactly what Swift encoded (D-081).
+            // JSON text in, parsed in the page: the glue validates exactly what Swift encoded.
             _ = try await webView.callAsyncJavaScript("return await window.glossReader.receive(JSON.parse(command))",
                                                       arguments: ["command": try command.encodedString()],
                                                       contentWorld: .page)

@@ -12,7 +12,7 @@ public enum ReaderResource: Equatable, Sendable {
     case notFound
 }
 
-/// Routes `gloss-reader://app/…` URLs (docs/READER_BRIDGE.md, "Transport"):
+/// Routes `gloss-reader://app/…` URLs:
 ///
 ///     gloss-reader://app/index.html        the reader page
 ///     gloss-reader://app/glue.js, foliate/…, bridge/…, reader.css
@@ -62,7 +62,7 @@ public struct ReaderResourceRouter: Sendable {
     /// Response headers. Nothing is cached: the web view's data store is non-persistent anyway,
     /// and book bytes must never outlive the session. `nosniff` keeps WebKit to the declared
     /// type: `script-src 'self'` covers `/book/<id>` too, and a book must not be able to load
-    /// another imported file as a script (review 3).
+    /// another imported file as a script.
     public static func headers(mimeType: String, length: Int) -> [String: String] {
         ["Content-Type": mimeType, "Content-Length": String(length), "Cache-Control": "no-store",
          "X-Content-Type-Options": "nosniff"]

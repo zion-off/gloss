@@ -124,7 +124,7 @@ struct AppearanceTests {
         #expect(appearance.css.contains("line-height: 1.7"))
         #expect(appearance.css.contains("color-scheme: light"))
         #expect(!appearance.css.contains("color-scheme: dark"))
-        // One page colour: the theme's on html wins over the book's, body backgrounds go (D-144).
+        // One page colour: the theme's on html wins over the book's, body backgrounds go.
         #expect(appearance.css.contains("background: #f8f1e3 !important"))
         #expect(appearance.css.contains("background: transparent !important"))
 

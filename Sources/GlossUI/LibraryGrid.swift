@@ -4,7 +4,7 @@ import SwiftUI
 import GlossAppModel
 import GlossCore
 
-/// The library detail column (brief 34): a "recently read" shelf above an Apple Books-style
+/// The library detail column: a "recently read" shelf above an Apple Books-style
 /// grid of covers. Every decision is portable and lives in GlossAppModel (the sort, the
 /// generated-cover look, what an import found); this view renders state and forwards events.
 /// A single click opens the book, as Books does; arrow-key selection is not part of it.
@@ -39,7 +39,7 @@ struct LibraryGrid: View {
         .overlay { dropHighlight }
     }
 
-    /// The shelf only shows on "all" (D-111): a filter means "show me this kind", and the recent
+    /// The shelf only shows on "all": a filter means "show me this kind", and the recent
     /// row would repeat what the grid below already holds.
     private var showsRecentShelf: Bool {
         library.shelf == nil && !library.recentlyRead.isEmpty
@@ -60,7 +60,7 @@ struct LibraryGrid: View {
         }
     }
 
-    // MARK: Empty states (brief 38)
+    // MARK: Empty states
 
     /// The home empty state is a drop zone: the whole window takes the drop, this says so.
     private var emptyState: some View {
@@ -80,7 +80,7 @@ struct LibraryGrid: View {
     // MARK: Drop
 
     /// The window is the drop zone; while a drag is over it the library gets the system's
-    /// drop-target ring, an accent outline like Finder and Mail draw, and nothing else (D-148).
+    /// drop-target ring, an accent outline like Finder and Mail draw, and nothing else.
     /// Import progress lives in the toolbar (`LibraryFeatures`).
     @ViewBuilder private var dropHighlight: some View {
         if presentation.dropTargeted {
@@ -116,7 +116,7 @@ private struct CoverCell: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 // Like Books: a quiet line of text, no bar and no badge on the cover. A book never
-                // opened shows only its format: absence of a percentage is the "new" state (D-115).
+                // opened shows only its format: absence of a percentage is the "new" state.
                 Text(verbatim: statusLine)
                     .font(.caption)
                     .foregroundStyle(.tertiary)
@@ -220,7 +220,7 @@ private struct CoverArt: View {
     }
 }
 
-/// The fallback cover (brief 34): title and author on a tint Books never change between
+/// The fallback cover: title and author on a tint Books never change between
 /// launches — the tint and the text layout are decided in GlossAppModel (GeneratedCoverStyle).
 struct GeneratedCoverView: View {
     let style: GeneratedCoverStyle

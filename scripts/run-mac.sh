@@ -57,7 +57,7 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
         </dict>
     </array>
     <!-- Finder double-clicking a book gloss can read (brief 36); the ids are the system's
-         UTIs (UTType.epub / UTType.pdf, docs/MAC_API_NOTES.md). The registered formats live in
+         UTIs (UTType.epub / UTType.pdf). The registered formats live in
          code (FormatRegistry); v1 ships epub and pdf. -->
     <key>CFBundleDocumentTypes</key>
     <array>

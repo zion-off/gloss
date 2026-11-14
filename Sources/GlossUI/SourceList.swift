@@ -4,7 +4,7 @@ import GlossAppModel
 import GlossCore
 import GlossReaderKit
 
-/// The window's source list (D-101), sectioned like Mail or Music: the library's shelves and the
+/// The window's source list, sectioned like Mail or Music: the library's shelves and the
 /// trash, then the open book with its contents, highlights and notes pages. A click goes through
 /// `AppModel.select`, which decides what the detail column shows.
 struct SourceList: View {
@@ -87,7 +87,7 @@ struct SourceList: View {
         }
     }
 
-    /// The book's highlights in reading order (brief 8): click to jump, delete to remove.
+    /// The book's highlights in reading order: click to jump, delete to remove.
     private var highlights: some View {
         Section("highlights", isExpanded: $showsHighlights) {
             if app.bookSidebar.highlights.isEmpty {
@@ -110,7 +110,7 @@ struct SourceList: View {
 
     /// The notes pane's pages as a read-only tree (brief 25: no drag to reorder or reparent).
     /// After a cross-book link they belong to another book than the reader's, and the header
-    /// says which (D-102). Anything but the root can go to the trash (D-032); the root goes
+    /// says which. Anything but the root can go to the trash; the root goes
     /// with its book.
     private var notes: some View {
         Section(isExpanded: $showsNotes) {
@@ -139,7 +139,7 @@ struct SourceList: View {
     }
 
     /// How far a nested contents entry or notes page sits in, per level: the trees are indented
-    /// rows, not expandable outline rows (D-147), so every row keeps the library's alignment.
+    /// rows, not expandable outline rows, so every row keeps the library's alignment.
     static func indent(_ depth: Int) -> CGFloat { CGFloat(depth) * 14 }
 
     /// Edit › Delete (and the delete key) removes the selection: a highlight, a notes page, or

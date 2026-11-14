@@ -16,7 +16,7 @@ public struct FormatBarItem: Identifiable, Sendable {
 
 /// The format bar's contents, in order: bold, italic, heading, list, quote, code, link.
 ///
-/// Shortcuts follow Apple Notes' Format menu (docs/DECISIONS.md D-070): ⇧⌘H heading,
+/// Shortcuts follow Apple Notes' Format menu: ⇧⌘H heading,
 /// ⇧⌘7 bulleted list, ⌘' block quote, ⇧⌘M monospaced. ⌘K belongs to "link to passage" (the
 /// plan's Edit-menu command), so the plain web link takes ⇧⌘K.
 public enum FormatBar {
@@ -31,7 +31,7 @@ public enum FormatBar {
 
     /// Shortcuts the format bar must never take: system-wide ones, the standard app and Edit
     /// menu ones, and the ones gloss assigns elsewhere (⌘K link to passage, ⌘[ ⌘] history,
-    /// ⇧⌘O open quickly, ⇧⌘A file › import — Apple Books' "add to library", D-113).
+    /// ⇧⌘O open quickly, ⇧⌘A file › import — Apple Books' "add to library").
     public static let reservedShortcuts: Set<String> = [
         "⇧⌘Q", "⌘Q", "⌘W", "⌘N", "⌘O", "⌘S", "⌘P", "⌘H", "⌘M", "⌘,", "⌘Z", "⇧⌘Z", "⌘X", "⌘C", "⌘V", "⌘A",
         "⌘F", "⌘G", "⇧⌘G", "⌘T", "⌘K", "⌘[", "⌘]", "⇧⌘O", "⇧⌘N", "⇧⌘A",

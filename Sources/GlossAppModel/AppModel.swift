@@ -25,7 +25,7 @@ import GlossReaderBridge
     public let presentation = LibraryPresentationModel()
     /// Export and print (the composition root hands in the model over the cli's ExportService).
     public let export: ExportModel
-    /// Moving things to the trash, with the undo toast (brief 39).
+    /// Moving things to the trash, with the undo toast.
     public let deletion: DeletionModel
     public var linking: LinkingCoordinator { LinkingCoordinator(services: services, reader: reader) }
     public var changeMonitor: ExternalChangeMonitor?
@@ -45,9 +45,9 @@ import GlossReaderBridge
     /// Runs the reaction to a settings change; `flushSettingsChanges` waits for it.
     private var settingsTask: Task<Void, Never>?
     /// This window's id among the app's windows: same-process changes carry it so a window can
-    /// skip its own writes (review 7). Internal: only the fan-out plumbing reads it.
+    /// skip its own writes. Internal: only the fan-out plumbing reads it.
     let windowID = "window-\(UUID().uuidString)"
-    /// Same-process writes from the app's other windows (review 7): the journal can't carry
+    /// Same-process writes from the app's other windows: the journal can't carry
     /// them (one origin per process), so windows post what they wrote and each applies the
     /// others'. `@ObservationIgnored`: plumbing, not state; touched only on the main actor.
     @ObservationIgnored private var localToken: LocalObserverToken
@@ -56,8 +56,8 @@ import GlossReaderBridge
     struct LocalObserverToken: @unchecked Sendable {
         let observer: (any NSObjectProtocol)?
     }
-    /// Runs the reaction to another window's writes; `flushLocalChanges` waits for it. Chained
-    /// (review 8), so the task also covers every earlier post it followed.
+    /// Runs the reaction to another window's writes; `flushLocalChanges` waits for it. Chained,
+    /// so the task also covers every earlier post it followed.
     private var localChangesTask: Task<Void, Never>?
 
     public init(services: GlossServices, export: ExportModel? = nil) {
@@ -82,7 +82,7 @@ import GlossReaderBridge
         // A save that changed gloss links moves markers in the open book.
         notes.linksDidChange = { [weak self] in await self?.reader.refreshAnnotations() }
         // The Settings window closed with changes (same process, so the change monitor never sees
-        // them): reading settings go to the open book, and retention re-dates the trash (D-149).
+        // them): reading settings go to the open book, and retention re-dates the trash.
         // NotificationCenter delivers synchronously on the posting (main) thread (verified
         // against swift-corelibs-foundation), so the hop below is safe on both platforms.
         let observer = NotificationCenter.default.addObserver(forName: .glossSettingsChanged, object: nil, queue: nil) { [weak self] note in
@@ -90,7 +90,7 @@ import GlossReaderBridge
             MainActor.assumeIsolated {
                 guard let self else { return }
                 // Chained, like every other write in the app: two saves landing close together
-                // apply in the order they were saved, so the newest settings win (review 7).
+                // apply in the order they were saved, so the newest settings win.
                 let previous = self.settingsTask
                 self.settingsTask = Task {
                     await previous?.value
@@ -99,7 +99,7 @@ import GlossReaderBridge
             }
         }
         self.settingsToken = SettingsObserverToken(observer: observer)
-        // The app's other windows, same process (review 7). Object-filtered to this library,
+        // The app's other windows, same process. Object-filtered to this library,
         // so a test with its own store never hears another's windows.
         let local = NotificationCenter.default.addObserver(forName: .glossLocalChanges, object: services.store as AnyObject, queue: nil) { [weak self] note in
             let records = note.userInfo?[glossLocalChangesKey] as? [ChangeRecord] ?? []
@@ -107,7 +107,7 @@ import GlossReaderBridge
                 guard let self else { return }
                 let foreign = records.filter { $0.origin != self.windowID }
                 guard !foreign.isEmpty else { return }
-                // Chained, like the settings reaction (review 8): back-to-back posts apply in
+                // Chained, like the settings reaction: back-to-back posts apply in
                 // the order they arrived, and `flushLocalChanges` waits for the whole chain.
                 let previous = self.localChangesTask
                 self.localChangesTask = Task {
@@ -117,7 +117,7 @@ import GlossReaderBridge
             }
         }
         self.localToken = LocalObserverToken(observer: local)
-        // What the models write on this window's behalf reaches the others (review 7).
+        // What the models write on this window's behalf reaches the others.
         library.onImported = { [weak self] documents in
             guard let self else { return }
             self.tellOtherWindows(documents.map { self.changed(ChangeEntity.document, $0.id.stringValue) })
@@ -201,7 +201,7 @@ import GlossReaderBridge
         }
     }
 
-    // MARK: Moving to the trash (brief 39)
+    // MARK: Moving to the trash
 
     /// Moves a book and everything in it to the trash, with the undo toast. Returns the entry
     /// when it went, nil when it couldn't (the toast says why).
@@ -230,7 +230,7 @@ import GlossReaderBridge
         return entry
     }
 
-    /// The toast's "undo", and Edit › Undo (⌘Z, D-019): restores the entry and whatever was
+    /// The toast's "undo", and Edit › Undo (⌘Z): restores the entry and whatever was
     /// trashed with it. Returns what came back, or nil when it was already gone.
     @discardableResult
     public func undoTrash(_ entry: TrashEntry) async -> [TrashEntry]? {
@@ -240,7 +240,7 @@ import GlossReaderBridge
         return restored
     }
 
-    /// Tells the app's other windows what this one just wrote (review 7): the change journal
+    /// Tells the app's other windows what this one just wrote: the change journal
     /// can't, because every window in this process shares its origin.
     func tellOtherWindows(_ records: [ChangeRecord]) {
         LocalChanges.post(records, from: windowID, to: services.store)
@@ -288,7 +288,7 @@ import GlossReaderBridge
 
     /// Where the notes pane lands when the open page went (trashed here or elsewhere): its
     /// parent if that's alive, else its book's main page, else the reader book's main page —
-    /// the panes can show different books (D-102), and a trashed book's pages must never pull
+    /// the panes can show different books, and a trashed book's pages must never pull
     /// the notes back into it. One place, so every path lands the same way.
     public func landNotes(afterVanishing vanished: (parentID: PageID?, documentID: DocumentID)?) async {
         if let parentID = vanished?.parentID,
@@ -317,7 +317,7 @@ import GlossReaderBridge
         }
         if let pageEntry = restored.first(where: { $0.kind == .page }),
            let pageID = PageID(pageEntry.entityID) {
-            // D-102: opening a page moves only the notes pane, so undo returns to the restored
+            // Opening a page moves only the notes pane, so undo returns to the restored
             // page even while the reader shows another book.
             try? await workspace.openPage(pageID)
         }
@@ -393,7 +393,7 @@ import GlossReaderBridge
             if !workspace.layout.showsReader { workspace.layout = .split }
             await reader.go(to: highlight.passage.locator, flash: true)
         case .page(let id):
-            // The outline is the notes pane's book: picking a page moves only the notes (D-102).
+            // The outline is the notes pane's book: picking a page moves only the notes.
             do { try await workspace.openPage(id) } catch { return }
             if !workspace.layout.showsNotes { workspace.layout = .split }
         }
@@ -456,9 +456,9 @@ import GlossReaderBridge
         return nil
     }
 
-    /// Follows a `gloss://` link clicked in the notes. It moves the pane it points into (D-102): a
+    /// Follows a `gloss://` link clicked in the notes. It moves the pane it points into: a
     /// passage or a book swaps the reader, a page the notes. The other pane stays put, so a link
-    /// into another book keeps your notes beside it (brief 15).
+    /// into another book keeps your notes beside it.
     @discardableResult
     public func follow(_ link: GlossLink) async -> RouteOutcome {
         await go(to: link, bringingOtherPane: false)
@@ -519,7 +519,7 @@ import GlossReaderBridge
             let imported = await library.importFiles(at: [file])
             // A duplicate is not a failure: the existing copy is the destination.
             guard let document = imported.first ?? library.lastDuplicates.first else {
-                // The import knows why it failed; don't bury it under a generic shrug (review 7).
+                // The import knows why it failed; don't bury it under a generic shrug.
                 if let failure = library.lastImport?.failures.first {
                     return .refused("couldn't add \(failure.name): \(failure.reason)")
                 }
@@ -532,7 +532,7 @@ import GlossReaderBridge
         }
     }
 
-    /// Where a quick-switcher choice goes (brief 30).
+    /// Where a quick-switcher choice goes.
     public func open(_ item: QuickSwitcherModel.Item) async {
         switch item.kind {
         case .document:
@@ -540,13 +540,13 @@ import GlossReaderBridge
             workspace.layout = workspace.layout.showsReader ? workspace.layout : .split
         case .page:
             guard let pageID = item.pageID else { return }
-            // A switcher pick is a jump from outside the panes: the page's book comes along (D-102).
+            // A switcher pick is a jump from outside the panes: the page's book comes along.
             try? await workspace.openPage(pageID, bringingBook: true)
             workspace.layout = workspace.layout.showsNotes ? workspace.layout : .split
         }
     }
 
-    /// Where a chosen search hit goes (brief 31): the page with the match revealed, the passage
+    /// Where a chosen search hit goes: the page with the match revealed, the passage
     /// in the book, or the book itself.
     public func reveal(_ selection: SearchModel.Selection) async {
         switch selection {
@@ -557,7 +557,7 @@ import GlossReaderBridge
                 workspace.layout = workspace.layout.showsReader ? workspace.layout : .split
                 await reader.reveal(searchHit: locator, text: matchText)
             } else {
-                // Another book (or none): the reader shows it at the hit's locator (D-102: only
+                // Another book (or none): the reader shows it at the hit's locator (only
                 // the reader moves — a search hit never drags the notes off their page). The
                 // precise find-near-locator reveal only applies to the book already showing.
                 try? await workspace.showBook(documentID, locator: locator)

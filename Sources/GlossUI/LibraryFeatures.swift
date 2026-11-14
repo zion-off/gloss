@@ -24,7 +24,7 @@ private struct LibraryFeatures<Content: View>: View {
 
     var body: some View {
         content()
-            // The whole window is the drop zone (brief 36); the grid draws the highlight.
+            // The whole window is the drop zone; the grid draws the highlight.
             .onDrop(of: [UTType.fileURL], isTargeted: Binding(
                 get: { app.presentation.dropTargeted },
                 set: { app.presentation.dropTargeted = $0 }
@@ -119,7 +119,7 @@ private struct LibraryFeatures<Content: View>: View {
     // MARK: The import panel
 
     /// File › import…: a standard open panel over the registered formats' extensions — files,
-    /// folders, several at once (brief 36); never a hardcoded list of kinds.
+    /// folders, several at once; never a hardcoded list of kinds.
     @MainActor private static func showImportPanel(_ app: AppModel) {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
@@ -136,7 +136,7 @@ private struct LibraryFeatures<Content: View>: View {
 
 /// How the sort menu names each order (data, never localization keys).
 /// The library's sort menu (toolbar, only on the library). The window's toolbar places it, so the
-/// trailing order is fixed: [sort][search] (D-152).
+/// trailing order is fixed: [sort][search].
 struct LibrarySortMenu: View {
     let app: AppModel
 
@@ -151,7 +151,7 @@ struct LibrarySortMenu: View {
                 }
             }
             // Flat in the menu, the current order checked (Photos' and Books' sort menus): a
-            // picker in a menu is otherwise a submenu, one level deeper for nothing (D-163).
+            // picker in a menu is otherwise a submenu, one level deeper for nothing.
             .pickerStyle(.inline)
         } label: {
             Label("sort", systemImage: "arrow.up.arrow.down")

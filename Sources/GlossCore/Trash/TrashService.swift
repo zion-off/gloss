@@ -18,8 +18,7 @@ public struct TrashOverview: Hashable, Sendable {
     public var items: [Item]
 }
 
-/// The trash: soft deletion with predictable restore and timed purging
-/// (docs/ARCHITECTURE.md §3 "Trash").
+/// The trash: soft deletion with predictable restore and timed purging.
 public struct TrashService: Sendable {
     let store: any LibraryStore
     let ids: any IDGenerator

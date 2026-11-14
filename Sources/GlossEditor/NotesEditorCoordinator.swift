@@ -6,7 +6,7 @@ import GlossMarkdown
 import GlossNotes
 
 /// The notes sheet's one margin: the editor's text, the page title and breadcrumbs, and the reader
-/// card all keep this distance from the sheet's edges and from each other (D-154).
+/// card all keep this distance from the sheet's edges and from each other.
 public enum NotesEditorMetrics {
     public static let margin: CGFloat = 16
 }
@@ -61,7 +61,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false
         // The text's glyphs sit `NotesEditorMetrics.margin` from every edge of the pane: the
-        // container inset makes up the rest after the line fragment padding (D-154).
+        // container inset makes up the rest after the line fragment padding.
         let padding = textView.textContainer?.lineFragmentPadding ?? 5
         textView.textContainerInset = NSSize(width: NotesEditorMetrics.margin - padding, height: NotesEditorMetrics.margin)
         // No background of its own: the notes are written straight onto the window's sheet.
@@ -147,7 +147,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     }
 
     /// The pointer left the link (or the text): close the preview, and drop one still waiting
-    /// out its rest, so it can't open over plain text a moment later (review 6).
+    /// out its rest, so it can't open over plain text a moment later.
     private func endHover() {
         hoverTask?.cancel()
         hoverTask = nil
@@ -211,7 +211,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         } else if textView.string != model.text, let storage = textView.textStorage {
             // A change from elsewhere (the cli, another window): keep the model's selection.
             // Not undoable — the user didn't make it — and it must clear any coalescing with
-            // what came before (review 5).
+            // what came before.
             textView.undoManager?.removeAllActions()
             textView.breakUndoCoalescing()
             let selection = NSRange(model.selection)
@@ -239,7 +239,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
             invalidateRows()
         }
         // Styling can change without the text moving (a link's status flipped in the store,
-        // the syntax reveal): restyle then, not only on the next keystroke (review 5).
+        // the syntax reveal): restyle then, not only on the next keystroke.
         if displayedSpans != model.spans {
             displayedSpans = model.spans
             restyle()
@@ -249,7 +249,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     private func install(_ text: String) {
         guard let textView, let storage = textView.textStorage else { return }
         // The old page's undo history must not survive the switch: replaying it would edit the
-        // new page's buffer (review 5).
+        // new page's buffer.
         textView.undoManager?.removeAllActions()
         setRowHover(nil)  // another page's rows: the old block must not linger
         storage.beginEditing()
@@ -425,7 +425,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
 
     /// Where the overlays anchor: the selection's first line and the caret, in SwiftUI's
     /// top-left-origin coordinates of the editor's frame. Whether the scroll view is flipped is
-    /// asked, not assumed (review 6); the conversion lives in `OverlayGeometry`, Linux-tested.
+    /// asked, not assumed; the conversion lives in `OverlayGeometry`, Linux-tested.
     private func reportSelection() {
         guard let textView, let scrollView else { return }
         let selection = textView.selectedRange()

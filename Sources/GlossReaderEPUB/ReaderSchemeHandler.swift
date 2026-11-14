@@ -7,7 +7,7 @@ import GlossReaderBridge
 /// `ReaderResourceLoader.response(for:)` (Linux-tested) and hands the answer to WebKit.
 ///
 /// `WKURLSchemeTask` isn't main-actor isolated and raises if called after `webView(_:stop:)`
-/// (docs/MAC_API_NOTES.md). So tasks stay in `running`, touched only on the main actor; a load
+/// (per Apple's documentation). So tasks stay in `running`, touched only on the main actor; a load
 /// finishing after its task was stopped finds nothing there and drops its answer.
 @MainActor
 final class ReaderSchemeHandler: NSObject, WKURLSchemeHandler {

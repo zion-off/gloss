@@ -3,7 +3,7 @@ import Foundation
 /// A 128-bit identifier, written as 26 lowercase Crockford base32 characters.
 ///
 /// Generated as UUIDv7 (48-bit millisecond timestamp, version and variant bits, random tail),
-/// so IDs are unique across devices and roughly time-ordered (docs/DECISIONS.md D-020).
+/// so IDs are unique across devices and roughly time-ordered.
 public struct GlossID: Hashable, Comparable, Sendable {
     public let high: UInt64
     public let low: UInt64

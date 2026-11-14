@@ -1,4 +1,4 @@
-// gloss reader bridge protocol — see docs/READER_BRIDGE.md.
+// gloss reader bridge protocol. The Swift twin is GlossReaderBridge; both are tested against Tests/Fixtures/bridge/.
 //
 // Every message is an envelope `{ v, type, payload }`. Swift → JS messages are
 // "commands" (validated by `validateCommand`); JS → Swift messages are "events"
@@ -102,7 +102,7 @@ export interface Appearance {
     colors: AppearanceColors
 }
 
-// A passage pinned by its words (`gloss link`, D-190): the glue finds them in spine section
+// A passage pinned by its words (`gloss link`): the glue finds them in spine section
 // `section` (bridge/quote.ts) and uses the range's CFI.
 export interface QuoteTarget {
     section: number

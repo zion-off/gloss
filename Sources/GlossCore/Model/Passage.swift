@@ -21,7 +21,7 @@ public struct Locator: Hashable, Codable, Sendable {
 }
 
 /// A selected stretch of a document: where it is, plus what it said and where it was, captured
-/// at creation so nothing downstream needs an engine (docs/DECISIONS.md D-022).
+/// at creation so nothing downstream needs an engine.
 public struct Passage: Hashable, Codable, Sendable {
     public var locator: Locator
     /// The selected text, whitespace-normalised.

@@ -10,7 +10,7 @@ public enum EPUBLocators {
     public static let sectionScheme = LocatorScheme("epub-section")
     /// Table-of-contents targets: an href inside the book.
     public static let hrefScheme = LocatorScheme("epub-href")
-    /// Passages pinned by their words (`gloss link`, D-190): `EPUBQuoteLocator` JSON, resolved by
+    /// Passages pinned by their words (`gloss link`): `EPUBQuoteLocator` JSON, resolved by
     /// the reader against the section it loads.
     public static let quoteScheme = LocatorScheme("epub-quote")
 }

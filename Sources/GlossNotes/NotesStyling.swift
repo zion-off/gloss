@@ -74,7 +74,7 @@ public struct SubpageRow: Hashable, Sendable {
 public enum SubpageRows {
     /// The row covering a paragraph's range, if any. TextKit 2 may or may not include the
     /// paragraph's line terminator in the element range (unverifiable off a Mac), so this
-    /// matches by overlap, which is correct either way (review 5).
+    /// matches by overlap, which is correct either way.
     public static func row(covering paragraphRange: Range<Int>, in rows: [SubpageRow]) -> SubpageRow? {
         let range = paragraphRange.lowerBound..<max(paragraphRange.lowerBound, paragraphRange.upperBound)
         return rows.first { $0.lineRange.overlaps(range) }

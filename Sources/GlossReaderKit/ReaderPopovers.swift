@@ -4,7 +4,7 @@ import GlossCore
 import GlossAppModel
 import GlossReaderBridge
 
-/// What the reader's popover shows, by kind. Lowercase copy, system controls (D-019).
+/// What the reader's popover shows, by kind. Lowercase copy, system controls.
 struct ReaderPopoverContent: View {
     let reader: ReaderController
     let addToNotes: @MainActor () async -> Void
@@ -108,7 +108,7 @@ struct ReaderPopoverContent: View {
                 }
                 .buttonStyle(.plain)
                 // Built from data, not a localization key: verbatim, so nothing in it is read as a
-                // format specifier (review 6).
+                // format specifier.
                 .help(Text(verbatim: "\(colour.rawValue) highlight"))
                 .accessibilityLabel(Text(verbatim: "\(colour.rawValue) highlight"))
                 .accessibilityAddTraits(colour == current ? .isSelected : [])

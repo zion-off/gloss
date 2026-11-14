@@ -1,5 +1,5 @@
 // generated from web/src/bridge/quote.ts by pnpm build; do not edit
-// Finding a passage pinned by its words (`gloss link`, an `epub-quote` locator; D-190) in the
+// Finding a passage pinned by its words (`gloss link`, an `epub-quote` locator) in the
 // text of a section. The twin of Swift's `FoldedText` and `QuoteAnchor.resolve`
 // (Sources/GlossCore/Quotes/): both run the shared cases in Tests/Fixtures/quotes/resolve.json,
 // so the reader lands on the words the CLI chose. Change one, change the other.

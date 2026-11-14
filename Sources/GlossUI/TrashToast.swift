@@ -6,7 +6,7 @@ import GlossCore
 
 extension AppModel {
     /// Registers "move to trash"'s undo with the window's undo manager, so ⌘Z works after the
-    /// toast is gone (D-019). The undo manager is a Mac-only type, so this lives here and not
+    /// toast is gone. The undo manager is a Mac-only type, so this lives here and not
     /// in the portable model.
     public func registerTrashUndo(_ entry: TrashEntry, undoManager: UndoManager?) {
         guard let undoManager else { return }
@@ -14,7 +14,7 @@ extension AppModel {
             Task { await app.undoTrash(entry) }
         }
         // Named after registering: setActionName attaches to the most recent registration, so
-        // the earlier order renamed the previous action and left this one a bare "Undo" (review 7).
+        // the earlier order renamed the previous action and left this one a bare "Undo".
         undoManager.setActionName("move to trash")
     }
 
@@ -41,7 +41,7 @@ extension AppModel {
     }
 }
 
-/// The undo toast at the bottom of the window (brief 39): a system-material capsule that says
+/// The undo toast at the bottom of the window: a system-material capsule that says
 /// what moved to the trash, offers undo, and goes away on its own after a few seconds (the
 /// model owns the timing; this only renders it).
 struct TrashToastOverlay: View {

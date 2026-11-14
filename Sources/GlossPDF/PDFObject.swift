@@ -96,7 +96,7 @@ enum PDFToken: Equatable {
 
 /// A cap on the total bytes a group of lexers may read, shared by reference. Tolerant parsing
 /// re-reads input after failures; the budget keeps the worst case linear in the input size
-/// however hostile the file (docs/DECISIONS.md D-064).
+/// however hostile the file.
 final class PDFScanBudget {
     private(set) var remaining: Int
 

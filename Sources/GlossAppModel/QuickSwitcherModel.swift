@@ -2,7 +2,7 @@ import Foundation
 import Observation
 import GlossCore
 
-/// "open quickly" (⇧⌘O, after Xcode): jump to a book or a notes page by typing (D-071).
+/// "open quickly" (⇧⌘O, after Xcode): jump to a book or a notes page by typing.
 @MainActor @Observable public final class QuickSwitcherModel {
     public struct Item: Hashable, Identifiable, Sendable {
         public enum Kind: Hashable, Sendable { case document, page }
@@ -61,7 +61,7 @@ import GlossCore
                 found.append(Item(kind: .document, title: hit.title, subtitle: hit.subtitle, documentID: id, pageID: nil))
             }
         }
-        // A newer keystroke may have cancelled this query while it read (review 7): a stale
+        // A newer keystroke may have cancelled this query while it read: a stale
         // result must never overwrite the newest one.
         guard !Task.isCancelled else { return }
         if let notes = try? await services.search.search(trimmed, in: .allNotes, limit: 8) {

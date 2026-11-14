@@ -2,7 +2,7 @@ import Foundation
 import Observation
 import GlossCore
 
-/// The details sheet's editable fields, with the rules the sheet enforces (brief 37): the title
+/// The details sheet's editable fields, with the rules the sheet enforces: the title
 /// is trimmed and may not end up empty; only fields that actually changed are written.
 public struct DetailsDraft: Equatable, Sendable {
     public var title: String

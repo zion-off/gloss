@@ -1,7 +1,7 @@
 import Foundation
 import GlossCore
 
-/// The portable decisions behind a generated cover (brief 34): which tint a book with no cover
+/// The portable decisions behind a generated cover: which tint a book with no cover
 /// image gets, and how its title and author are laid out. The Mac layer only draws this; the
 /// decisions are here so they are identical every launch and testable on Linux.
 ///

@@ -1,7 +1,7 @@
 import Foundation
 import GlossCore
 
-// The value types of the reader bridge (docs/READER_BRIDGE.md). Every field name matches the
+// The value types of the reader bridge (twin of `web/src/bridge/protocol.ts`). Every field name matches the
 // JSON fixtures in Tests/Fixtures/bridge/, which both sides test against.
 
 /// A rectangle in CSS pixels, relative to the web view's viewport (top-left origin).
@@ -22,7 +22,7 @@ public struct ReaderRect: Codable, Hashable, Sendable {
 extension ReaderRect {
     /// A rect measured in a bottom-left-origin view (AppKit unflipped, PDF page space after
     /// conversion), in the reader's top-left-origin coordinates — the contract every
-    /// `ReaderEngineEvent` anchor follows (docs/READER_BRIDGE.md, "Shared types").
+    /// `ReaderEngineEvent` anchor follows.
     public static func fromBottomLeft(x: Double, y: Double, width: Double, height: Double,
                                       containerHeight: Double) -> ReaderRect {
         ReaderRect(x: x, y: containerHeight - (y + height), width: width, height: height)
@@ -144,7 +144,7 @@ public struct ReaderTocItem: Codable, Hashable, Sendable {
 // MARK: Command payloads
 
 // Nullable command fields are always sent, as JSON null when empty: the JS validator requires
-// the key (docs/READER_BRIDGE.md), and synthesized Codable would leave nil keys out.
+// the key, and synthesized Codable would leave nil keys out.
 
 public struct ReaderOpenPayload: Codable, Hashable, Sendable {
     /// Echoed by `opened`, so the app can tell which open a reply belongs to.
@@ -172,7 +172,7 @@ public struct ReaderOpenPayload: Codable, Hashable, Sendable {
     }
 }
 
-/// A passage pinned by its words (an `epub-quote` locator, D-190): the glue finds the words in
+/// A passage pinned by its words (an `epub-quote` locator): the glue finds the words in
 /// spine section `section` (context first, then the occurrence) and treats the range like a CFI.
 public struct ReaderQuoteTarget: Codable, Hashable, Sendable {
     public var section: Int

@@ -1,7 +1,7 @@
 import Foundation
 
 /// A named body of searchable text. Open: a new search source adds a corpus and an indexer,
-/// never a schema change (docs/DECISIONS.md D-040).
+/// never a schema change.
 public struct Corpus: RawRepresentable, Hashable, Codable, Sendable, CustomStringConvertible {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }

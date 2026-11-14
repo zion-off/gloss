@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 import GlossAppModel
 import GlossCore
 
-/// The document details sheet (brief 37): title, author and cover. The rules live in
+/// The document details sheet: title, author and cover. The rules live in
 /// `DocumentDetailsModel` (GlossAppModel, tested): the title is trimmed and never emptied,
 /// only changed fields are written, and a cover can be chosen, dropped or removed. After a
 /// save every pane that shows the book refreshes (the window title, the source list, the grid).

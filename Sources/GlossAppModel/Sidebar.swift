@@ -3,7 +3,7 @@ import Observation
 import GlossCore
 import GlossReaderBridge
 
-/// What is selected in the window's source list (D-101). One list, sectioned like Mail or Music:
+/// What is selected in the window's source list. One list, sectioned like Mail or Music:
 /// the library's shelves and the trash, then the open book's contents, highlights and notes
 /// pages. The selection decides the detail column.
 public enum SidebarSelection: Hashable, Sendable {
@@ -64,7 +64,7 @@ public struct ContentsNode: Hashable, Identifiable, Sendable {
 
 /// A tree laid out as rows with their depth, in order: the source list indents nested entries
 /// itself instead of using expandable outline rows, whose disclosure triangles made the sidebar
-/// shift every row, the library's too, whenever a book was open (D-147).
+/// shift every row, the library's too, whenever a book was open.
 public struct OutlineRow<Node: Identifiable>: Identifiable {
     public let node: Node
     public let depth: Int
@@ -93,8 +93,7 @@ public struct PageOutlineNode: Hashable, Identifiable, Sendable {
 }
 
 /// Which books the source list's book section is about: the reader's (its contents and
-/// highlights) and the notes pane's (its pages). They differ after following a cross-book link
-/// (D-102).
+/// highlights) and the notes pane's (its pages). They differ after following a cross-book link.
 public struct BookSidebarSubjects: Hashable, Sendable {
     public var reader: DocumentID?
     public var notes: DocumentID?

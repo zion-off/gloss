@@ -48,7 +48,7 @@ public final class FlakyLibraryStore: LibraryStore, @unchecked Sendable {
     public var parkedReads: Int { lock.withLock { _parkedReads } }
 
     /// Lets a parked read continue. With none parked, the next park runs straight through, so a
-    /// release can never be lost to a race with the park itself (review 8).
+    /// release can never be lost to a race with the park itself.
     public func releaseParkedRead() {
         let continuation: CheckedContinuation<Void, Never>? = lock.withLock {
             if parkedQueue.isEmpty {

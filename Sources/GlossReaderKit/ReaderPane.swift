@@ -86,7 +86,7 @@ public struct ReaderPane: View {
         guard let kind, kind != self.kind else { return }
         await session?.invalidate()
         // The old task is cancelled while it drains; if it resumes here, a newer prepare has
-        // already run and this one must not clobber its session (review 5).
+        // already run and this one must not clobber its session.
         guard !Task.isCancelled else { return }
         session = nil
         self.kind = kind

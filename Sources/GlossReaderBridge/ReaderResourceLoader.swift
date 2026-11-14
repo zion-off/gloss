@@ -27,7 +27,7 @@ public struct ReaderResponse: Equatable, Sendable {
     public static let serverError = failure(500)
 }
 
-/// Answers `gloss-reader://` requests (docs/READER_BRIDGE.md, "Transport"): reader files from
+/// Answers `gloss-reader://` requests: reader files from
 /// the bundled `Resources/reader/` directory, books from the blob store. The Mac scheme handler
 /// only forwards the request URL here and the response back to WebKit.
 ///
@@ -62,7 +62,7 @@ public struct ReaderResourceLoader: Sendable {
         guard FileManager.default.fileExists(atPath: file.path, isDirectory: &isDirectory), !isDirectory.boolValue else {
             return .notFound
         }
-        // Off the main actor: the scheme handler calls this while serving (review 4).
+        // Off the main actor: the scheme handler calls this while serving.
         let data = await Task.detached(priority: .userInitiated) { try? Data(contentsOf: file) }.value
         guard let data else { return .serverError }
         return .ok(data, mimeType: mimeType)

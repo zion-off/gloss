@@ -2,9 +2,9 @@
 import PackageDescription
 
 // gloss — see docs/ARCHITECTURE.md for the module map. The app targets macOS only; the portable
-// modules also build on Linux for testing (docs/DECISIONS.md D-018).
+// modules also build on Linux for testing.
 // Every target builds on Linux. macOS-only targets wrap all of their sources in
-// `#if os(macOS)` so they compile to empty modules elsewhere (docs/DECISIONS.md D-002).
+// `#if os(macOS)` so they compile to empty modules elsewhere.
 
 let package = Package(
     name: "gloss",

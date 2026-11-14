@@ -8,7 +8,7 @@ public struct LinkTarget: Identifiable, Hashable, Codable, Sendable {
     public var createdAt: Date
     public var updatedAt: Date
     /// Set when the last page referencing this target stopped doing so; cleared when a page
-    /// references it again. Old orphans are swept (docs/DECISIONS.md D-023).
+    /// references it again. Old orphans are swept.
     public var orphanedSince: Date?
 
     public init(id: LinkTargetID, documentID: DocumentID, passage: Passage, createdAt: Date,

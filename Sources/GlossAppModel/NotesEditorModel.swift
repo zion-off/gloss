@@ -236,7 +236,7 @@ import GlossNotes
 
     /// Whether a click lands on its line's task box. `offset` is an insertion index (what
     /// `characterIndexForInsertion(at:)` returns for a click), so it counts from just before `[`
-    /// to just after `]`: a click on the right half of `]` gives the index after it (review 6).
+    /// to just after `]`: a click on the right half of `]` gives the index after it.
     public func isTaskBox(at offset: Int) -> Bool {
         guard let box = TaskToggle.boxRange(in: document, at: offset) else { return false }
         return (box.lowerBound...box.upperBound).contains(offset)

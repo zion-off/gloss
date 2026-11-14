@@ -46,7 +46,7 @@
 
 Not vendored, on purpose:
 
-- `vendor/pdfjs/` — gloss renders PDFs with PDFKit, never PDF.js (decision D-014).
+- `vendor/pdfjs/` — gloss renders PDFs with PDFKit, never PDF.js.
 - `tests/`, `rollup/`, `rollup.config.js`, `eslint.config.js`, `package.json`, `package-lock.json`, `.github/` —
   build tooling and upstream CI, not needed at runtime.
 - `reader.html`, `reader.js` — foliate's demo reader app; gloss has its own `index.html` + `glue.js`.

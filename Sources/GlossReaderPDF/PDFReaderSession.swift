@@ -44,7 +44,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
         pdfView.backgroundColor = Self.color(appearance.colors.background) ?? .textBackgroundColor
 
         // The Swift spelling of these two names is the one the importer gives the ObjC
-        // constants; the docs JSON only carries the extern (MAC_API_NOTES.md).
+        // constants; the docs JSON only carries the extern.
         observers.append(NotificationCenter.default.addObserver(forName: .PDFViewPageChanged, object: pdfView, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.pageChanged() }
         })
@@ -57,7 +57,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
     }
 
     func invalidate() async {
-        // There is no plural removeObservers (review 6): one call per observer token.
+        // There is no plural removeObservers: one call per observer token.
         for observer in observers { NotificationCenter.default.removeObserver(observer) }
         observers = []
         pdfView.delegate = nil
@@ -138,7 +138,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
     }
 
     /// A search hit: its own occurrence on its own page when it has a locator (search chunks
-    /// are pages); the document's first occurrence only when it has none (review 6).
+    /// are pages); the document's first occurrence only when it has none.
     func reveal(searchHit locator: Locator?, text: String) async throws {
         guard let pdf = document else { return }
         if let locator {
@@ -333,7 +333,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, PDFViewDel
 ///
 /// Marks are in page space. PDFKit places this view over its page, so its own coordinates are
 /// neither the page's nor the PDF view's: everything converts page → PDF view → this view (and
-/// back for clicks), never assuming the overlay sits at the PDF view's origin (review 6).
+/// back for clicks), never assuming the overlay sits at the PDF view's origin.
 @MainActor
 final class PDFPageOverlay: NSView {
     private weak var pdfView: PDFView?

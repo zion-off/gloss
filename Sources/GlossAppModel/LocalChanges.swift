@@ -2,9 +2,9 @@ import Foundation
 import Observation
 import GlossCore
 
-/// Same-process, cross-window change fan-out (review 7): the change journal's origin is
+/// Same-process, cross-window change fan-out: the change journal's origin is
 /// per-process, so a second window's monitor never sees the first window's writes — windows
-/// only agreed on the sort (D-112) and settings (D-120) because those got their own fan-outs.
+/// only agreed on the sort and settings because those got their own fan-outs.
 /// A window posts what it wrote here, addressed to the store it shares with the app's other
 /// windows (`object:`, so tests with separate libraries never hear each other), and every
 /// window applies the others' records through `handleExternalChanges`, unchanged.

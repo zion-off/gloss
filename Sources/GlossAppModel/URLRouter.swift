@@ -61,7 +61,7 @@ public struct URLRouter: Sendable {
             case .missing: return .missing
             }
         } catch {
-            // A failed read is not a dead link (review 7): the store was busy or broken, and
+            // A failed read is not a dead link: the store was busy or broken, and
             // "deleted for good" would be a lie the user might act on.
             return .unreadable
         }

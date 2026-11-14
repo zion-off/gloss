@@ -1,4 +1,4 @@
-// Stand-in for UniformTypeIdentifiers, for scripts/mac-typecheck.py (D-099). Declarations
+// Stand-in for UniformTypeIdentifiers, for scripts/mac-typecheck.py. Declarations
 // copied from Apple's documentation JSON (documentation/uniformtypeidentifiers/...).
 
 import Foundation

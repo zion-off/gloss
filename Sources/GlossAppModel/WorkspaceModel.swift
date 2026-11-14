@@ -47,7 +47,7 @@ public struct ReaderFocus: Hashable, Sendable {
     /// A range in the open page the editor should select and scroll to (a marker click).
     public private(set) var pendingNoteReveal: Range<Int>?
 
-    /// The source list's selection (D-101). Opening a book or a page selects it; `AppModel.select`
+    /// The source list's selection. Opening a book or a page selects it; `AppModel.select`
     /// handles clicks.
     public internal(set) var sidebar: SidebarSelection = .library(nil) {
         didSet { if sidebar.showsBook { cameFromBook = false } }
@@ -92,7 +92,7 @@ public struct ReaderFocus: Hashable, Sendable {
         self.persistLayoutSetting = persistLayoutSetting
     }
 
-    // MARK: Opening (D-102: each pane moves on its own)
+    // MARK: Opening (each pane moves on its own)
 
     /// Chooses a book (the library, open quickly): the reader shows it, at `locator` or where it
     /// was left, and the notes show its main page unless they already show one of its pages.
@@ -120,7 +120,7 @@ public struct ReaderFocus: Hashable, Sendable {
         if page == nil { try await showMainPage(of: id) }
         guard switched else { return }
         // History moves the reader behind whatever the detail column shows: while the grid or
-        // the trash is front, it never hijacks the window (review 7; D-102's "each pane moves
+        // the trash is front, it never hijacks the window ("each pane moves
         // alone" reads both ways). A contents entry or highlight of the previous book means
         // nothing now; a notes page still does (the notes didn't move).
         guard sidebar.showsBook else { return }

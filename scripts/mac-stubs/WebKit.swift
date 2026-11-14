@@ -1,5 +1,5 @@
-// Stand-in for WebKit, for scripts/mac-typecheck.py (D-099). Declarations copied from Apple's
-// documentation JSON (documentation/webkit/...), as recorded in docs/MAC_API_NOTES.md: WKWebView
+// Stand-in for WebKit, for scripts/mac-typecheck.py. Declarations copied from Apple's
+// documentation JSON (documentation/webkit/...), WKWebView
 // and its configuration classes are `@MainActor`, the handler and delegate protocols are
 // `@MainActor`, and `WKURLSchemeTask` is not isolated.
 
@@ -90,7 +90,7 @@ public enum WKNavigationActionPolicy: Int, Sendable { case cancel, allow, downlo
     @discardableResult open class func `default`() -> WKWebsiteDataStore { WKWebsiteDataStore() }
 }
 
-/// webkit/wkwebviewconfiguration — `WKWebViewConfiguration()` has no docs page (UNVERIFIED, MAC_API_NOTES.md)
+/// webkit/wkwebviewconfiguration — `WKWebViewConfiguration()` has no docs page (UNVERIFIED)
 @MainActor open class WKWebViewConfiguration: NSObject {
     open var websiteDataStore: WKWebsiteDataStore { get { fatalError() } set {} }
     open var userContentController: WKUserContentController { get { fatalError() } set {} }

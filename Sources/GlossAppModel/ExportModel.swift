@@ -45,7 +45,7 @@ import GlossExport
     /// A failure that happened outside this model (writing the file the save panel chose).
     public func recordFailure(_ message: String) { failure = message }
 
-    /// A book's whole notes tree as one markdown file (brief 41).
+    /// A book's whole notes tree as one markdown file.
     public func exportBookNotes(of document: DocumentID) async -> ExportedNotes? {
         await export(.document(document))
     }

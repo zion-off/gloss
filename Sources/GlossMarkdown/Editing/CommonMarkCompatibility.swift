@@ -1,6 +1,6 @@
 /// Makes gloss's line-based structure explicit for other markdown readers.
 ///
-/// gloss treats every line as its own block (docs/DECISIONS.md D-051). CommonMark folds a plain
+/// gloss treats every line as its own block. CommonMark folds a plain
 /// line that directly follows a quote or a list item into it ("lazy continuation"), so a note
 /// that reads as two blocks in gloss would read as one elsewhere. Exporters insert a blank line
 /// in exactly those places; nothing else changes.

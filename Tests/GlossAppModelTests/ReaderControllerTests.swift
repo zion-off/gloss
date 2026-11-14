@@ -315,7 +315,7 @@ struct ReaderControllerTests {
         #expect(driver.calls.count == 1)  // only the open
         await controller.handle(.opened(toc: [], openID: driver.lastOpenID))
         #expect(driver.calls.contains(.go(passage, flash: true)))
-        // The queued search reveal lands after the queued go (D-139): both were asked for
+        // The queued search reveal lands after the queued go: both were asked for
         // while the book opened, both arrive once it has.
         #expect(driver.calls.last == .reveal(passage, "t"))
     }

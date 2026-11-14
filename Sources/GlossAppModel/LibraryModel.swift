@@ -4,7 +4,7 @@ import GlossCore
 
 /// The library's persisted settings.
 public enum LibrarySettings {
-    /// How the grid is ordered; one choice for every window (D-112).
+    /// How the grid is ordered; one choice for every window.
     public static let sort = SettingKey<LibrarySort>("library.sort", default: .recent)
 }
 
@@ -27,10 +27,10 @@ public enum LibrarySettings {
     /// What an in-flight import is doing ("reading moby.epub…").
     public private(set) var importStatus: String?
     /// Files an in-flight import has finished, of `importTotal` (0 while folders are still being
-    /// looked through: the toolbar shows an indeterminate spinner then, D-148).
+    /// looked through: the toolbar shows an indeterminate spinner then).
     public private(set) var importCompleted = 0
     public private(set) var importTotal = 0
-    /// What the most recent import found, for the "already in your library" offer (D-114).
+    /// What the most recent import found, for the "already in your library" offer.
     public private(set) var lastImport: ImportSummary?
     /// Documents added by the most recent import (for the "just added" reveal).
     public private(set) var lastImportedIDs: [DocumentID] = []
@@ -51,7 +51,7 @@ public enum LibrarySettings {
     /// The file whose progress may update `importStatus` (late callbacks are dropped).
     private var importingFile: URL?
     /// Sort writes run one after another, each writing the sort current when it runs, so the
-    /// newest choice always lands last (D-112).
+    /// newest choice always lands last.
     private var persistTask: Task<Void, Never>?
     /// Set while the sort is loaded from the store, so loads never write back.
     private var syncingSort = false
@@ -98,7 +98,7 @@ public enum LibrarySettings {
         }
     }
 
-    // MARK: The persisted sort (one choice for every window, D-112)
+    // MARK: The persisted sort (one choice for every window)
 
     /// Loads the persisted sort (the window calls this once at startup, before the first reload).
     public func loadPersistedSort() async {
@@ -219,7 +219,7 @@ public enum LibrarySettings {
     }
 }
 
-/// What an import found, so the view can offer to open duplicates and name failures (D-114).
+/// What an import found, so the view can offer to open duplicates and name failures.
 /// The copy it shows is built here, portable and tested: the view only presents it.
 public struct ImportSummary: Equatable, Sendable {
     public struct Failure: Equatable, Sendable {

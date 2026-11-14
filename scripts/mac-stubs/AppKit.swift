@@ -1,7 +1,6 @@
-// Stand-in for AppKit, for scripts/mac-typecheck.py (D-099). Declarations only: every member
+// Stand-in for AppKit, for scripts/mac-typecheck.py. Declarations only: every member
 // here was copied from the Swift declaration tokens of Apple's documentation JSON
-// (developer.apple.com/tutorials/data/documentation/appkit/...), the same source as
-// docs/MAC_API_NOTES.md. Isolation follows the docs: NSResponder, NSView and NSWindow are
+// (developer.apple.com/tutorials/data/documentation/appkit/...). Isolation follows the docs: NSResponder, NSView and NSWindow are
 // `@MainActor` classes (subclasses inherit it); NSColor, NSFont, NSImage, NSEvent, NSBezierPath
 // and the TextKit 2 element/layout classes are not. Add a member only after checking its page.
 //
@@ -206,7 +205,7 @@ open class NSWorkspace: NSObject {
 
 /// appkit/nssavepanel — `@MainActor class NSSavePanel`. `NSSavePanel()`/`NSOpenPanel()` have no
 /// initializer page of their own (NSObject's `init` reaches them); Apple's sample code calls
-/// them, like `WKWebViewConfiguration()` (see MAC_API_NOTES).
+/// them, like `WKWebViewConfiguration()`.
 @MainActor open class NSSavePanel: NSResponder {
     /// appkit/nssavepanel/allowedcontenttypes (macOS 11)
     open var allowedContentTypes: [UTType] { get { fatalError() } set {} }
