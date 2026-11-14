@@ -128,6 +128,24 @@ struct NotesTablesTests {
         #expect(model.gridTables.first?.columnFractions == [0.5, 0.5])
     }
 
+    @Test("a resize made while the stored widths load keeps the resize")
+    func widthsLoadRace() async throws {
+        let lib = TestLibrary()
+        let (_, root) = try await lib.book()
+        try await lib.services.pages.updateBody(root.id, to: table + "\n\n" + table)
+        try await lib.services.settings.set(["1": TableColumnWidths(fractions: [0.5, 0.5])],
+                                            for: NotesTableSettings.columnWidths(for: root.id))
+        let model = NotesEditorModel(services: lib.services, saveDelay: .zero)
+        let loading = Task { try await model.load(try #require(try await lib.services.pages.page(root.id))) }
+        // The page's text is installed before `load` finishes; a drag lands in that window.
+        var yields = 0
+        while model.tables.count < 2, yields < 1000 { await Task.yield(); yields += 1 }
+        model.resizeColumns(ofTable: 0, to: [0.25, 0.75])
+        try await loading.value
+        #expect(model.gridTables[0].columnFractions == [0.25, 0.75])  // the resize, not the stale entry
+        #expect(model.gridTables[1].columnFractions == [0.5, 0.5])
+    }
+
     @Test("/table inserts a 2×2 table with the caret in its first header cell")
     func slashTable() async throws {
         let (_, model, _) = try await loaded("")
