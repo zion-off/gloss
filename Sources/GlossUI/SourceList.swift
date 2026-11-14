@@ -8,7 +8,13 @@ import GlossReaderKit
 /// `AppModel.select`, which decides what the detail column shows.
 struct SourceList: View {
     let app: AppModel
+    /// Bumped by the window whenever this list comes into view (the sidebar opened, the search
+    /// results left it): the chapter being read is brought into view then.
+    var revealToken = 0
     @Environment(\.undoManager) private var undoManager
+    /// The contents rows fully on screen (macOS 15's scroll visibility). On earlier systems it
+    /// stays empty and a due scroll always runs: centring a row that was visible is harmless.
+    @State private var fullyVisibleRows: Set<ContentsNode.ID> = []
     // Which sections are open survives a relaunch, like the rest of the window (state restoration).
     @SceneStorage("sidebar.contents") private var showsContents = true
     @SceneStorage("sidebar.highlights") private var showsHighlights = true
@@ -19,6 +25,41 @@ struct SourceList: View {
     }
 
     var body: some View {
+        ScrollViewReader { proxy in
+            list
+                // The chapter being read changed (a page turn across a boundary, a jump, a link, a
+                // search hit, the book opening): the selection follows it, and its row comes into
+                // view. Same-entry relocations (resizes, restyles, page turns inside it) change
+                // nothing, so a sidebar the user scrolled by hand stays put until the chapter does.
+                .onChange(of: app.currentContentsRow, initial: true) { previous, current in
+                    app.followCurrentContents()
+                    // The initial call (the book opened, the list was rebuilt) passes the same value
+                    // twice: that counts as arriving at the chapter, so it scrolls too.
+                    if ContentsVisibility.shouldScroll(previous: previous == current ? nil : previous, current: current) {
+                        reveal(current, with: proxy)
+                    }
+                }
+                // The list came into view (the sidebar opened, the search ended): bring the chapter
+                // being read into view, wherever the list had been left.
+                .onChange(of: revealToken) { _, _ in reveal(app.currentContentsRow, with: proxy) }
+        }
+    }
+
+    /// Scrolls the current chapter's row into view, centred like the system's lists show a row,
+    /// unless it is already fully visible. No animation: the sidebar should just be right. After
+    /// this turn of the run loop, so a list that was just (re)built has its rows to scroll to.
+    private func reveal(_ row: ContentsNode.ID?, with proxy: ScrollViewProxy) {
+        guard let row, showsContents else { return }
+        Task { @MainActor in
+            guard !fullyVisibleRows.contains(row) else { return }
+            proxy.scrollTo(Self.contentsRowID(row), anchor: .center)
+        }
+    }
+
+    /// A contents row's scroll id, apart from the other sections' row ids.
+    static func contentsRowID(_ id: ContentsNode.ID) -> String { "contents:" + id }
+
+    private var list: some View {
         List(selection: selection) {
             Section("library") {
                 Label("all", systemImage: "books.vertical")
@@ -66,7 +107,9 @@ struct SourceList: View {
         if !nodes.isEmpty {
             Section("contents", isExpanded: $showsContents) {
                 let pageCount = app.contentsPageCount
+                let current = app.currentContentsRow
                 ForEach(OutlineRow.rows(nodes, children: \.children)) { row in
+                    let isCurrent = row.node.id == current
                     VStack(alignment: .leading, spacing: 1) {
                         Text(verbatim: row.node.label)
                             .lineLimit(2)
@@ -79,6 +122,11 @@ struct SourceList: View {
                     }
                     .padding(.leading, Self.indent(row.depth))
                     .tag(SidebarSelection.contents(row.node.id))
+                    .id(Self.contentsRowID(row.node.id))
+                    // The selection follows the chapter (the standard selected row); VoiceOver
+                    // also hears which entry is being read when the selection is elsewhere.
+                    .accessibilityValue(isCurrent ? Text("current chapter") : Text(verbatim: ""))
+                    .modifier(FullVisibility(id: row.node.id, visible: $fullyVisibleRows))
                 }
             }
         }
@@ -178,5 +226,24 @@ private struct HighlightRow: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(verbatim: "\(highlight.color.rawValue) highlight: \(highlight.passage.quote)"))
+    }
+}
+
+/// Tracks which contents rows are fully on screen (macOS 15+), so a due scroll can leave a
+/// visible row alone. Earlier systems never record any: the scroll always runs.
+private struct FullVisibility: ViewModifier {
+    let id: ContentsNode.ID
+    @Binding var visible: Set<ContentsNode.ID>
+
+    func body(content: Content) -> some View {
+        if #available(macOS 15.0, *) {
+            content
+                .onScrollVisibilityChange(threshold: 0.99) { isVisible in
+                    if isVisible { visible.insert(id) } else { visible.remove(id) }
+                }
+                .onDisappear { visible.remove(id) }
+        } else {
+            content
+        }
     }
 }
