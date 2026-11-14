@@ -568,7 +568,8 @@ import GlossReaderBridge
         switch selection {
         case .page(let pageID, let documentID, let match):
             search.sessionMoves(to: documentID)
-            try? await workspace.openPage(pageID, revealing: match)
+            // Not focusing the editor: the results list is driving (its Up/Down must keep it).
+            try? await workspace.openPage(pageID, revealing: match, focusesText: false)
         case .bookText(let documentID, let locator, let matchText):
             search.sessionMoves(to: documentID)
             if reader.document?.id == documentID {

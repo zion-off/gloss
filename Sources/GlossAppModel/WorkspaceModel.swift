@@ -46,6 +46,9 @@ public struct ReaderFocus: Hashable, Sendable {
     public private(set) var readerFocus: ReaderFocus?
     /// A range in the open page the editor should select and scroll to (a marker click).
     public private(set) var pendingNoteReveal: Range<Int>?
+    /// Whether the pending reveal should focus the editor (a marker click) or leave focus with
+    /// whoever is driving (a search step).
+    public private(set) var pendingNoteRevealFocuses = true
 
     /// The source list's selection. Opening a book or a page selects it; `AppModel.select`
     /// handles clicks.
@@ -132,15 +135,17 @@ public struct ReaderFocus: Hashable, Sendable {
 
     /// Opens a notes page at a range (a marker click), revealing the notes pane if hidden. The
     /// reader stays on its book, which may be another one (a cross-book link's marker).
-    public func openPage(_ id: PageID, revealing range: Range<Int>?) async throws {
+    public func openPage(_ id: PageID, revealing range: Range<Int>?, focusesText: Bool = true) async throws {
         try await openPage(id)
         pendingNoteReveal = range
+        pendingNoteRevealFocuses = focusesText && range != nil
         if !layout.showsNotes { layout = .split }
     }
 
     /// The editor took the pending reveal.
     public func consumeNoteReveal() {
         pendingNoteReveal = nil
+        pendingNoteRevealFocuses = true
     }
 
     /// Opens a notes page in the notes pane (a page link, subpage row, breadcrumb, the source
