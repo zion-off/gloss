@@ -18,8 +18,17 @@ public extension Notification {
 
 /// The `userInfo` key a `glossSettingsChanged` notification carries reading settings under.
 public let glossReaderSettingsKey = "readerSettings"
+/// The `userInfo` key a `glossSettingsChanged` notification carries the notes' text size under.
+public let glossNotesTextSizeKey = "notesTextSize"
 
-/// The Settings window's model (⌘,): trash retention and reading settings. Everything persists
+public enum NotesSettings {
+    /// The notes' body text size in points (Notion's 16 by default); headings and the title scale with it.
+    public static let textSize = SettingKey<Double>("notes.textSize", default: 16)
+    /// The sizes the Settings window offers.
+    public static let textSizes: ClosedRange<Double> = 12...24
+}
+
+/// The Settings window's model (⌘,): trash retention, reading settings and the notes' text size. Everything persists
 /// through `services.settings` into the one SQLite file — never UserDefaults (brief
 /// "Constraints"). Edits save debounced (a dragged slider is one save) but stay quiet: only
 /// `flushSave()`, which the window calls as it closes, announces them with
@@ -31,6 +40,11 @@ public let glossReaderSettingsKey = "readerSettings"
     }
     /// The reading settings, edited field by field (one JSON blob, one key).
     public var reader: ReaderSettings = ReaderSettings() {
+        didSet { guard !suppressSave else { return }; scheduleSave() }
+    }
+
+    /// The notes' body text size, in points.
+    public var notesTextSize: Double = NotesSettings.textSize.defaultValue {
         didSet { guard !suppressSave else { return }; scheduleSave() }
     }
 
@@ -47,7 +61,7 @@ public let glossReaderSettingsKey = "readerSettings"
     private var generation = 0
     private var suppressSave = false
     /// What open windows last heard (or what was loaded): closing without a change says nothing.
-    private var announced: (retentionDays: Int?, reader: ReaderSettings)?
+    private var announced: (retentionDays: Int?, reader: ReaderSettings, notesTextSize: Double)?
 
     public init(services: GlossServices,
                 saveDelay: Duration = .milliseconds(400),
@@ -62,8 +76,9 @@ public let glossReaderSettingsKey = "readerSettings"
         suppressSave = true
         retentionDays = (try? await services.settings.value(TrashSettings.retentionDays)) ?? 30
         reader = (try? await ReaderSettingsStore(settings: services.settings).load()) ?? ReaderSettings()
+        notesTextSize = (try? await services.settings.value(NotesSettings.textSize)) ?? NotesSettings.textSize.defaultValue
         suppressSave = false
-        announced = (retentionDays, reader)
+        announced = (retentionDays, reader, notesTextSize)
     }
 
     /// Writes pending changes now, then announces them to every window (their open books and
@@ -73,11 +88,12 @@ public let glossReaderSettingsKey = "readerSettings"
         saveTask?.cancel()
         saveTask = nil
         guard await save() else { return }
-        if let announced, announced.retentionDays == retentionDays, announced.reader == reader { return }
-        announced = (retentionDays, reader)
+        if let announced, announced.retentionDays == retentionDays, announced.reader == reader,
+           announced.notesTextSize == notesTextSize { return }
+        announced = (retentionDays, reader, notesTextSize)
         // `object: self` so windows (and tests) can tell this model's saves from another's.
         NotificationCenter.default.post(name: .glossSettingsChanged, object: self,
-                                        userInfo: [glossReaderSettingsKey: reader])
+                                        userInfo: [glossReaderSettingsKey: reader, glossNotesTextSizeKey: notesTextSize])
     }
 
     // MARK: Internals
@@ -103,6 +119,7 @@ public let glossReaderSettingsKey = "readerSettings"
         do {
             try await services.settings.set(retentionDays, for: TrashSettings.retentionDays)
             try await ReaderSettingsStore(settings: services.settings).save(reader)
+            try await services.settings.set(notesTextSize, for: NotesSettings.textSize)
             return true
         } catch {
             saveProblem = "couldn't save your settings — try again"

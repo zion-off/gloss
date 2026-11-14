@@ -72,6 +72,8 @@ public enum NotesTableSettings {
         case unsavedChanges(String)
     }
 
+    /// The body text size in points (a setting); the editor scales headings and the title with it.
+    public var textSize: Double = NotesSettings.textSize.defaultValue
     public private(set) var page: Page?
     public private(set) var breadcrumbs: [Page] = []
     public private(set) var text = ""

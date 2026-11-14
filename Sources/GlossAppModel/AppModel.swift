@@ -87,6 +87,7 @@ import GlossReaderBridge
         // against swift-corelibs-foundation), so the hop below is safe on both platforms.
         let observer = NotificationCenter.default.addObserver(forName: .glossSettingsChanged, object: nil, queue: nil) { [weak self] note in
             let settings = note.userInfo?[glossReaderSettingsKey] as? ReaderSettings
+            let notesTextSize = note.userInfo?[glossNotesTextSizeKey] as? Double
             MainActor.assumeIsolated {
                 guard let self else { return }
                 // Chained, like every other write in the app: two saves landing close together
@@ -94,7 +95,7 @@ import GlossReaderBridge
                 let previous = self.settingsTask
                 self.settingsTask = Task {
                     await previous?.value
-                    await self.applySettingsChange(settings)
+                    await self.applySettingsChange(settings, notesTextSize: notesTextSize)
                 }
             }
         }
@@ -143,6 +144,11 @@ import GlossReaderBridge
         if let observer = token.observer { NotificationCenter.default.removeObserver(observer) }
         let local = localToken
         if let observer = local.observer { NotificationCenter.default.removeObserver(observer) }
+    }
+
+    /// The settings this window's views read directly (the notes' text size), from the library.
+    public func loadSettings() async {
+        if let size = try? await services.settings.value(NotesSettings.textSize) { notes.textSize = size }
     }
 
     /// Wires the change monitor (call once at startup, after the views exist).
@@ -325,8 +331,9 @@ import GlossReaderBridge
 
     /// This process's Settings window closed with new reading settings: the open book takes them
     /// (when its engine can reflow) and the trash re-dates itself.
-    public func applySettingsChange(_ settings: ReaderSettings?) async {
+    public func applySettingsChange(_ settings: ReaderSettings?, notesTextSize: Double? = nil) async {
         await trash.reload()
+        if let notesTextSize { notes.textSize = notesTextSize }
         if let settings {
             await reader.applyAppearanceIfSupported(AppearanceStyler().appearance(for: settings))
         }

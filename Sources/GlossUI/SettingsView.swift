@@ -6,7 +6,7 @@ import GlossCore
 import GlossReaderBridge
 
 /// The Settings window (⌘,): one grouped form like System Settings, "reading" first (it is what
-/// people come here for), then "trash". Tabs are the other Apple pattern, but the only tab API a
+/// people come here for), then "notes" and "trash". Tabs are the other Apple pattern, but the only tab API a
 /// macOS 14 target can use (`tabItem`) is deprecated in the newest SDK, and its replacement needs
 /// macOS 15. A sample page at the top shows the reading settings as they change; open
 /// books take them once, when the window closes.
@@ -46,6 +46,10 @@ public struct GlossSettingsView: View {
                 }
                 .pickerStyle(.segmented)
                 .disabled(model.reader.flow == .scrolled)
+            }
+            Section("notes") {
+                ValueSlider("text size", value: $model.notesTextSize, in: NotesSettings.textSizes, step: 1,
+                            shown: "\(Int(model.notesTextSize)) pt")
             }
             Section {
                 Picker("keep trashed things", selection: retention) {

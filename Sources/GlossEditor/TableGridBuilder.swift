@@ -90,12 +90,23 @@ import GlossNotes
         return TableGridLayout(columnWidths: widths, rowHeights: heights, metrics: metrics)
     }
 
+    /// Forgets every measurement (the text size changed).
+    func reset() {
+        cache = [:]
+        measuredLineHeight = nil
+    }
+
+    private var measuredLineHeight: Double?
+
     /// One line of body text: the height an empty cell still takes.
-    private lazy var lineHeight: Double = {
+    private var lineHeight: Double {
+        if let measuredLineHeight { return measuredLineHeight }
         let sample = NSAttributedString(string: "Xg", attributes: theme.attributes(for: TextStyle()))
         let size = CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-        return Double(sample.boundingRect(with: size, options: Self.measuring, context: nil).height.rounded(.up))
-    }()
+        let height = Double(sample.boundingRect(with: size, options: Self.measuring, context: nil).height.rounded(.up))
+        measuredLineHeight = height
+        return height
+    }
 
     /// A cell's text as drawn: its inline styles in the editor's fonts and colours, syntax left out,
     /// aligned as its column says.
