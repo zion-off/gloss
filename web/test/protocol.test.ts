@@ -83,10 +83,10 @@ const invalidEvent = (envelope: unknown, note: string) => {
 }
 
 test('rejects wrong or missing protocol version', () => {
-    invalidCommand({ v: 2, type: 'search', payload: { query: 'x' } }, 'command v2')
+    invalidCommand({ v: 2, type: 'clearSearch', payload: {} }, 'command v2')
     invalidEvent({ v: 0, type: 'ready', payload: {} }, 'event v0')
-    invalidCommand({ type: 'search', payload: { query: 'x' } }, 'no v')
-    invalidCommand({ v: '1', type: 'search', payload: { query: 'x' } }, 'string v')
+    invalidCommand({ type: 'clearSearch', payload: {} }, 'no v')
+    invalidCommand({ v: '1', type: 'clearSearch', payload: {} }, 'string v')
 })
 
 test('rejects unknown or missing types', () => {
@@ -98,13 +98,13 @@ test('rejects unknown or missing types', () => {
 test('rejects non-object envelopes and payloads', () => {
     invalidCommand(null, 'null envelope')
     invalidCommand([1, 2], 'array envelope')
-    invalidCommand({ v: 1, type: 'search', payload: 'nope' }, 'string payload')
-    invalidCommand({ v: 1, type: 'search' }, 'missing payload')
+    invalidCommand({ v: 1, type: 'setSearchHighlights', payload: 'nope' }, 'string payload')
+    invalidCommand({ v: 1, type: 'setSearchHighlights' }, 'missing payload')
 })
 
 test('rejects missing and mistyped fields', () => {
-    invalidCommand({ v: 1, type: 'search', payload: {} }, 'search without query')
-    invalidCommand({ v: 1, type: 'search', payload: { query: 42 } }, 'query not a string')
+    invalidCommand({ v: 1, type: 'setSearchHighlights', payload: {} }, 'search without query')
+    invalidCommand({ v: 1, type: 'setSearchHighlights', payload: { query: 42 } }, 'query not a string')
     invalidCommand({ v: 1, type: 'turnPage', payload: { direction: 'up' } }, 'bad direction')
     invalidCommand({ v: 1, type: 'turnPage', payload: { direction: 'foward' } }, 'typo direction')
     invalidCommand({ v: 1, type: 'open', payload: { url: 'u', position: null } }, 'open without appearance')
@@ -188,11 +188,7 @@ test('event field checks', () => {
     invalidEvent({ v: 1, type: 'linkActivated', payload: {
         href: 'https://x', external: 'yes',
     } }, 'external not a bool')
-    invalidEvent({ v: 1, type: 'searchResults', payload: {
-        query: 'x',
-        items: [{ cfi: 'epubcfi(/6)', label: null, excerpt: { pre: 'a', match: 'b' } }],
-        progress: 0.5, done: false,
-    } }, 'excerpt missing post')
+    invalidEvent({ v: 1, type: 'error', payload: { message: 42 } }, 'error with a number message')
     invalidEvent({ v: 1, type: 'error', payload: { message: 'boom', context: 42 } }, 'context not a string')
     invalidEvent({ v: 1, type: 'opened', payload: {
         toc: [{ label: 'a', href: 'b', children: 'nope' }],
@@ -206,13 +202,13 @@ test('event field checks', () => {
 })
 
 test('commands do not validate as events and vice versa', () => {
-    assert.equal(validateEvent(fixtureNamed(commandFixtures, 'search.json')).ok, false)
+    assert.equal(validateEvent(fixtureNamed(commandFixtures, 'clearSearch.json')).ok, false)
     assert.equal(validateCommand(fixtureNamed(eventFixtures, 'ready.json')).ok, false)
 })
 
 test('extra fields are tolerated', () => {
     assert.equal(validateCommand({
-        v: 1, type: 'search', payload: { query: 'x', future: 'field' },
+        v: 1, type: 'setSearchHighlights', payload: { query: 'x', future: 'field' },
     }).ok, true)
 })
 

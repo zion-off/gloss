@@ -14,7 +14,6 @@ export const COMMAND_TYPES = Object.freeze([
     'setAppearance',
     'setAnnotations',
     'clearSelection',
-    'search',
     'clearSearch',
     'revealSearchHit',
     'setSearchHighlights',
@@ -27,7 +26,6 @@ export const EVENT_TYPES = Object.freeze([
     'selectionCleared',
     'annotationActivated',
     'linkActivated',
-    'searchResults',
     'error',
 ]);
 export const FLOWS = Object.freeze(['paginated', 'scrolled']);
@@ -227,9 +225,6 @@ export const COMMAND_PAYLOAD_SPECS = {
         },
     },
     clearSelection: {},
-    search: {
-        query: STR,
-    },
     clearSearch: {},
     revealSearchHit: {
         cfi: { t: 'string', nullable: true },
@@ -282,25 +277,6 @@ export const EVENT_PAYLOAD_SPECS = {
     linkActivated: {
         href: STR,
         external: BOOL,
-    },
-    searchResults: {
-        query: STR,
-        items: {
-            t: 'array',
-            item: {
-                t: 'object',
-                fields: {
-                    cfi: STR,
-                    label: { t: 'string', nullable: true },
-                    excerpt: {
-                        t: 'object',
-                        fields: { pre: STR, match: STR, post: STR },
-                    },
-                },
-            },
-        },
-        progress: { t: 'number', min: 0, max: 1 },
-        done: BOOL,
     },
     error: {
         message: STR,

@@ -14,7 +14,6 @@ import * as selection from './bridge/selection.js';
 import * as progress from './bridge/progress.js';
 import * as appearance from './bridge/appearance.js';
 import * as toc from './bridge/toc.js';
-import * as search from './bridge/search.js';
 import * as sanitize from './bridge/sanitize.js';
 import * as queue from './bridge/queue.js';
 import * as swipe from './bridge/swipe.js';
@@ -689,28 +688,6 @@ const commands = {
     async clearSelection() {
         requireRenderer();
         view.deselect();
-    },
-    // Starts the search and returns: results stream as events, and commands queued behind
-    // it (navigation, the next search) must not wait for the whole book to be searched.
-    async search({ query }) {
-        requireRenderer();
-        const generation = searchGeneration.bump();
-        const mapper = search.makeSearchMapper(query);
-        void (async () => {
-            try {
-                for await (const result of view.search({ query })) {
-                    if (!searchGeneration.isCurrent(generation))
-                        return;
-                    const payload = mapper.map(result);
-                    if (payload)
-                        postEvent('searchResults', payload);
-                }
-            }
-            catch (error) {
-                if (searchGeneration.isCurrent(generation))
-                    postError(error, 'search');
-            }
-        })();
     },
     async clearSearch() {
         requireRenderer();

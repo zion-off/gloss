@@ -27,7 +27,6 @@ import * as selection from './bridge/selection.ts'
 import * as progress from './bridge/progress.ts'
 import * as appearance from './bridge/appearance.ts'
 import * as toc from './bridge/toc.ts'
-import * as search from './bridge/search.ts'
 import * as sanitize from './bridge/sanitize.ts'
 import * as queue from './bridge/queue.ts'
 import * as swipe from './bridge/swipe.ts'
@@ -739,25 +738,6 @@ const commands: { [K in protocol.CommandType]: (payload: protocol.CommandPayload
     async clearSelection() {
         requireRenderer()
         view.deselect()
-    },
-
-    // Starts the search and returns: results stream as events, and commands queued behind
-    // it (navigation, the next search) must not wait for the whole book to be searched.
-    async search({ query }: protocol.SearchPayload) {
-        requireRenderer()
-        const generation = searchGeneration.bump()
-        const mapper = search.makeSearchMapper(query)
-        void (async () => {
-            try {
-                for await (const result of view.search({ query })) {
-                    if (!searchGeneration.isCurrent(generation)) return
-                    const payload = mapper.map(result)
-                    if (payload) postEvent('searchResults', payload)
-                }
-            } catch (error) {
-                if (searchGeneration.isCurrent(generation)) postError(error, 'search')
-            }
-        })()
     },
 
     async clearSearch() {

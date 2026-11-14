@@ -337,11 +337,6 @@ public struct ReaderSearchHighlightsPayload: Codable, Hashable, Sendable {
     }
 }
 
-public struct ReaderSearchPayload: Codable, Hashable, Sendable {
-    public var query: String
-    public init(query: String) { self.query = query }
-}
-
 public struct ReaderRevealSearchHitPayload: Codable, Hashable, Sendable {
     /// Sent as null when unknown.
     public var cfi: String?
@@ -486,21 +481,6 @@ public struct ReaderSearchItem: Codable, Hashable, Sendable {
         self.cfi = cfi
         self.label = label
         self.excerpt = excerpt
-    }
-}
-
-public struct ReaderSearchResultsPayload: Codable, Hashable, Sendable {
-    public var query: String
-    public var items: [ReaderSearchItem]
-    /// 0…1 through the book; batches may carry no items, only progress.
-    public var progress: Double
-    public var done: Bool
-
-    public init(query: String, items: [ReaderSearchItem], progress: Double, done: Bool) {
-        self.query = query
-        self.items = items
-        self.progress = progress
-        self.done = done
     }
 }
 

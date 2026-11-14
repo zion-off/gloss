@@ -78,7 +78,7 @@ struct BridgeFixtureTests {
             try decodeCommand(#"{"v": 1, "type": "teleport", "payload": {}}"#)
         }
         #expect(throws: DecodingError.self) {
-            try decodeCommand(#"{"v": 1, "type": "search", "payload": {}}"#)
+            try decodeCommand(#"{"v": 1, "type": "setSearchHighlights", "payload": {"query": 42}}"#)
         }
         #expect(throws: DecodingError.self) {
             try decodeCommand(#"{"v": 1, "type": "goTo", "payload": {"target": {}}}"#)

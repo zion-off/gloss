@@ -88,7 +88,7 @@ public final class EPUBBridgeDriver: ReaderDriving, ReflowableAppearanceApplying
 
     /// Decodes and translates a `gloss` script message: glue.js posts each event as JSON text,
     /// so no value goes through WebKit's object bridging. `nil` for events the controller
-    /// doesn't take (search batches).
+    /// doesn't take.
     public nonisolated static func engineEvent(fromMessageBody body: Any) throws -> ReaderEngineEvent? {
         guard let text = body as? String else {
             throw ReaderBridgeError.malformed("expected the event as JSON text, got \(type(of: body))")
@@ -96,7 +96,7 @@ public final class EPUBBridgeDriver: ReaderDriving, ReflowableAppearanceApplying
         return translate(try ReaderEvent.decode(fromJSON: Data(text.utf8)))
     }
 
-    /// Translates a bridge event. Search batches are handled by the find bar, not the controller.
+    /// Translates a bridge event.
     public nonisolated static func translate(_ event: ReaderEvent) -> ReaderEngineEvent? {
         switch event {
         case .ready:
@@ -118,8 +118,6 @@ public final class EPUBBridgeDriver: ReaderDriving, ReflowableAppearanceApplying
                                         markers: payload.markerIDs.compactMap(LinkTargetID.init), anchor: payload.rect)
         case .linkActivated(let payload):
             return URL(string: payload.href).map(ReaderEngineEvent.externalLink)
-        case .searchResults:
-            return nil
         case .error(let payload):
             if let openID = payload.openID { return .openFailed(payload.message, openID: openID) }
             return .failed(payload.context.map { "\($0): \(payload.message)" } ?? payload.message)

@@ -38,7 +38,6 @@ struct WireContractTests {
                                    quote: ReaderQuoteTarget(section: 4, text: "the whale", prefix: "Not", suffix: ", said", occurrence: 1)),
         ]))),
         ("clearSelection", .clearSelection),
-        ("search", .search(ReaderSearchPayload(query: "white whale"))),
         ("clearSearch", .clearSearch),
         ("revealSearchHit-cfi", .revealSearchHit(ReaderRevealSearchHitPayload(cfi: "epubcfi(/6/12!/4/2/1:10)", text: "whale"))),
         ("revealSearchHit-section", .revealSearchHit(ReaderRevealSearchHitPayload(section: 3, text: "whale"))),
