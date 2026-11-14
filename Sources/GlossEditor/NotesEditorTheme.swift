@@ -10,29 +10,44 @@ import GlossNotes
     /// Resolved fonts per role, before bold/italic traits.
     private var fonts: [TextStyle.FontRole: NSFont] = [:]
 
-    init() {}
+    /// The body text size (a setting); every other size scales with it.
+    private(set) var bodySize: CGFloat
 
-    /// A subpage row's height, Notion-like: a body line with room around the icon.
-    static let rowHeight: CGFloat = 30
+    init(bodySize: CGFloat = 16) {
+        self.bodySize = bodySize
+    }
 
-    /// Notion's type scale: 16 pt body, headings at 30, 24 and 20, code a little smaller than
-    /// the text around it. The system's own text styles (13 pt body) read small for writing in.
-    private static func size(_ spec: TextStyle.FontRole) -> CGFloat {
-        switch spec {
-        case .body: NotesEditorMetrics.bodySize
+    /// A new body size: the cached fonts go, and the caller restyles everything.
+    func setBodySize(_ size: CGFloat) {
+        bodySize = size
+        fonts = [:]
+    }
+
+    /// How far a quote's lines sit in.
+    static let quoteIndent: CGFloat = 18
+
+    /// A subpage row's height, Notion-like: a body line with room around the icon (30 pt at 16).
+    var rowHeight: CGFloat { (bodySize * 30 / 16).rounded() }
+
+    /// Notion's type scale, relative to the body (16 pt by default): headings at 30, 24 and 20,
+    /// code a little smaller than the text around it. The system's own text styles (13 pt body)
+    /// read small for writing in.
+    private func size(_ spec: TextStyle.FontRole) -> CGFloat {
+        let points: CGFloat = switch spec {
         case .heading(1): 30
         case .heading(2): 24
         case .heading(3): 20
-        case .heading: NotesEditorMetrics.bodySize
+        case .body, .heading: 16
         case .monospaced: 14
         }
+        return (bodySize * points / 16).rounded()
     }
 
     func baseFont(_ spec: TextStyle.FontRole) -> NSFont {
         if let cached = fonts[spec] { return cached }
         let font = switch spec {
-        case .monospaced: NSFont.monospacedSystemFont(ofSize: Self.size(spec), weight: .regular)
-        case .body, .heading: NSFont.systemFont(ofSize: Self.size(spec))
+        case .monospaced: NSFont.monospacedSystemFont(ofSize: size(spec), weight: .regular)
+        case .body, .heading: NSFont.systemFont(ofSize: size(spec))
         }
         fonts[spec] = font
         return font
@@ -73,16 +88,16 @@ import GlossNotes
 
         if style.block == .quote {
             let paragraph = NSMutableParagraphStyle()
-            paragraph.headIndent = 18
-            paragraph.firstLineHeadIndent = 18
+            paragraph.headIndent = Self.quoteIndent
+            paragraph.firstLineHeadIndent = Self.quoteIndent
             attributes[.paragraphStyle] = paragraph
         }
         if style.block == .row {
             // A subpage row's line: always one row tall, never wrapped by its hidden markdown, so
             // the row drawn over it and the line after it sit where the layout says.
             let paragraph = NSMutableParagraphStyle()
-            paragraph.minimumLineHeight = Self.rowHeight
-            paragraph.maximumLineHeight = Self.rowHeight
+            paragraph.minimumLineHeight = rowHeight
+            paragraph.maximumLineHeight = rowHeight
             paragraph.lineBreakMode = .byClipping
             attributes[.paragraphStyle] = paragraph
         }

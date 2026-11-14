@@ -322,6 +322,7 @@ public struct MainWindow: View {
         await app.library.loadPersistedSort()  // one sort for every window, before the first grid
         await app.library.reload()
         await app.trash.reload()  // the source list's badge
+        await app.loadSettings()
         await app.startMonitoringChanges()
         started = true
         while !Task.isCancelled {
@@ -454,7 +455,7 @@ private struct NotesPageHeader: View {
         TextField("untitled", text: titleText, axis: .vertical)
             .lineLimit(1...)
             .textFieldStyle(.plain)
-            .font(.system(size: NotesEditorMetrics.titleSize, weight: .bold))
+            .font(.system(size: CGFloat(app.notes.textSize) * NotesEditorMetrics.titleScale, weight: .bold))
             .focused($titleFocused)
             .onSubmit { submitTitle() }
             .onChange(of: titleFocused) { _, focused in if !focused { commitTitle() } }

@@ -9,10 +9,9 @@ import GlossNotes
 /// card all keep this distance from the sheet's edges and from each other.
 public enum NotesEditorMetrics {
     public static let margin: CGFloat = 16
-    /// The notes' body text size (Notion's).
-    public static let bodySize: CGFloat = 16
-    /// The page title above the body: a step above the largest heading (30 pt).
-    public static let titleSize: CGFloat = 34
+    /// The page title above the body, relative to the body text: a step above the largest
+    /// heading (34 pt over 16 pt body).
+    public static let titleScale: CGFloat = 34.0 / 16
 }
 
 /// Keeps the text view and the model in step. The view is the source of truth while the user
@@ -253,6 +252,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     /// change replaces it, and styling catches up with whatever moved.
     func sync(reveal: NotesReveal?) {
         guard let textView else { return }
+        if theme.bodySize != CGFloat(model.textSize) { textSizeChanged() }
         if model.page?.id != displayedPageID {
             displayedPageID = model.page?.id
             install(model.text)
@@ -478,6 +478,18 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
                 if current != style { storage.addAttribute(.paragraphStyle, value: style, range: NSRange(line)) }
             }
         }
+    }
+
+    /// The text size setting changed: every font, row, list indent and table grid follows.
+    private func textSizeChanged() {
+        guard let textView else { return }
+        theme.setBodySize(CGFloat(model.textSize))
+        tableBuilder.reset()
+        drawnTables = []
+        lastRuns = []  // every run's font changes
+        restyle()
+        textView.typingAttributes = theme.attributes(for: TextStyle(font: .body))
+        invalidateRows()
     }
 
     /// Lays a stretch of text out again (a table whose grid changed while its lines' attributes
