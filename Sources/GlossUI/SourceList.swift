@@ -42,6 +42,10 @@ struct SourceList: View {
                 // The list came into view (the sidebar opened, the search ended): bring the chapter
                 // being read into view, wherever the list had been left.
                 .onChange(of: revealToken) { _, _ in reveal(app.currentContentsRow, with: proxy) }
+                // Another book: its rows replaced the old ones, and entry ids are per-book
+                // positions, so the same id ("1") in both books is no change to observe — the
+                // book switching is.
+                .onChange(of: app.workspace.document?.id) { _, _ in reveal(app.currentContentsRow, with: proxy) }
         }
     }
 

@@ -27,24 +27,6 @@ import GlossCore
         case document(DocumentID)
     }
 
-    public struct Hit: Hashable, Identifiable, Sendable {
-        public var id = UUID()
-        public var hit: SearchHit
-        public var section: String
-
-        public init(hit: SearchHit, section: String) {
-            self.hit = hit
-            self.section = section
-        }
-
-        public var selection: Selection {
-            switch hit.destination {
-            case .page(let page, let document, let match): return .page(page, document, match: match)
-            case .bookText(let document, let locator, let matchText): return .bookText(document, locator: locator, matchText: matchText)
-            case .document(let document): return .document(document)
-            }
-        }
-    }
 
     private let services: GlossServices
     private let contextProvider: @MainActor () -> SearchContext

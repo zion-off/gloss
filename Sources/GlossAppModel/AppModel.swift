@@ -594,14 +594,14 @@ import GlossReaderBridge
     /// it lands on. The session stays open; the current row follows.
     public func stepSearch(by delta: Int) async {
         guard let hit = search.step(by: delta) else { return }
-        await reveal(SearchModel.Hit(hit: hit, section: "").selection)
+        await reveal(hit.selection)
         await applySearchHighlights()
     }
 
     /// A click or a list selection: makes that result current and opens it.
     public func openSearchResult(at index: Int) async {
         guard let hit = search.selectResult(at: index) else { return }
-        await reveal(SearchModel.Hit(hit: hit, section: "").selection)
+        await reveal(hit.selection)
         await applySearchHighlights()
     }
 
@@ -654,6 +654,18 @@ import GlossReaderBridge
             }
         } else {
             search.resetToDefaultScope()
+        }
+    }
+}
+
+extension SearchHit {
+    /// Where choosing this hit goes. On `SearchHit` itself (the results are the session's
+    /// currency) rather than wrapped in a section-carrying struct nobody needed.
+    public var selection: SearchModel.Selection {
+        switch destination {
+        case .page(let page, let document, let match): .page(page, document, match: match)
+        case .bookText(let document, let locator, let matchText): .bookText(document, locator: locator, matchText: matchText)
+        case .document(let document): .document(document)
         }
     }
 }

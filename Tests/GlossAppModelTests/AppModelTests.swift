@@ -270,7 +270,7 @@ struct SearchAndSwitcherTests {
         #expect(app.search.results.map(\.group) == [.notes, .bookText])
         let section = try #require(app.search.results.first)
         let hit = try #require(section.hits.first)
-        #expect(SearchModel.Hit(hit: hit, section: section.id).selection == .page(root.id, book.id, match: 16..<21))
+        #expect(hit.selection == .page(root.id, book.id, match: 16..<21))
         app.search.query = "   "
         await app.search.settle()
         #expect(app.search.results.isEmpty)
