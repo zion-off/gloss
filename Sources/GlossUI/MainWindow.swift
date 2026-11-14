@@ -51,6 +51,9 @@ public struct MainWindow: View {
     /// source list stays mounted under the results, so its selection, sections and scroll are
     /// exactly as they were when the search ends.
     @State private var sidebarBeforeSearch: NavigationSplitViewVisibility?
+    /// Bumped whenever the source list comes into view (the sidebar opening, the search results
+    /// leaving it), so it can bring the chapter being read into view.
+    @State private var sidebarRevealToken = 0
 
     private var showsBook: Bool {
         if case .book = app.workspace.detail { true } else { false }
@@ -60,10 +63,10 @@ public struct MainWindow: View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             // While a search runs inside a book, its results take the sidebar; the source list
             // stays mounted underneath (hidden, not gone), so ending the search puts the same
-            /// sections, selection and scroll position back. No control switches between them:
-            /// ending the search is how the contents come back.
+            // sections, selection and scroll position back. No control switches between them:
+            // ending the search is how the contents come back.
             ZStack(alignment: .topLeading) {
-                SourceList(app: app)
+                SourceList(app: app, revealToken: sidebarRevealToken)
                     // Hidden, not removed, while the results cover it: a sidebar list is
                     // translucent, so it must not draw through them, take clicks or be read by
                     // VoiceOver — but it keeps its selection and scroll position.
@@ -99,6 +102,10 @@ public struct MainWindow: View {
                 sidebarBeforeSearch = nil
                 columnVisibility = before
             }
+            if !showing { sidebarRevealToken += 1 }  // the source list is back in view
+        }
+        .onChange(of: columnVisibility) { old, new in
+            if old == .detailOnly, new != .detailOnly { sidebarRevealToken += 1 }  // the sidebar opened
         }
         // The system's own inline title, after back/forward (the navigation placement goes "ahead
         // of the inline title"). It is also what splits the toolbar into a leading and a trailing
