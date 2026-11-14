@@ -522,8 +522,10 @@ private struct NotesPageHeader: View {
 /// toolbar in two, and both draw a divider where the sheet should be seamless.
 ///
 /// One stack for all three layouts, so changing layout animates: the reader card keeps its place
-/// between "reader and notes" and "reader only" (no reload, no flash) while the notes slide and
-/// fade in or out.
+/// between "reader and notes" and "reader only" (no reload, no flash) while the notes slide in or
+/// out on the right; for "notes only" the card slides out to the left as the notes grow over its
+/// place. Slides, never fades, like the sidebar; the card moves rather than shrinks, since a
+/// narrowing book would lay its pages out again on every frame.
 private struct ReaderNotesLayout<Reader: View, Notes: View>: View {
     let layout: SplitLayout
     @AppStorage("notes.width") private var storedWidth = 380.0
@@ -546,7 +548,7 @@ private struct ReaderNotesLayout<Reader: View, Notes: View>: View {
             let width = min(max(storedWidth, Self.minNotes), widest)
             HStack(spacing: 0) {
                 if layout.showsReader {
-                    reader.transition(.opacity)
+                    reader.transition(.move(edge: .leading))
                 }
                 if layout.showsNotes {
                     notes
@@ -556,9 +558,11 @@ private struct ReaderNotesLayout<Reader: View, Notes: View>: View {
                         .overlay(alignment: .leading) {
                             if layout == .split { grabArea(current: width, widest: widest) }
                         }
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                        .transition(.move(edge: .trailing))
                 }
             }
+            // A card on its way out stays inside the pane, not over the sidebar or the toolbar.
+            .clipped()
             .animation(.smooth(duration: 0.28), value: layout)
         }
     }
