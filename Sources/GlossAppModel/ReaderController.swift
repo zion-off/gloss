@@ -94,6 +94,9 @@ import GlossReaderBridge
     /// A search hit to reveal once the open book is on screen — for the book it was asked in,
     /// so opening another book in between drops it instead of mislanding.
     private var pendingSearchReveal: (documentID: DocumentID, locator: Locator?, text: String)?
+    /// A search session's query to highlight once the open book is on screen (a result opened a
+    /// new book mid-session; the highlights follow it there).
+    private var pendingSearchHighlights: String?
     private var positionTask: Task<Void, Never>?
     /// Bumped by every `open`/`close` call, so one that was overtaken while it waited stops.
     private var openRequests = 0
@@ -129,6 +132,7 @@ import GlossReaderBridge
         pendingOpen = nil
         pendingFocus = nil
         pendingSearchReveal = nil
+        pendingSearchHighlights = nil
         stopShowingBook()
         toc = []
         location = nil
@@ -193,6 +197,10 @@ import GlossReaderBridge
                     await reveal(searchHit: search.locator, text: search.text)
                 }
             }
+            if let query = pendingSearchHighlights {
+                pendingSearchHighlights = nil
+                await setSearchHighlights(query)
+            }
         case .openFailed(let message, let openID):
             // Only the open in flight counts; a failure of an open a newer one replaced
             // must not cancel it.
@@ -255,6 +263,25 @@ import GlossReaderBridge
     public func turnPage(forward: Bool) async {
         guard isShowingBook else { return }
         try? await driver?.turnPage(forward: forward)
+    }
+
+    /// Shows a search session's matches in the open book softly (nil clears them), when the
+    /// engine can; a book still opening gets them once it shows.
+    public func setSearchHighlights(_ query: String?) async {
+        guard let driver, let highlighting = driver as? (any SearchHighlighting) else { return }
+        guard isShowingBook else {
+            pendingSearchHighlights = query
+            return
+        }
+        pendingSearchHighlights = nil
+        do { try await highlighting.setSearchHighlights(query) } catch { errorMessage = Self.describe(error) }
+    }
+
+    /// Clears every search highlight the engine may hold (a session ended). Also drops the one
+    /// waiting for a book still opening.
+    public func clearSearchHighlights() async {
+        pendingSearchHighlights = nil
+        await setSearchHighlights(nil)
     }
 
     public func reveal(searchHit locator: Locator?, text: String) async {
