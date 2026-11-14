@@ -5,6 +5,8 @@
 #   gloss.app/Contents/Info.plist
 #   gloss.app/Contents/MacOS/gloss          the app (CFBundleExecutable)
 #   gloss.app/Contents/Helpers/gloss        the command line tool (only when one is given)
+#   gloss.app/Contents/Frameworks/          Sparkle.framework, found through the app's
+#                                           @executable_path/../Frameworks rpath (Package.swift)
 #   gloss.app/Contents/Resources/           gloss.icns and SwiftPM's resource bundles; the app
 #                                           finds the reader's files there (ReaderBundle)
 # The tool lives in Helpers/, not Resources/, because Helpers/ is a place codesign and
@@ -19,8 +21,8 @@ app_min_macos() {
 }
 
 # assemble_app <bin-dir> <app> <short-version> <build-number> [<cli-binary>]
-# Extra Info.plist entries (Sparkle's SUFeedURL and friends, later) go in $GLOSS_PLIST_EXTRA,
-# as plist <key>/<value> lines, and land just before the closing </dict>.
+# Extra Info.plist entries (release.sh puts Sparkle's SUFeedURL and SUPublicEDKey here) go in
+# $GLOSS_PLIST_EXTRA, as plist <key>/<value> lines, and land just before the closing </dict>.
 assemble_app() {
   local bin="$1" app="$2" version="$3" build="$4" cli="${5:-}" min_macos
   min_macos="$(app_min_macos)"
@@ -32,6 +34,10 @@ assemble_app() {
     mkdir -p "$app/Contents/Helpers"
     cp "$cli" "$app/Contents/Helpers/gloss"
   fi
+  # ditto keeps the framework's symlinks and permissions intact.
+  [ -d "$bin/Sparkle.framework" ] || { echo "no Sparkle.framework in $bin (build GlossMac first)" >&2; return 1; }
+  mkdir -p "$app/Contents/Frameworks"
+  ditto "$bin/Sparkle.framework" "$app/Contents/Frameworks/Sparkle.framework"
   # SwiftPM resource bundles (the reader's files among them); ReaderBundle looks in Resources first.
   local bundle
   for bundle in "$bin"/*.bundle; do
@@ -93,4 +99,24 @@ ${GLOSS_PLIST_EXTRA:-}
 </plist>
 PLIST
   plutil -lint "$app/Contents/Info.plist" >/dev/null
+}
+
+# sign_app <app> <identity> [<codesign option>...]
+# Inside out and without --deep, as Sparkle's signing docs ask: Sparkle's XPC services and
+# helpers (the downloader keeps its entitlements), the framework, the command line tool, then
+# the app that seals them. Identity "-" signs ad hoc.
+sign_app() {
+  local app="$1" identity="$2"
+  shift 2
+  local sign=(codesign --force --sign "$identity" "$@")
+  local sparkle="$app/Contents/Frameworks/Sparkle.framework/Versions/B"
+  "${sign[@]}" "$sparkle/XPCServices/Installer.xpc"
+  "${sign[@]}" --preserve-metadata=entitlements "$sparkle/XPCServices/Downloader.xpc"
+  "${sign[@]}" "$sparkle/Autoupdate"
+  "${sign[@]}" "$sparkle/Updater.app"
+  "${sign[@]}" "$app/Contents/Frameworks/Sparkle.framework"
+  if [ -e "$app/Contents/Helpers/gloss" ]; then
+    "${sign[@]}" "$app/Contents/Helpers/gloss"
+  fi
+  "${sign[@]}" "$app"
 }

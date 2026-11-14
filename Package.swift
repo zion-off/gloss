@@ -13,6 +13,8 @@ let package = Package(
         .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.12.0"),
         .package(url: "https://github.com/apple/swift-crypto.git", from: "5.0.0"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.5.0"),
+        // Updates for the released app (the GlossMac target only; the CLI never links it).
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.1"),
     ],
     targets: [
         .target(name: "GlossMarkdown"),
@@ -57,6 +59,10 @@ let package = Package(
             "GlossCore", "GlossStore", "GlossEPUB", "GlossPDF", "GlossReaderBridge",
             "GlossReaderKit", "GlossReaderEPUB", "GlossReaderPDF", "GlossEditor", "GlossUI",
             "GlossAppModel", "GlossExport",
+            .product(name: "Sparkle", package: "Sparkle", condition: .when(platforms: [.macOS])),
+        ], linkerSettings: [
+            // gloss.app embeds Sparkle.framework in Contents/Frameworks (scripts/lib/app-bundle.sh).
+            .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"], .when(platforms: [.macOS])),
         ]),
         .testTarget(name: "GlossMarkdownTests", dependencies: ["GlossMarkdown"]),
         .testTarget(name: "GlossEPUBTests", dependencies: ["GlossEPUB", "GlossTestSupport"]),

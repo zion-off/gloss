@@ -24,6 +24,6 @@ app="build/gloss.app"
 
 assemble_app "$bin" "$app" 0.1 1
 
-codesign --force --deep --sign - "$app" >/dev/null 2>&1 || echo "(ad hoc signing failed; the app still runs locally)"
+sign_app "$app" - >/dev/null 2>&1 || echo "(ad hoc signing failed; the app still runs locally)"
 echo "built $app"
 if [ "$open_app" = 1 ]; then open "$app"; fi
