@@ -80,6 +80,49 @@ struct NotesTablesTests {
         #expect(model.paste("plain words") == nil)
     }
 
+    @Test("resized widths apply to their table, are stored per page and ordinal, and only fit the same column count")
+    func columnWidths() async throws {
+        let (lib, model, page) = try await loaded(table + "\n\n" + table)
+        let key = NotesTableSettings.columnWidths(for: page.id)
+        model.resizeColumns(ofTable: 1, to: [0.25, 0.75])
+        #expect(model.gridTables.map(\.columnFractions) == [nil, [0.25, 0.75]])
+        #expect(model.saveState == .saved)  // view state: the note isn't edited
+        #expect(try await lib.services.settings.value(key).isEmpty)  // kept in memory until saved
+        model.saveColumnWidths()
+        await model.flushColumnWidths()
+        #expect(try await lib.services.settings.value(key) == ["1": TableColumnWidths(fractions: [0.25, 0.75])])
+        model.resizeColumns(ofTable: 0, to: [1])  // wrong count: ignored
+        #expect(model.gridTables[0].columnFractions == nil)
+
+        // Back on the page: applied again; a table that gained a column lays out automatically.
+        let other = NotesEditorModel(services: lib.services, saveDelay: .zero)
+        try await other.load(page)
+        #expect(other.gridTables[1].columnFractions == [0.25, 0.75])
+        other.selectionDidChange(other.text.utf16.count..<other.text.utf16.count)
+        apply(other.addColumn(toTable: 1), to: other)
+        #expect(other.gridTables[1].columnFractions == nil)
+
+        model.resetColumnWidths(ofTable: 1)
+        await model.flushColumnWidths()
+        #expect(model.gridTables[1].columnFractions == nil)
+        #expect(try await lib.services.settings.value(key).isEmpty)
+    }
+
+    @Test("loading a note drops stored widths for tables past its table count")
+    func pruning() async throws {
+        let lib = TestLibrary()
+        let (_, root) = try await lib.book()
+        try await lib.services.pages.updateBody(root.id, to: table)
+        let key = NotesTableSettings.columnWidths(for: root.id)
+        let widths = TableColumnWidths(fractions: [0.5, 0.5])
+        try await lib.services.settings.set(["0": widths, "3": widths], for: key)
+        let model = NotesEditorModel(services: lib.services, saveDelay: .zero)
+        try await model.load(try #require(try await lib.services.pages.page(root.id)))
+        await model.flushColumnWidths()
+        #expect(try await lib.services.settings.value(key) == ["0": widths])
+        #expect(model.gridTables.first?.columnFractions == [0.5, 0.5])
+    }
+
     @Test("/table inserts a 2×2 table with the caret in its first header cell")
     func slashTable() async throws {
         let (_, model, _) = try await loaded("")
