@@ -17,7 +17,7 @@ hop between the two. Think footnotes, except you write them yourself.
 - **tables**: type or paste a markdown pipe table, or use `/table`, and it draws as a grid when the
   caret leaves it. Hover for "+" to add a row or column; drag a divider to resize (double-click resets).
 - **links to passages**: plain markdown links with a `gloss://` address, so your notes stay plain text.
-  Linked passages show a marker in the book, hovering previews the other end, clicking follows it.
+  Linked passages show a marker in the book, and clicking a link follows it.
   Links can cross books, and each pane has its own back and forward (⌘[ ⌘]).
 - **split view** with the book and the notes side by side, or either on its own.
 - **a library** of covers with reading progress, a "recently read" shelf, filters and sorting.

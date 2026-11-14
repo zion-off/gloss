@@ -23,14 +23,6 @@ public struct LinkedPassage: Hashable, Sendable {
     }
 }
 
-/// What the hover popover shows for a passage link.
-public struct PassagePreview: Hashable, Sendable {
-    public var quote: String
-    public var label: String?
-    public var documentID: DocumentID
-    public var documentTitle: String
-}
-
 /// What `LinkService.link` did to a page.
 public struct NotesLinkResult: Hashable, Sendable {
     public enum Change: Hashable, Sendable {
@@ -128,13 +120,6 @@ public struct LinkService: Sendable {
                 let pages = try LinkService.livePages(referring: .passage(target.id), in: tx)
                 return pages.isEmpty ? nil : LinkedPassage(target: target, pages: pages)
             }
-        }
-    }
-
-    public func preview(of id: LinkTargetID) async throws -> PassagePreview? {
-        try await store.read { tx in
-            guard let target = try tx.linkTargets.linkTarget(id), let document = try tx.documents.document(target.documentID) else { return nil }
-            return PassagePreview(quote: target.passage.quote, label: target.passage.label, documentID: document.id, documentTitle: document.title)
         }
     }
 

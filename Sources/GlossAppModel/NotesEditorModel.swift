@@ -307,12 +307,6 @@ public enum NotesTableSettings {
         LinkScanner.link(at: offset, in: document)?.destination
     }
 
-    /// What the hover popover shows for a passage link.
-    public func preview(at offset: Int) async -> PassagePreview? {
-        guard case .passage(let id)? = glossLink(at: offset) else { return nil }
-        return try? await services.links.preview(of: id)
-    }
-
     /// The subpage row under an offset (a click opens the page).
     public func subpageRow(at offset: Int) -> SubpageRow? {
         subpageRows.first { $0.lineRange.contains(offset) || $0.lineRange.upperBound == offset }
