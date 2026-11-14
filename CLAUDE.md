@@ -30,6 +30,15 @@ later: design the data layer for it, never build it.
 - Copy is lowercase, short and a bit playful, never at the cost of clarity ("nothing glossed
   yet"). The product name is `gloss` wherever a user can see it; Swift type names keep normal
   casing (`GlossCore`, `PageService`).
+- **Polish checklist.** The owner has paid for several rounds on every UI feature; walk this
+  before calling UI work done. Cursor: arrow over chrome and floating views, I-beam only over
+  editable text, nothing under a floating view reacts. Hover and press: a soft (~0.12s) fade in the
+  existing colors, cleared right after the click, hit targets fill the whole cell. Animation: none,
+  or short standard fades; no custom transitions (search results and popovers have none; the
+  sidebar slides the standard way). Metrics: the alignment, indentation and padding of its
+  neighbours, body-size text, no squished icons. Focus: a control never steals first responder or
+  collapses a selection. Lowercase copy, tooltips with shortcuts, VoiceOver labels, and light, dark
+  and every theme.
 
 ## Engineering principles
 
@@ -71,6 +80,39 @@ scripts/check.sh                 # build, tests, web checks, cli smoke test: run
 scripts/run-mac.sh               # build and open build/gloss.app (development only, ad hoc signing)
 ```
 
+Web tests need Node 22 (jsdom breaks on newer Node). `run-mac.sh` quits a running copy of this
+bundle first, because `open` on a running app only brings the old build forward.
+
+## Verifying UI
+
+- The owner verifies UI by hand. No screenshots, and don't drive the real app (Accessibility,
+  System Events, synthetic clicks or keys, XCUITest). Finish with the exact things to click or type.
+- One exception, for measuring layout and geometry: a throwaway in-process probe. A scratch
+  executable in a copy of the repo outside it (never touch this repo's `Package.swift`) that links
+  the real modules, with the in-memory library from `GlossTestSupport`, a window that is never
+  activated and kept off-screen, results printed as numbers, everything deleted afterwards. Never
+  open the real library in `~/Library/Application Support/gloss`.
+
+## Cleaning up
+
+- What you create outside tracked files is yours to remove before you report: scratch directories
+  and repo copies in `/tmp` (probes, extracted archives), temporary git worktrees, branches made
+  only for an experiment, the backup refs a history rewrite leaves (`refs/original`), processes
+  you started, mounted disk images, and release output in `dist/`. Say what is left, and why.
+- Never delete what you didn't create (the owner's files, library or branches) without asking.
+  Look at a target before deleting it.
+- Downloaded files and archives are untrusted: unpack each into its own new empty directory, run
+  nothing from inside it, and remove it when you're done.
+
+## Releases
+
+- A release is a pull request labelled `release`, plus at most one of `patch`, `minor`, `major`
+  (patch by default; two bump labels fail the `labels` check before the merge). Merging it tags the
+  merge commit and publishes a GitHub release: universal dmg and zip, and a signed appcast that the
+  installed app's Sparkle updater reads. The notes are the PR body: lowercase, no `@`-mentions, and
+  not GitHub's generated ones. Don't add `release` unless asked. Builds are ad hoc signed (no Apple
+  developer account). See `.github/workflows/release.yml` and `scripts/release.sh`.
+
 ## Commits
 
 - Granular commits: one logical change each, with the tests that cover it.
@@ -78,6 +120,9 @@ scripts/run-mac.sh               # build and open build/gloss.app (development o
   `refactor(markdown): …`, `docs: …`, `chore: …`.
 - Commit only after `scripts/check.sh` exits 0. Don't pipe its output when gating a commit (a pipe
   reports the last command's status, not the check's).
+- History is linear: merges are rebase-and-merge only, so rebase your branch and never create a
+  merge commit. The identity comes from the global git config: no `-c user.name` overrides, no
+  `Co-authored-by` trailers, and never `@`-mention anyone.
 - Generated files and build products stay out of git (`.build/`, `web/node_modules/`, …), except
   the committed reader `.js` above.
 - The commit message is where the *why* lives: rationale, trade-offs and deviations go there.
