@@ -684,8 +684,19 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
 
     @objc private func boundsChanged() {
         reportSelection()
-        // A scroll moves the tables without a mouse move; the next move shows their handles again.
-        textView?.hideTableHandles()
+        refreshHoverFromCurrentPointer()
+    }
+
+    /// After a scroll the pointer may not have moved (a trackpad scroll, keyboard scrolling), so
+    /// no mouse move will come: recompute the hover from where the pointer is now. The handles
+    /// are subviews of the text view and stay glued to their table through the scroll; this only
+    /// decides whether they should still show, and hides them once the table has moved away from
+    /// under the pointer. Skipped when a floating view owns the pointer, like a mouse move is.
+    private func refreshHoverFromCurrentPointer() {
+        guard let textView, let window = textView.window else { return }
+        let location = window.mouseLocationOutsideOfEventStream
+        guard textView.isUnderPointer(windowPoint: location) else { return }
+        pointerMoved(to: textView.convert(location, from: nil))
     }
 
     static func range(_ nsRange: NSRange) -> Range<Int> {
