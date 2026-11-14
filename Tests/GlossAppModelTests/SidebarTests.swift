@@ -83,10 +83,10 @@ struct SidebarTests {
         await app.select(.contents("0.0"))
         #expect(app.workspace.sidebar == .contents("0.0"))
         #expect(app.workspace.layout == .split)
-        #expect(driver.calls.last == .go(locator("c2"), flash: false))
+        #expect(driver.calls.last == .go(locator("c2")))
     }
 
-    @Test("highlights list in reading order; picking one goes to its passage and flashes it")
+    @Test("highlights list in reading order; picking one goes to its passage")
     func highlights() async throws {
         let lib = TestLibrary()
         let (app, driver, book, _) = try await openApp(lib)
@@ -97,7 +97,7 @@ struct SidebarTests {
 
         await app.select(.highlight(late.id))
         #expect(app.workspace.sidebar == .highlight(late.id))
-        #expect(driver.calls.last == .go(locator("late"), flash: true))
+        #expect(driver.calls.last == .go(locator("late")))
     }
 
     @Test("the list follows highlights made and removed in the reader, and drops a removed selection")

@@ -23,7 +23,6 @@ if (!view)
     throw new Error('gloss: <foliate-view> element is missing');
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const SELECTION_DEBOUNCE_MS = 150;
-const FLASH_MS = 1500;
 // -- state -----------------------------------------------------------------
 let opened = false; // a book is open and taking commands
 let needsClose = false; // view.open may have built a renderer
@@ -179,33 +178,10 @@ const cfiOfFirstMatch = async (index, text) => {
         return view.getCFI(index, range);
     return null;
 };
-// Briefly outline a navigation target (goTo flash, revealSearchHit).
-const flashTarget = async (resolved) => {
-    const contents = view.renderer?.getContents?.() ?? [];
-    const content = contents.find(c => c.index === resolved?.index);
-    if (!content?.overlayer || typeof resolved?.anchor !== 'function')
-        return;
-    const anchor = resolved.anchor;
-    const anchored = anchor(content.doc);
-    let range = null;
-    if (anchored instanceof Range)
-        range = anchored;
-    else if (anchored instanceof Element) {
-        const r = content.doc.createRange();
-        r.selectNodeContents(anchored);
-        range = r;
-    }
-    if (!range?.getClientRects)
-        return;
-    const key = 'gloss-flash';
-    content.overlayer.add(key, range, Overlayer.outline, { color: colors?.foreground ?? 'currentColor' });
-    setTimeout(() => content.overlayer?.remove(key), FLASH_MS);
-};
-/// Goes to a hit and marks it as the session's current match (a strong highlight plus the
-/// navigation flash), replacing any previous one.
+/// Goes to a hit and marks it as the session's current match (a strong highlight), replacing
+/// any previous one.
 const revealAndMark = async (resolved) => {
     clearCurrentSearchMark();
-    await flashTarget(resolved);
     const contents = view.renderer?.getContents?.() ?? [];
     const content = contents.find(c => c.index === resolved?.index);
     if (!content || typeof resolved?.anchor !== 'function')
@@ -245,11 +221,25 @@ view.addEventListener('load', e => {
     const { doc, index } = eventDetail(e);
     // a debounced selection that settles after its book closed must not reach Swift
     const generation = bookGeneration.value();
-    const debounced = selection.makeDebouncer(() => {
+    const gate = selection.makeSelectionGate(() => {
         if (bookGeneration.isCurrent(generation) && opened)
             emitSelection(doc, index);
+    });
+    const debounced = selection.makeDebouncer(() => {
+        const sel = doc.getSelection();
+        gate.changed(!sel || sel.rangeCount === 0 || sel.isCollapsed);
     }, SELECTION_DEBOUNCE_MS);
     doc.addEventListener('selectionchange', debounced);
+    // a drag selection opens the popover when the button comes up, not when the drag pauses
+    doc.addEventListener('pointerdown', e => { if (e.button === 0)
+        gate.press(); });
+    const release = () => {
+        debounced.cancel();
+        gate.release();
+    };
+    doc.addEventListener('pointerup', e => { if (e.button === 0)
+        release(); });
+    doc.addEventListener('pointercancel', release);
 });
 // -- keyboard ---------------------------------------------------------------
 // goLeft/goRight already respect the book direction (`view.goRight()` is
@@ -632,22 +622,18 @@ const commands = {
     async close() {
         closeBook();
     },
-    async goTo({ target, flash }) {
+    async goTo({ target }) {
         requireRenderer();
         if ('quote' in target) {
-            // words that can't be found still land in their section, unflashed
+            // words that can't be found still land in their section
             const cfi = await resolveQuote(target.quote);
-            const resolved = await view.goTo(cfi ?? target.quote.section);
-            if (flash && cfi)
-                await flashTarget(resolved);
+            await view.goTo(cfi ?? target.quote.section);
             return;
         }
         const targetValue = 'cfi' in target ? target.cfi
             : 'href' in target ? target.href
                 : { fraction: target.fraction };
-        const resolved = await view.goTo(targetValue);
-        if (flash)
-            await flashTarget(resolved);
+        await view.goTo(targetValue);
     },
     async turnPage({ direction }) {
         requireRenderer();
@@ -703,7 +689,7 @@ const commands = {
         if (section == null)
             throw new Error('revealSearchHit needs a cfi or a section');
         // Find the hit's own CFI in its section, off the command queue (a whole section scan
-        // must not hold back the commands sent after it), then go to it: flash plus the
+        // must not hold back the commands sent after it), then go to it and draw the
         // session's current mark. Never view.search here — it clears and redraws the session's
         // soft matches, and its own results draw as outlines (the red boxes this replaces).
         // A generation of its own: the highlight command that follows a step shares the

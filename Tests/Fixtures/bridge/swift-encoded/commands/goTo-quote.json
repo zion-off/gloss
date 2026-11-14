@@ -1,6 +1,5 @@
 {
   "payload" : {
-    "flash" : true,
     "target" : {
       "quote" : {
         "occurrence" : 1,

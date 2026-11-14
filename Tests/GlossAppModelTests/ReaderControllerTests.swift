@@ -13,7 +13,7 @@ final class FakeDriver: ReaderDriving, SearchHighlighting {
     enum Call: Equatable {
         case open(DocumentID, Locator?)
         case close
-        case go(Locator, flash: Bool)
+        case go(Locator)
         case turn(forward: Bool)
         case show(ReaderAnnotations)
         case clearSelection
@@ -38,9 +38,9 @@ final class FakeDriver: ReaderDriving, SearchHighlighting {
         if failOpen { throw ReaderDrivingError.notReady }
     }
     func close() async throws { calls.append(.close) }
-    func go(to locator: Locator, flash: Bool) async throws {
+    func go(to locator: Locator) async throws {
         if failGo { throw ReaderDrivingError.unsupportedLocator(locator.scheme) }
-        calls.append(.go(locator, flash: flash))
+        calls.append(.go(locator))
     }
     func turnPage(forward: Bool) async throws { calls.append(.turn(forward: forward)) }
     func show(_ annotations: ReaderAnnotations) async throws { calls.append(.show(annotations)) }
@@ -101,7 +101,7 @@ struct ReaderControllerTests {
         #expect(try await lib.services.library.document(book.id)?.lastOpenedAt != nil)
     }
 
-    @Test("opening at a passage goes there and flashes it after the book loads")
+    @Test("opening at a passage goes there after the book loads")
     func openAtPassage() async throws {
         let lib = TestLibrary()
         let (book, _) = try await lib.book()
@@ -113,11 +113,11 @@ struct ReaderControllerTests {
         await controller.open(book, at: passage)
         await controller.handle(.opened(toc: [], openID: driver.lastOpenID))
         #expect(driver.calls.first == .open(book.id, passage))
-        #expect(driver.calls.last == .go(passage, flash: true))
+        #expect(driver.calls.last == .go(passage))
         // Already open: going to another passage doesn't reopen the book.
         let other = Locator(scheme: FakeFormat.scheme, value: "q")
         await controller.open(book, at: other)
-        #expect(driver.calls.last == .go(other, flash: true))
+        #expect(driver.calls.last == .go(other))
         #expect(driver.calls.filter { if case .open = $0 { true } else { false } }.count == 1)
     }
 
@@ -317,7 +317,7 @@ struct ReaderControllerTests {
         await controller.refreshAnnotations()
         #expect(driver.calls.count == 1)  // only the open
         await controller.handle(.opened(toc: [], openID: driver.lastOpenID))
-        #expect(driver.calls.contains(.go(passage, flash: true)))
+        #expect(driver.calls.contains(.go(passage)))
         // The queued search reveal lands after the queued go: both were asked for
         // while the book opened, both arrive once it has.
         #expect(driver.calls.last == .reveal(passage, "t"))

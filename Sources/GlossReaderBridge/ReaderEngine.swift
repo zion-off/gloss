@@ -120,7 +120,7 @@ public protocol ReaderDriving: AnyObject {
     func open(_ document: Document, at position: Locator?, openID: Int) async throws
     /// Closes the open book, if any; the engine shows nothing until the next `open`.
     func close() async throws
-    func go(to locator: Locator, flash: Bool) async throws
+    func go(to locator: Locator) async throws
     func turnPage(forward: Bool) async throws
     func show(_ annotations: ReaderAnnotations) async throws
     func clearSelection() async throws

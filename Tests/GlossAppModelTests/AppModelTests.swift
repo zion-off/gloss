@@ -495,7 +495,7 @@ struct ReviewOneAppModelTests {
         let passage = Locator(scheme: FakeFormat.scheme, value: "passage")
         try await app.workspace.openDocument(book.id, locator: passage)
         await app.showReaderFocus()
-        #expect(driver.calls.last == .go(passage, flash: true))
+        #expect(driver.calls.last == .go(passage))
     }
 
     @Test("the reader closes a book trashed from outside, and reopens after an engine reload")

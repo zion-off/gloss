@@ -86,7 +86,7 @@ the glue and `bridge/sanitize.ts` keep them out.
 The CLI has no engine to ask for a position, so formats that can extract text implement
 `QuoteLocating` and pin a passage by its words instead: locator schemes `epub-quote` and
 `pdf-quote` carry the section or page plus a `QuoteAnchor` (quote, context, occurrence). Readers
-resolve the anchor against the text they actually show, then draw, jump and flash as for any
+resolve the anchor against the text they actually show, then draw and jump as for any
 other passage. The CLI finds the words (`PassageFinder`), never guesses between several matches,
 and writes through `LinkService`, so references, the index and the journal update and a running
 app draws the marker within a second. The Swift and TypeScript resolvers share the cases in

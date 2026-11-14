@@ -51,3 +51,23 @@ export const makeDebouncer = (fn, delay, timers = defaultTimers) => {
         },
     });
 };
+// A selection dragged out with the mouse is reported once the button comes up, like the system's
+// own edit menus: a pause mid-drag must not open the selection popover under the pointer. A
+// selection that went away (a click elsewhere) is reported at once, so the popover closes, and
+// one made from the keyboard (no button down) is reported as it settles.
+export const makeSelectionGate = (report) => {
+    let pressed = false;
+    return {
+        press() {
+            pressed = true;
+        },
+        release() {
+            pressed = false;
+            report();
+        },
+        changed(collapsed) {
+            if (!pressed || collapsed)
+                report();
+        },
+    };
+};

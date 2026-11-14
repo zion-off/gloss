@@ -22,11 +22,11 @@ struct WireContractTests {
         ("open-without-position", .open(ReaderOpenPayload(openID: 2, url: "gloss-reader://app/book/01m78xptr8fa4r6vwtr0f789s9",
                                                           position: nil, appearance: appearance))),
         ("close", .close),
-        ("goTo-cfi", .goTo(ReaderGoToPayload(target: .cfi("epubcfi(/6/10!/4/2/2/1:12)"), flash: true))),
+        ("goTo-cfi", .goTo(ReaderGoToPayload(target: .cfi("epubcfi(/6/10!/4/2/2/1:12)")))),
         ("goTo-href", .goTo(ReaderGoToPayload(target: .href("text/ch001.xhtml")))),
         ("goTo-fraction", .goTo(ReaderGoToPayload(target: .fraction(0.5)))),
         ("goTo-quote", .goTo(ReaderGoToPayload(target: .quote(ReaderQuoteTarget(section: 4, text: "the whale", prefix: "Not",
-                                                                                suffix: ", said", occurrence: 1)), flash: true))),
+                                                                                suffix: ", said", occurrence: 1))))),
         ("turnPage", .turnPage(ReaderTurnPagePayload(direction: .forward))),
         ("setAppearance", .setAppearance(ReaderSetAppearancePayload(appearance: appearance))),
         ("setAnnotations", .setAnnotations(ReaderSetAnnotationsPayload(

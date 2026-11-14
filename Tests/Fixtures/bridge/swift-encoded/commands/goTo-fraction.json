@@ -1,6 +1,5 @@
 {
   "payload" : {
-    "flash" : false,
     "target" : {
       "fraction" : 0.5
     }

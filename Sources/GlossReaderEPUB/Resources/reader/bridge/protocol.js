@@ -199,7 +199,6 @@ export const COMMAND_PAYLOAD_SPECS = {
     close: {},
     goTo: {
         target: goToTargetSpec,
-        flash: BOOL,
     },
     turnPage: {
         direction: { t: 'enum', values: PAGE_DIRECTIONS },

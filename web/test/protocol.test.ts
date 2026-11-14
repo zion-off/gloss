@@ -148,12 +148,11 @@ test('rejects missing and mistyped fields', () => {
     } }, 'marker cfi not a string')
     invalidCommand({ v: 1, type: 'revealSearchHit', payload: { cfi: null, section: -1, text: 'x' } }, 'negative section')
     invalidCommand({ v: 1, type: 'revealSearchHit', payload: { cfi: 5, section: null, text: 'x' } }, 'cfi not a string')
-    invalidCommand({ v: 1, type: 'goTo', payload: { target: { cfi: 'epubcfi(/6)' } } }, 'missing flash')
 })
 
 test('goTo target must have exactly one of cfi/href/fraction', () => {
     const go = (target: unknown) =>
-        validateCommand({ v: 1, type: 'goTo', payload: { target, flash: false } })
+        validateCommand({ v: 1, type: 'goTo', payload: { target } })
     assert.equal(go({ cfi: 'epubcfi(/6)' }).ok, true)
     assert.equal(go({ href: 'text/ch1.xhtml' }).ok, true)
     assert.equal(go({ fraction: 0.5 }).ok, true)
