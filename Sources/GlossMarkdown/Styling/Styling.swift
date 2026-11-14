@@ -74,7 +74,7 @@ public struct StyleRuleSet: Sendable {
     public static let standard = StyleRuleSet(
         blockRules: [
             .heading: HeadingRule(), .listItem: ListItemRule(), .quote: QuoteRule(),
-            .codeBlock: CodeBlockRule(), .thematicBreak: ThematicBreakRule(),
+            .codeBlock: CodeBlockRule(), .thematicBreak: ThematicBreakRule(), .table: TableRule(),
         ],
         inlineRules: [
             .strong: WrapRule(role: .strong), .emphasis: WrapRule(role: .emphasis),

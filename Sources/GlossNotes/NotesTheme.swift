@@ -94,6 +94,9 @@ public struct NotesTheme: Sendable {
         var entries: [StyleRole: Entry] = [
             .quote: Entry(TextStyle(color: .secondary, block: .quote), layer: 0),
             .codeBlock: Entry(TextStyle(font: .monospaced, block: .code), layer: 0),
+            .tableSource: Entry(TextStyle(font: .monospaced), layer: 0),
+            .tableHeader: Entry(TextStyle(bold: true), layer: 3),
+            .tableSyntax: Entry(TextStyle(color: .tertiary), layer: 6),
             .code: Entry(TextStyle(font: .monospaced), layer: 2),
             .strong: Entry(TextStyle(bold: true), layer: 3),
             .emphasis: Entry(TextStyle(italic: true), layer: 3),
