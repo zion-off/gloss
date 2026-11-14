@@ -27,13 +27,32 @@ hop between the two. Think footnotes, except you write them yourself.
 - **one file**: books, covers, notes and highlights all live in a single SQLite file in
   `~/Library/Application Support/gloss/`.
 
+## install
+
+Grab `gloss-<version>.dmg` from the releases page, open it and drag gloss to Applications. It needs
+macOS 14 or later, on apple silicon or intel.
+
+Builds aren't notarized yet, so the first launch needs a nudge: right-click gloss in Applications,
+choose open, then open again. Or clear the quarantine flag once:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/gloss.app
+```
+
+The `gloss` command ships inside the app. To use it from the terminal, link it onto your PATH:
+
+```sh
+ln -s /Applications/gloss.app/Contents/Helpers/gloss /usr/local/bin/gloss   # or ~/.local/bin/gloss
+```
+
 ## build and run
 
-There are no packaged releases yet, so you build it yourself. You need macOS 14 or later and Xcode
+To build it yourself you need macOS 14 or later and Xcode
 16.3 or later (Swift 6.1+).
 
 ```sh
 scripts/run-mac.sh        # builds build/gloss.app (ad hoc signed, for development) and opens it
+scripts/release.sh 0.1.0  # universal gloss.app, dmg and checksum in dist/
 ```
 
 The reader's web side is TypeScript, but its compiled output is committed, so you only need Node 22
@@ -43,7 +62,8 @@ and pnpm if you're changing `web/`. Run `scripts/check.sh` before committing; `C
 ## the `gloss` command
 
 Everything the app does with your library, scripts can do too. The command and the app share the
-library safely, and the app picks up changes made from the terminal.
+library safely, and the app picks up changes made from the terminal. If you installed the app you
+already have it (see install above); otherwise build it:
 
 ```sh
 swift build -c release --product gloss    # then run .build/release/gloss
