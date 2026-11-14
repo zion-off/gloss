@@ -15,7 +15,8 @@ public struct TextStyle: Hashable, Sendable {
     }
 
     public enum Underline: Hashable, Sendable {
-        case single, dotted
+        /// `subtle`: a thin line in a muted colour, a link's.
+        case single, dotted, subtle
     }
 
     /// Paragraph treatment for the lines a block covers. `row`: a subpage row's line, one fixed
@@ -102,10 +103,11 @@ public struct NotesTheme: Sendable {
             .strong: Entry(TextStyle(bold: true), layer: 3),
             .emphasis: Entry(TextStyle(italic: true), layer: 3),
             .strikethrough: Entry(TextStyle(strikethrough: true), layer: 3),
-            .link: Entry(TextStyle(color: .link), layer: 4),
-            NotesRole.pageLink: Entry(TextStyle(color: .link), layer: 5),
-            NotesRole.bookLink: Entry(TextStyle(color: .link), layer: 5),
-            NotesRole.passageLink: Entry(TextStyle(color: .accent, underline: .dotted), layer: 5),
+            // Every live link looks the same, Notion's way: muted text over a faint underline.
+            .link: Entry(TextStyle(color: .link, underline: .subtle), layer: 4),
+            NotesRole.pageLink: Entry(TextStyle(color: .link, underline: .subtle), layer: 5),
+            NotesRole.bookLink: Entry(TextStyle(color: .link, underline: .subtle), layer: 5),
+            NotesRole.passageLink: Entry(TextStyle(color: .link, underline: .subtle), layer: 5),
             NotesRole.trashedLink: Entry(TextStyle(color: .secondary, strikethrough: true), layer: 5),
             NotesRole.brokenLink: Entry(TextStyle(color: .warning, underline: .dotted), layer: 5),
             .listMarker: Entry(TextStyle(color: .secondary), layer: 6),

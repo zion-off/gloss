@@ -79,6 +79,9 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         textView.isAutomaticQuoteSubstitutionEnabled = false   // markdown source: no smart quotes
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false
+        // Links draw as the theme styles them (muted, a faint underline, as in Notion), not in
+        // AppKit's blue: its default link attributes painted over every link kind's own style.
+        textView.linkTextAttributes = [.cursor: NSCursor.pointingHand]
         // The text's glyphs sit `NotesEditorMetrics.margin` from every edge of the pane: the
         // container inset makes up the rest after the line fragment padding.
         let padding = textView.textContainer?.lineFragmentPadding ?? 5
