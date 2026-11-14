@@ -34,6 +34,9 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     /// The grids as last drawn, to tell which ones changed.
     private var drawnTables: [RenderedTable] = []
     private var tableRelayoutPending = false
+    /// The search highlights last drawn as rendering attributes, so only what changed moves.
+    private var drawnSearchHighlights: [Range<Int>] = []
+    private var drawnSearchCurrent: Range<Int>?
     private var cursorRectsPending = false
     /// A divider drag's widths before it began, for its undo step.
     private var widthsBeforeDrag: (ordinal: Int, widths: TableColumnWidths?)?
@@ -64,7 +67,9 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         // Plain text: pastes arrive as plain markdown (no attachments or foreign fonts in the
         // buffer); the storage attributes are ours and presentation only.
         textView.isRichText = false
-        textView.usesFindBar = true
+        // The toolbar search is the only search: the text view's own find bar would be a second
+        // mechanism with its own highlights, and its ⌘F would steal the Find menu's.
+        textView.usesFindBar = false
         textView.isAutomaticQuoteSubstitutionEnabled = false   // markdown source: no smart quotes
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false
@@ -634,6 +639,35 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         for range in redraw { invalidateLayout(range) }
         // Their zones move with any change above them, and go when the tables do.
         if hadTables || !tables.isEmpty { invalidateCursorRectsSoon() }
+        applySearchHighlights()
+    }
+
+    /// The search session's highlights, as TextKit 2 rendering attributes: soft behind every
+    /// match, stronger behind the current one. Rendering attributes draw over the layout's own
+    /// attributes without touching the text storage, so the text, the undo stack and the edited
+    /// state are untouched, and they follow the model wherever it restyles.
+    private func applySearchHighlights() {
+        guard let textView, let manager = textView.textLayoutManager, let content = textView.textContentStorage else { return }
+        guard textView.string == model.text else { return }  // not in step: the next change redraws
+        func textRange(_ range: Range<Int>) -> NSTextRange? {
+            guard let start = content.location(content.documentRange.location, offsetBy: range.lowerBound),
+                  let end = content.location(content.documentRange.location, offsetBy: range.upperBound) else { return nil }
+            return NSTextRange(location: start, end: end)
+        }
+        // Remove what moved or went, add what is new; the current one last, so it draws on top.
+        for range in drawnSearchHighlights + (drawnSearchCurrent.map { [$0] } ?? []) {
+            if let textRange = textRange(range) { manager.removeRenderingAttribute(.backgroundColor, for: textRange) }
+        }
+        let soft = NSColor.unemphasizedSelectedTextBackgroundColor
+        let strong = NSColor.selectedTextBackgroundColor
+        for range in model.searchRanges where range != model.searchCurrent {
+            if let textRange = textRange(range) { manager.setRenderingAttributes([.backgroundColor: soft], for: textRange) }
+        }
+        if let current = model.searchCurrent, let textRange = textRange(current) {
+            manager.setRenderingAttributes([.backgroundColor: strong], for: textRange)
+        }
+        drawnSearchHighlights = model.searchRanges
+        drawnSearchCurrent = model.searchCurrent
     }
 
     /// The tables' cursor zones follow their tables, once the change is laid out (after this turn
