@@ -56,6 +56,14 @@ keyed by corpus (notes, book text, library), so a new searchable source adds a c
 schema change. Every write appends to a change journal; the app polls it to pick up CLI writes.
 Search tables and covers are derived and rebuildable (`gloss reindex`).
 
+## Notes tables
+
+A table is only its GitHub pipe-table text: `MarkdownParser.notes` (the editor's dialect, standard
+plus a registered `TableParser`) reads it as a block, while export, the CLI, search and links keep
+the standard dialect and see plain lines. The editor hides a table's markdown and draws each line's
+band of the grid in a `TableGridFragment` (TextKit 2); geometry, edits and width math are portable.
+Dragged column widths are view state in the settings, per page and table ordinal.
+
 ## Reader and web bridge
 
 EPUBs render with vendored foliate-js (pinned, see `foliate/VENDORED.md`) in a `WKWebView` with a
