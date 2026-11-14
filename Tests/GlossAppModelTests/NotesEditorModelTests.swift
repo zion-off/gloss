@@ -192,7 +192,7 @@ struct NotesEditorModelTests {
         #expect(model.tabKey(shift: false) == nil)
     }
 
-    @Test("links and rows under the pointer, and passage previews")
+    @Test("links and rows under the pointer")
     func pointer() async throws {
         let lib = TestLibrary()
         let (book, root) = try await lib.book("Caligula")
@@ -206,9 +206,6 @@ struct NotesEditorModelTests {
         let web = body.utf16.distance(from: body.utf16.startIndex, to: body.range(of: "[web]")!.lowerBound.samePosition(in: body.utf16)!) + 1
         #expect(model.linkDestination(at: web) == "https://x.y")
         #expect(model.glossLink(at: web) == nil)
-        let preview = try #require(await model.preview(at: 2))
-        #expect(preview.quote == "the moon")
-        #expect(preview.documentTitle == "Caligula")
         let rowOffset = body.utf16.count - 2
         #expect(model.subpageRow(at: rowOffset)?.pageID == child.id)
     }

@@ -1,8 +1,8 @@
 import AppKit
 import GlossNotes
 
-/// Maps the editor's semantic `TextStyle`s onto system fonts and colours, so light/dark mode,
-/// Increase Contrast and Dynamic Type come from the system rather than our own palette. The
+/// Maps the editor's semantic `TextStyle`s onto the system font and colours, so light/dark mode
+/// and Increase Contrast come from the system rather than our own palette. The
 /// buffer is the raw markdown; these attributes are presentation only and never saved.
 ///
 /// A class: `baseFont` caches the system fonts it resolves.
@@ -13,22 +13,26 @@ import GlossNotes
     init() {}
 
     /// A subpage row's height, Notion-like: a body line with room around the icon.
-    static let rowHeight: CGFloat = 28
+    static let rowHeight: CGFloat = 30
+
+    /// Notion's type scale: 16 pt body, headings at 30, 24 and 20, code a little smaller than
+    /// the text around it. The system's own text styles (13 pt body) read small for writing in.
+    private static func size(_ spec: TextStyle.FontRole) -> CGFloat {
+        switch spec {
+        case .body: NotesEditorMetrics.bodySize
+        case .heading(1): 30
+        case .heading(2): 24
+        case .heading(3): 20
+        case .heading: NotesEditorMetrics.bodySize
+        case .monospaced: 14
+        }
+    }
 
     func baseFont(_ spec: TextStyle.FontRole) -> NSFont {
         if let cached = fonts[spec] { return cached }
-        let font: NSFont
-        switch spec {
-        case .body: font = NSFont.preferredFont(forTextStyle: .body)
-        case .heading(let level):
-            let style: NSFont.TextStyle = switch level {
-            case 1: .title1
-            case 2: .title2
-            case 3: .title3
-            default: .headline
-            }
-            font = NSFont.preferredFont(forTextStyle: style)
-        case .monospaced: font = NSFont.monospacedSystemFont(ofSize: NSFont.preferredFont(forTextStyle: .body).pointSize, weight: .regular)
+        let font = switch spec {
+        case .monospaced: NSFont.monospacedSystemFont(ofSize: Self.size(spec), weight: .regular)
+        case .body, .heading: NSFont.systemFont(ofSize: Self.size(spec))
         }
         fonts[spec] = font
         return font

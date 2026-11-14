@@ -13,7 +13,7 @@ final class NotesTextView: NSTextView {
     var onTextClick: ((Int) -> Bool)?
     /// A click on a subpage row (where the row is drawn, not where its hidden text is).
     var onRowClick: ((SubpageRow) -> Void)?
-    /// The pointer moved over the text (hover previews); the point is in this view's coordinates.
+    /// The pointer moved over the text (row and table hovers); the point is in this view's coordinates.
     var onHover: ((NSPoint) -> Void)?
     /// The pointer left the text.
     var onHoverEnd: (() -> Void)?
@@ -42,6 +42,23 @@ final class NotesTextView: NSTextView {
     var onWidthChange: (() -> Void)?
     /// Light, dark or Increase Contrast changed (drawn tables resolve their colours with it).
     var onAppearanceChange: (() -> Void)?
+
+    /// The page's breadcrumbs and title, above the body and scrolling with it. The text starts
+    /// below it: the container origin moves down by its height.
+    var header: NotesHeaderView? {
+        didSet {
+            guard header !== oldValue else { return }
+            oldValue?.removeFromSuperview()
+            if let header {
+                addSubview(header)
+                header.onSizeChange = { [weak self] in self?.needsLayout = true }
+            }
+            needsLayout = true
+        }
+    }
+    private var headerHeight: CGFloat = 0
+    /// The header got taller or shorter: the text, and whatever is anchored to it, moved.
+    var onHeaderResize: (() -> Void)?
 
     private var hoverArea: NSTrackingArea?
     private let tableTarget = TableActionTarget()
@@ -320,6 +337,9 @@ final class NotesTextView: NSTextView {
     /// Right-clicks on a grid show its menu here, before the text view's own handling could move
     /// the caret into the table (which would turn the grid back into markdown under the menu).
     override func rightMouseDown(with event: NSEvent) {
+        // The header's own clicks that its views leave unhandled come up the responder chain:
+        // the text's menu has nothing to do with them.
+        if isOverHeader(convert(event.locationInWindow, from: nil)) { return }
         if let hit = tableHit(at: convert(event.locationInWindow, from: nil)) {
             NSMenu.popUpContextMenu(tableMenu(for: hit.table.ordinal), with: event, for: self)
             return
@@ -328,6 +348,7 @@ final class NotesTextView: NSTextView {
     }
 
     override func menu(for event: NSEvent) -> NSMenu? {
+        if isOverHeader(convert(event.locationInWindow, from: nil)) { return nil }
         if let hit = tableHit(at: convert(event.locationInWindow, from: nil)) { return tableMenu(for: hit.table.ordinal) }
         return super.menu(for: event)
     }
@@ -340,7 +361,49 @@ final class NotesTextView: NSTextView {
     override func setFrameSize(_ newSize: NSSize) {
         let widthChanged = newSize.width != frame.width
         super.setFrameSize(newSize)
-        if widthChanged { onWidthChange?() }
+        if widthChanged {
+            needsLayout = true  // the header wraps at the new width
+            onWidthChange?()
+        }
+    }
+
+    // MARK: Header
+
+    override var textContainerOrigin: NSPoint {
+        let origin = super.textContainerOrigin
+        return NSPoint(x: origin.x, y: origin.y + headerHeight)
+    }
+
+    /// The text view sizes itself to its text and insets; the header is on top of that.
+    override func setConstrainedFrameSize(_ desiredSize: NSSize) {
+        var size = desiredSize
+        if headerHeight > 0, let manager = textLayoutManager {
+            let natural = manager.usageBoundsForTextContainer.height + textContainerInset.height * 2 + headerHeight
+            size.height = max(size.height, natural)
+        }
+        super.setConstrainedFrameSize(size)
+    }
+
+    override func layout() {
+        super.layout()
+        layoutHeader()
+    }
+
+    private func layoutHeader() {
+        let height = header?.contentHeight ?? 0
+        header?.frame = NSRect(x: 0, y: 0, width: bounds.width, height: height)
+        guard height != headerHeight else { return }
+        headerHeight = height
+        invalidateTextContainerOrigin()
+        sizeToFit()
+        needsDisplay = true
+        onHeaderResize?()
+    }
+
+    /// Whether a point (this view's coordinates) is on the header rather than the text.
+    private func isOverHeader(_ point: NSPoint) -> Bool {
+        guard let header else { return false }
+        return header.frame.contains(point)
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -378,6 +441,7 @@ final class NotesTextView: NSTextView {
         guard let content = window?.contentView else { return true }
         let root = content.superview ?? content
         guard let hit = root.hitTest(windowPoint) else { return false }
+        if let header, hit.isDescendant(of: header) { return false }
         return hit.isDescendant(of: self)
     }
 
@@ -401,6 +465,9 @@ final class NotesTextView: NSTextView {
     /// clicks; `characterIndex(for:)` wants screen coordinates and serves input methods.
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
+        // A click the header's views left unhandled (the margin beside the title) is not a
+        // click in the text.
+        if isOverHeader(point) { return }
         if let hit = rowHit(at: point), let onRowClick {
             onRowClick(hit.row)
             return
@@ -425,6 +492,14 @@ final class NotesTextView: NSTextView {
         if isOverText(point) {
             let index = characterIndexForInsertion(at: point)
             if index != NSNotFound, let onTextClick, onTextClick(index) { return }
+            // A plain click on a link follows it, as in Notes or TextEdit. Not left to the text
+            // view: it put the caret in the link first, the caret revealed the link's markdown,
+            // the label moved out from under the pointer, and the button came up somewhere else.
+            if event.clickCount == 1, event.modifierFlags.intersection([.shift, .command, .option, .control]).isEmpty,
+               let link = linkHit(at: point) {
+                trackLinkClick(link)
+                return
+            }
         }
         // The text view tracks a click or drag selection inside `mouseDown` until the button
         // comes up.
@@ -432,6 +507,44 @@ final class NotesTextView: NSTextView {
         super.mouseDown(with: event)
         isSelectingWithMouse = false
         onMouseSelectionEnd?()
+    }
+
+    /// The link drawn under a point (this view's coordinates): its value and range. By the
+    /// link's glyphs rather than the nearest insertion point, which lands after the link when
+    /// the click is on the back half of its last letter.
+    func linkHit(at point: NSPoint) -> (value: Any, range: NSRange)? {
+        guard let storage = textStorage, let manager = textLayoutManager, let content = textContentStorage else { return nil }
+        let index = characterIndexForInsertion(at: point)
+        guard index != NSNotFound else { return nil }
+        let origin = textContainerOrigin
+        let inContainer = NSPoint(x: point.x - origin.x, y: point.y - origin.y)
+        let whole = NSRange(location: 0, length: storage.length)
+        for candidate in [index, index - 1] where candidate >= 0 && candidate < storage.length {
+            var range = NSRange()
+            guard let value = storage.attribute(.link, at: candidate, longestEffectiveRange: &range, in: whole),
+                  let start = content.location(content.documentRange.location, offsetBy: range.location),
+                  let end = content.location(start, offsetBy: range.length),
+                  let textRange = NSTextRange(location: start, end: end) else { continue }
+            var drawn = false
+            manager.enumerateTextSegments(in: textRange, type: .standard, options: []) { _, frame, _, _ in
+                drawn = frame.contains(inContainer)
+                return !drawn
+            }
+            if drawn { return (value, range) }
+        }
+        return nil
+    }
+
+    /// Follows a press on a link like a button: the link opens when the button comes up still on
+    /// it, and nothing happens when it comes up elsewhere. The caret stays where it was.
+    private func trackLinkClick(_ link: (value: Any, range: NSRange)) {
+        while let event = window?.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) {
+            guard event.type == .leftMouseUp else { continue }
+            if linkHit(at: convert(event.locationInWindow, from: nil))?.range == link.range {
+                clicked(onLink: link.value, at: link.range.location)
+            }
+            return
+        }
     }
 
     /// Follows a divider drag until the button comes up: the two columns beside it trade width

@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import GlossAppModel
 import GlossCore
 import GlossMarkdown
@@ -8,6 +9,10 @@ import GlossNotes
 /// card all keep this distance from the sheet's edges and from each other.
 public enum NotesEditorMetrics {
     public static let margin: CGFloat = 16
+    /// The notes' body text size (Notion's).
+    public static let bodySize: CGFloat = 16
+    /// The page title above the body: a step above the largest heading (30 pt).
+    public static let titleSize: CGFloat = 34
 }
 
 /// Keeps the text view and the model in step. The view is the source of truth while the user
@@ -25,8 +30,6 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     private var displayedSubpageRows: [SubpageRow] = []
     private var displayedSpans: [StyleSpan] = []
     private var lastRevealToken: UUID?
-    private let hover = NotesHoverPopover()
-    private var hoverTask: Task<Void, Never>?
     let actions: NotesEditorActions
     /// The tables drawn as grids, shared with the layout fragments that draw them.
     nonisolated let tableStore = TableGridStore()
@@ -106,12 +109,12 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         // The pointer left the text, or a floating view covers it: the view under it sets the
         // cursor now, so dropping the row must not put the I-beam back.
         textView.onHoverEnd = { [weak self] in
-            self?.endHover()
             self?.hoveredRowID = nil
             self?.setRowHover(nil)
             self?.textView?.hideTableHandles()
         }
         textView.onMouseSelectionEnd = { [weak self] in self?.reportSelection() }
+        textView.onHeaderResize = { [weak self] in self?.headerResized() }
 
         let scrollView = NSScrollView()
         scrollView.documentView = textView
@@ -130,6 +133,24 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         return scrollView
     }
 
+    /// The breadcrumbs and title above the body, scrolling with it.
+    func setHeader(_ content: AnyView) {
+        guard let textView else { return }
+        if let header = textView.header {
+            header.update(content: content)
+        } else {
+            textView.header = NotesHeaderView(content: content)
+        }
+    }
+
+    /// The header changed height and the text moved with it: what floats over the text follows.
+    private func headerResized() {
+        textView?.hideTableHandles()
+        setRowHover(nil)
+        reportSettledSelectionSoon()
+        refreshHoverSoon()
+    }
+
     /// Return in the title: typing goes on at the top of the body.
     func focusBody() {
         guard let textView else { return }
@@ -141,15 +162,12 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         NotificationCenter.default.removeObserver(self)
         textView?.delegate = nil
         actions.isEditing = false
-        endHover()
         actions.focusChanged(false)  // the editor is gone: ⌘[ goes back to the reader
         model.focusDidChange(false)
     }
 
     // MARK: Hover
 
-    /// Resting the pointer on a passage link shows its passage. One lookup per link, not per
-    /// pixel: the task is cancelled and replaced when the link under the pointer changes.
     /// The subpage row under the pointer; the text view draws its highlight.
     private var hoveredRowID: PageID?
 
@@ -171,33 +189,6 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         } else if !textView.isNearTableHandles(point) {
             textView.hideTableHandles()
         }
-        // Over a drawn table the index lands in its hidden markdown, not on anything shown there.
-        guard table == nil else { endHover(); return }
-        let index = textView.characterIndexForInsertion(at: point)
-        guard index != NSNotFound else { endHover(); return }
-        // The whole link (label + destination) under the pointer, if it's a passage link.
-        guard let scanned = LinkScanner.link(at: index, in: model.document),
-              case .passage(let target)? = GlossLink(string: scanned.destination) else { endHover(); return }
-        // The anchor: the link's first line, in this view's coordinates.
-        let range = NSRange(scanned.range)
-        let screenRect = textView.firstRect(forCharacterRange: range, actualRange: nil)
-        let windowRect = textView.window.map { $0.convertFromScreen(screenRect) } ?? screenRect
-        let anchor = textView.convert(windowRect, from: nil)
-
-        hoverTask?.cancel()
-        hoverTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(120))  // a rest, not a pass-through
-            guard !Task.isCancelled, let self, let preview = await self.model.preview(at: index) else { return }
-            self.hover.show(preview, for: target, of: self.textView ?? NSView(), anchor: anchor)
-        }
-    }
-
-    /// The pointer left the link (or the text): close the preview, and drop one still waiting
-    /// out its rest, so it can't open over plain text a moment later.
-    private func endHover() {
-        hoverTask?.cancel()
-        hoverTask = nil
-        hover.close()
     }
 
     // MARK: Subpage rows

@@ -111,13 +111,4 @@ struct LinkServiceTests {
         #expect(try await lib.services.links.resolve(.page(child.id)) == .inTrash(title: "sub", entryID: entry.id))
         #expect(try await lib.services.links.resolve(.page(PageID(GlossID(high: 1, low: 1)))) == .missing)
     }
-
-    @Test("hover previews carry the quote, its label and the book")
-    func preview() async throws {
-        let lib = TestLibrary()
-        let (document, _) = try await lib.book("Caligula")
-        let target = try await lib.services.links.target(for: lib.passage("the moon", at: "c"), in: document.id)
-        let preview = try #require(try await lib.services.links.preview(of: target.id))
-        #expect(preview == PassagePreview(quote: "the moon", label: "chapter 1", documentID: document.id, documentTitle: "Caligula"))
-    }
 }

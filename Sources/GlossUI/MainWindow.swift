@@ -342,7 +342,7 @@ enum SheetMetrics {
     static let margin = NotesEditorMetrics.margin
 }
 
-/// The notes half of the window: breadcrumbs, the editor, and a note when a save failed.
+/// The notes half of the window: the editor under its page's header, and a note when a save failed.
 struct NotesPane: View {
     let app: AppModel
     let reveal: NotesReveal?
@@ -351,45 +351,29 @@ struct NotesPane: View {
     let commands: WindowCommands
     /// Why the last link clicked in the notes went nowhere (shown in an alert).
     @State private var linkProblem: RouteProblem?
-    /// The title field: what is typed, the page it belongs to and what it started as (a commit
-    /// writes only a real change, and to the page it was typed for, not the one shown by then).
-    @State private var titleDraft = ""
-    @State private var titleOwner: PageID?
-    @State private var titleBaseline = ""
-    @FocusState private var titleFocused: Bool
 
     var body: some View {
-        VStack(spacing: 0) {
-            breadcrumbs
-            titleField
-            NotesEditor(model: app.notes, reveal: reveal,
-                        onOpenGlossLink: { link in linkProblem = await app.follow(link).problem },
-                        onOpenWebLink: { url in _ = NSWorkspace.shared.open(url) },
-                        onOpenPage: { id in Task { try? await app.workspace.openPage(id) } },
-                        actions: { actions in
-                            commands.editor = actions
-                            actions.onFocusChange = { focused in commands.notesFocused = focused }
-                        })
-                .overlay(alignment: .bottom) {
-                    if let message = failedMessage {
-                        Text(verbatim: message)
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .padding(8)
-                            .frame(maxWidth: .infinity)
-                            .background(.regularMaterial)
-                    }
-                }
+        NotesEditor(model: app.notes, reveal: reveal,
+                    onOpenGlossLink: { link in linkProblem = await app.follow(link).problem },
+                    onOpenWebLink: { url in _ = NSWorkspace.shared.open(url) },
+                    onOpenPage: { id in Task { try? await app.workspace.openPage(id) } },
+                    actions: { actions in
+                        commands.editor = actions
+                        actions.onFocusChange = { focused in commands.notesFocused = focused }
+                    }) {
+            NotesPageHeader(app: app, commands: commands)
+        }
+        .overlay(alignment: .bottom) {
+            if let message = failedMessage {
+                Text(verbatim: message)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .padding(8)
+                    .frame(maxWidth: .infinity)
+                    .background(.regularMaterial)
+            }
         }
         .task(id: app.workspace.page?.id) { await loadPage() }
-        .onChange(of: app.notes.page?.id, initial: true) { _, _ in
-            commitTitle()  // for the page that was showing, before the field changes hands
-            resetTitle()
-            focusTitleIfNew()
-        }
-        .onChange(of: app.notes.page?.title) { _, _ in
-            if !titleFocused { resetTitle() }  // renamed elsewhere (another window, the cli)
-        }
         .alert(Text(verbatim: linkProblem?.title ?? ""),
                isPresented: Binding(get: { linkProblem != nil }, set: { if !$0 { linkProblem = nil } })) {
             Button("ok", role: .cancel) {}
@@ -401,6 +385,44 @@ struct NotesPane: View {
     private var failedMessage: String? {
         if case .failed = app.notes.saveState { return "couldn't save — your words are still here" }
         return nil
+    }
+
+    private func loadPage() async {
+        guard let page = app.workspace.page else { return }
+        do {
+            try await app.notes.load(page)
+        } catch let NotesEditorModel.EditorError.unsavedChanges(reason) {
+            unsavedFailure = reason
+        } catch {}
+    }
+}
+
+/// The page's breadcrumbs and title, above its body. The editor hosts it in its scrolled area, so
+/// it scrolls away with the text; it keeps its own state (the title being typed and its focus),
+/// because it lives in a hosting view of its own.
+private struct NotesPageHeader: View {
+    let app: AppModel
+    let commands: WindowCommands
+    /// The title field: what is typed, the page it belongs to and what it started as (a commit
+    /// writes only a real change, and to the page it was typed for, not the one shown by then).
+    @State private var titleDraft = ""
+    @State private var titleOwner: PageID?
+    @State private var titleBaseline = ""
+    @FocusState private var titleFocused: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
+            breadcrumbs
+            titleField
+        }
+        .onChange(of: app.notes.page?.id, initial: true) { _, _ in
+            commitTitle()  // for the page that was showing, before the field changes hands
+            resetTitle()
+            focusTitleIfNew()
+        }
+        .onChange(of: app.notes.page?.title) { _, _ in
+            if !titleFocused { resetTitle() }  // renamed elsewhere (another window, the cli)
+        }
     }
 
     /// The way up: the pages above this one. The page itself is the title field's job.
@@ -432,7 +454,7 @@ struct NotesPane: View {
         TextField("untitled", text: titleText, axis: .vertical)
             .lineLimit(1...)
             .textFieldStyle(.plain)
-            .font(.title.bold())
+            .font(.system(size: NotesEditorMetrics.titleSize, weight: .bold))
             .focused($titleFocused)
             .onSubmit { submitTitle() }
             .onChange(of: titleFocused) { _, focused in if !focused { commitTitle() } }
@@ -484,15 +506,6 @@ struct NotesPane: View {
         guard let page = app.notes.page, page.parentID != nil, page.body.isEmpty,
               page.title == PageService.untitled || page.title.isEmpty else { return }
         Task { @MainActor in titleFocused = true }
-    }
-
-    private func loadPage() async {
-        guard let page = app.workspace.page else { return }
-        do {
-            try await app.notes.load(page)
-        } catch let NotesEditorModel.EditorError.unsavedChanges(reason) {
-            unsavedFailure = reason
-        } catch {}
     }
 }
 

@@ -4,14 +4,15 @@ import GlossAppModel
 import GlossCore
 import GlossNotes
 
-/// The notes pane: the model's text in a TextKit 2 view, with the floating format bar and
-/// slash menu over it and a note when a save failed.
-public struct NotesEditor: View {
+/// The notes pane: the model's text in a TextKit 2 view, under a header that scrolls with it, with
+/// the floating format bar and slash menu over it.
+public struct NotesEditor<Header: View>: View {
     let model: NotesEditorModel
     let reveal: NotesReveal?
     let onOpenGlossLink: @MainActor (GlossLink) async -> Void
     let onOpenWebLink: @MainActor (URL) -> Void
     let onOpenPage: @MainActor (PageID) -> Void
+    let header: Header
 
     @State private var actions = NotesEditorActions()
     @State private var selectionRect: OverlayRect?
@@ -19,19 +20,23 @@ public struct NotesEditor: View {
 
     let onActionsReady: @MainActor (NotesEditorActions) -> Void
 
-    /// - Parameter actions: receives the editor's actions once it's on screen (the window wires
-    ///   ⌘K, add to notes and focus-routed history through them).
+    /// - Parameters:
+    ///   - actions: receives the editor's actions once it's on screen (the window wires ⌘K, add
+    ///     to notes and focus-routed history through them).
+    ///   - header: drawn above the body, in the scrolled area (the page's title).
     public init(model: NotesEditorModel, reveal: NotesReveal?,
                 onOpenGlossLink: @escaping @MainActor (GlossLink) async -> Void,
                 onOpenWebLink: @escaping @MainActor (URL) -> Void,
                 onOpenPage: @escaping @MainActor (PageID) -> Void,
-                actions onActionsReady: @escaping @MainActor (NotesEditorActions) -> Void = { _ in }) {
+                actions onActionsReady: @escaping @MainActor (NotesEditorActions) -> Void = { _ in },
+                @ViewBuilder header: () -> Header) {
         self.model = model
         self.reveal = reveal
         self.onOpenGlossLink = onOpenGlossLink
         self.onOpenWebLink = onOpenWebLink
         self.onOpenPage = onOpenPage
         self.onActionsReady = onActionsReady
+        self.header = header()
     }
 
     public var body: some View {
@@ -40,6 +45,7 @@ public struct NotesEditor: View {
                                      onOpenGlossLink: onOpenGlossLink,
                                      onOpenWebLink: onOpenWebLink,
                                      onOpenPage: onOpenPage,
+                                     header: AnyView(header),
                                      selectionRectChanged: { selectionRect = $0 },
                                      slashAnchorChanged: { slashAnchor = $0 })
                 .overlay(alignment: .topLeading) { overlays(in: geometry.size) }
@@ -341,6 +347,7 @@ struct NotesEditorRepresentable: NSViewRepresentable {
     let onOpenGlossLink: @MainActor (GlossLink) async -> Void
     let onOpenWebLink: @MainActor (URL) -> Void
     let onOpenPage: @MainActor (PageID) -> Void
+    let header: AnyView
     let selectionRectChanged: (OverlayRect?) -> Void
     let slashAnchorChanged: (SlashAnchor?) -> Void
 
@@ -355,7 +362,9 @@ struct NotesEditorRepresentable: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSView {
-        context.coordinator.makeScrollView()
+        let view = context.coordinator.makeScrollView()
+        context.coordinator.setHeader(header)
+        return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
@@ -364,6 +373,7 @@ struct NotesEditorRepresentable: NSViewRepresentable {
         context.coordinator.openGlossLink = onOpenGlossLink
         context.coordinator.openWebLink = onOpenWebLink
         context.coordinator.openPage = onOpenPage
+        context.coordinator.setHeader(header)
         context.coordinator.sync(reveal: reveal)
     }
 
