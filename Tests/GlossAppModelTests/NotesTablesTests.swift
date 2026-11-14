@@ -146,6 +146,24 @@ struct NotesTablesTests {
         #expect(model.gridTables[1].columnFractions == [0.5, 0.5])
     }
 
+    @Test("an external change that removes tables prunes their stored widths")
+    func externalPrune() async throws {
+        let lib = TestLibrary()
+        let (_, root) = try await lib.book()
+        try await lib.services.pages.updateBody(root.id, to: table + "\n\n" + table)
+        let key = NotesTableSettings.columnWidths(for: root.id)
+        try await lib.services.settings.set(["0": TableColumnWidths(fractions: [0.5, 0.5]),
+                                             "1": TableColumnWidths(fractions: [0.3, 0.7])], for: key)
+        let model = NotesEditorModel(services: lib.services, saveDelay: .zero)
+        try await model.load(try #require(try await lib.services.pages.page(root.id)))
+        // The cli rewrites the page with just one table.
+        try await lib.services.pages.updateBody(root.id, to: table)
+        await model.pageChangedExternally()
+        await model.flushColumnWidths()
+        #expect(model.tables.count == 1)
+        #expect(Array((try await lib.services.settings.value(key)).keys) == ["0"])
+    }
+
     @Test("/table inserts a 2×2 table with the caret in its first header cell")
     func slashTable() async throws {
         let (_, model, _) = try await loaded("")
