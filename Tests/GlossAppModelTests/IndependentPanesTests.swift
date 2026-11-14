@@ -37,6 +37,19 @@ struct IndependentPanesTests {
         #expect(app.bookSidebarSubjects == BookSidebarSubjects(reader: b.id, notes: a.id))
     }
 
+    @Test("following the same passage link again sends the reader there again")
+    func samePassageLinkAgain() async throws {
+        let lib = TestLibrary()
+        let (app, _, _, _, _, target) = try await twoBooks(lib)
+        await app.follow(.passage(target.id))
+        let focus = app.workspace.readerFocus
+        let request = app.workspace.readerFocusRequest
+        // The reader scrolled away meanwhile; the same link is the same focus, and a new request.
+        await app.follow(.passage(target.id))
+        #expect(app.workspace.readerFocus == focus)
+        #expect(app.workspace.readerFocusRequest == request + 1)
+    }
+
     @Test("reader back and forward move only the reader")
     func readerHistoryIsTheReaders() async throws {
         let lib = TestLibrary()

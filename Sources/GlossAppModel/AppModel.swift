@@ -415,8 +415,8 @@ import GlossReaderBridge
         search.contextChanged()
     }
 
-    /// Opens the reader where the workspace points (the window calls this whenever
-    /// `workspace.readerFocus` changes): the book at its passage, or at the saved position.
+    /// Opens the reader where the workspace points (the window calls this on every
+    /// `workspace.readerFocusRequest`): the book at its passage, or at the saved position.
     public func showReaderFocus() async {
         guard let focus = workspace.readerFocus, let document = workspace.document, document.id == focus.documentID else { return }
         await reader.open(document, at: focus.locator)
