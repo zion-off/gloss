@@ -64,6 +64,12 @@ public struct MainWindow: View {
             /// ending the search is how the contents come back.
             ZStack(alignment: .topLeading) {
                 SourceList(app: app)
+                    // Hidden, not removed, while the results cover it: a sidebar list is
+                    // translucent, so it must not draw through them, take clicks or be read by
+                    // VoiceOver — but it keeps its selection and scroll position.
+                    .opacity(app.search.showsResultsInSidebar ? 0 : 1)
+                    .allowsHitTesting(!app.search.showsResultsInSidebar)
+                    .accessibilityHidden(app.search.showsResultsInSidebar)
                 if app.search.showsResultsInSidebar {
                     SearchResults(app: app, placement: .sidebar)
                 }
