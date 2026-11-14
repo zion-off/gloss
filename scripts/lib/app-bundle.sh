@@ -7,8 +7,9 @@
 #   gloss.app/Contents/Helpers/gloss        the command line tool (only when one is given)
 #   gloss.app/Contents/Frameworks/          Sparkle.framework, found through the app's
 #                                           @executable_path/../Frameworks rpath (Package.swift)
-#   gloss.app/Contents/Resources/           gloss.icns and SwiftPM's resource bundles; the app
-#                                           finds the reader's files there (ReaderBundle)
+#   gloss.app/Contents/Resources/           Assets.car and gloss.icns (the app icon), and SwiftPM's
+#                                           resource bundles; the app finds the reader's files there
+#                                           (ReaderBundle)
 # The tool lives in Helpers/, not Resources/, because Helpers/ is a place codesign and
 # notarization treat as code. It uses no resource bundles of its own.
 
@@ -44,8 +45,15 @@ assemble_app() {
     [ -e "$bundle" ] && cp -R "$bundle" "$app/Contents/Resources/"
   done
 
-  # The app icon (scripts/app-icon: the .icns plus its svg sources).
-  cp scripts/app-icon/gloss.icns "$app/Contents/Resources/gloss.icns"
+  # The app icon: scripts/app-icon/gloss.icon is an Icon Composer document (layers as svg). actool
+  # compiles it into Assets.car (the Liquid Glass icon, macOS 26) and a gloss.icns for older systems.
+  local icon_out
+  icon_out="$(mktemp -d)"
+  xcrun actool scripts/app-icon/gloss.icon --compile "$icon_out" --platform macosx \
+    --minimum-deployment-target "$min_macos" --app-icon gloss \
+    --output-partial-info-plist "$icon_out/partial.plist" >/dev/null
+  cp "$icon_out/Assets.car" "$icon_out/gloss.icns" "$app/Contents/Resources/"
+  rm -rf "$icon_out"
 
   cat > "$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -54,6 +62,7 @@ assemble_app() {
 <dict>
     <key>CFBundleExecutable</key><string>gloss</string>
     <key>CFBundleIconFile</key><string>gloss</string>
+    <key>CFBundleIconName</key><string>gloss</string>
     <key>CFBundleIdentifier</key><string>dev.gloss.app</string>
     <key>CFBundleName</key><string>gloss</string>
     <key>CFBundleDisplayName</key><string>gloss</string>
