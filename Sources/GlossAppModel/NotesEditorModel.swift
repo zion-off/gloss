@@ -97,6 +97,9 @@ public enum NotesTableSettings {
     /// rendering attributes: the text, the undo stack and the edited state are untouched.
     public private(set) var searchRanges: [Range<Int>] = []
     public private(set) var searchCurrent: Range<Int>?
+    /// The standing search query on this page (nil: none), so its matches are re-derived whenever
+    /// the text or the page changes — not only when the query itself does.
+    private var searchQuery: String?
 
     /// Called after a save that added or removed `gloss://` links (markers need redrawing).
     public var linksDidChange: @MainActor () async -> Void = {}
@@ -320,14 +323,20 @@ public enum NotesTableSettings {
     /// The search session's highlights for the open page: `query` nil clears them. `current` is
     /// the session's current hit when it is on this page (the stronger highlight).
     public func setSearch(query: String?, current: Range<Int>?) {
-        guard let query, !query.isEmpty else {
-            if searchRanges.isEmpty, searchCurrent == nil { return }
+        searchQuery = query.flatMap { $0.isEmpty ? nil : $0 }
+        searchCurrent = current.map { clamp($0) }
+        refreshSearchRanges()
+    }
+
+    /// The standing query's matches in the text as it is now. Called from `reparse` (page
+    /// switches, edits) as well: ranges are offsets, and stale offsets would highlight the wrong
+    /// words on a new page or shifted text.
+    private func refreshSearchRanges() {
+        guard let searchQuery else {
             searchRanges = []
-            searchCurrent = nil
             return
         }
-        searchCurrent = current.map { clamp($0) }
-        searchRanges = Self.visibleMatches(of: query, in: document, concealed: concealedRanges())
+        searchRanges = Self.visibleMatches(of: searchQuery, in: document, concealed: concealedRanges())
     }
 
     /// The ranges of the page's text a search match should not highlight: hidden markdown syntax,
@@ -340,11 +349,12 @@ public enum NotesTableSettings {
 
     /// Every match of the query in the body, in order, skipping the concealed ranges.
     static func visibleMatches(of query: String, in document: MarkdownDocument, concealed: [Range<Int>]) -> [Range<Int>] {
-        guard !TextMatcher(query: query).isEmpty else { return [] }
-        let text = document.text
-        return TextMatcher(query: query).matchRanges(in: text.string).compactMap { match in
-            let lower = text.string.utf16.distance(from: text.string.startIndex, to: match.lowerBound)
-            let upper = text.string.utf16.distance(from: text.string.startIndex, to: match.upperBound)
+        let matcher = TextMatcher(query: query)
+        guard !matcher.isEmpty else { return [] }
+        let string = document.text.string
+        return matcher.matchRanges(in: string).compactMap { match in
+            let lower = string.utf16.distance(from: string.startIndex, to: match.lowerBound)
+            let upper = string.utf16.distance(from: string.startIndex, to: match.upperBound)
             let range = lower..<upper
             return concealed.contains { $0.overlaps(range) } ? nil : range
         }
@@ -576,6 +586,7 @@ public enum NotesTableSettings {
         let grids = gridTables.map { StyleSpan(range: $0.table.range, role: NotesRole.tableGrid) }
         spans = SyntaxReveal.apply(baseSpans + grids, selection: selection, concealed: subpageRows.map(\.lineRange))
         activeFormats = FormatBar.activeItems(in: document, selection: selection)
+        refreshSearchRanges()
     }
 
     private func updateSlashMenu() {
