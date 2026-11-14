@@ -48,15 +48,17 @@ struct SlashCommandTests {
     func trigger(_ marked: String) -> SlashTrigger? {
         let caret = marked.utf16.firstIndex(of: 0x7C).map { marked.utf16.distance(from: marked.utf16.startIndex, to: $0) }!
         let text = marked.replacingOccurrences(of: "|", with: "")
-        return SlashTrigger.detect(in: MarkdownParser.standard.parse(text), caret: caret)
+        return SlashTrigger.detect(in: MarkdownParser.standard.parse(text), caret: caret,
+                                    excluding: MarkdownParser.standard.slashMenuExcludedKinds)
     }
 
     @Test("a caret past the end of the text finds nothing instead of trapping")
     func caretBeyondTheText() {
         let doc = MarkdownParser.standard.parse("ab")
-        #expect(SlashTrigger.detect(in: doc, caret: 3) == nil)
-        #expect(SlashTrigger.detect(in: doc, caret: 500) == nil)
-        #expect(SlashTrigger.detect(in: MarkdownParser.standard.parse(""), caret: 1) == nil)
+        let excluded = MarkdownParser.standard.slashMenuExcludedKinds
+        #expect(SlashTrigger.detect(in: doc, caret: 3, excluding: excluded) == nil)
+        #expect(SlashTrigger.detect(in: doc, caret: 500, excluding: excluded) == nil)
+        #expect(SlashTrigger.detect(in: MarkdownParser.standard.parse(""), caret: 1, excluding: excluded) == nil)
     }
 
     @Test("triggers start at a line start or after a space and stay out of code")
@@ -71,8 +73,11 @@ struct SlashCommandTests {
         #expect(trigger("no trigger|") == nil)
         // Not in a table's source (the notes dialect), where a block command would break it.
         let table = "| a | /pa |\n|---|---|"
-        #expect(SlashTrigger.detect(in: MarkdownParser.notes.parse(table), caret: 9) == nil)
-        #expect(SlashTrigger.detect(in: MarkdownParser.notes.parse(table + "\n/pa"), caret: table.utf16.count + 4)?.query == "pa")
+        let excluded = MarkdownParser.notes.slashMenuExcludedKinds
+        #expect(SlashTrigger.detect(in: MarkdownParser.notes.parse(table), caret: 9, excluding: excluded) == nil)
+        #expect(excluded == [.codeBlock, .table])
+        #expect(SlashTrigger.detect(in: MarkdownParser.notes.parse(table + "\n/pa"), caret: table.utf16.count + 4,
+                                    excluding: excluded)?.query == "pa")
     }
 
     @Test("matching ranks exact, prefix, word, keyword, then fuzzy")
@@ -95,7 +100,8 @@ struct SlashCommandTests {
         let registry = SlashCommandRegistry.standard(pages: lib.services.pages)
         let source = "intro\n/to"
         let doc = MarkdownParser.standard.parse(source)
-        let trig = try #require(SlashTrigger.detect(in: doc, caret: source.utf16.count))
+        let trig = try #require(SlashTrigger.detect(in: doc, caret: source.utf16.count,
+                                                    excluding: MarkdownParser.standard.slashMenuExcludedKinds))
         let command = try #require(registry.matches(trig.query).first)
         let result = try await registry.run(command, trigger: trig, in: doc, page: root.id)
         let applied = EditResult(edits: [result.edit], selection: result.selection).apply(to: source)
@@ -110,7 +116,8 @@ struct SlashCommandTests {
         let registry = SlashCommandRegistry.standard(pages: lib.services.pages)
         for source in ["/page", "some text /pa"] {
             let doc = MarkdownParser.standard.parse(source)
-            let trig = try #require(SlashTrigger.detect(in: doc, caret: source.utf16.count))
+            let trig = try #require(SlashTrigger.detect(in: doc, caret: source.utf16.count,
+                                                        excluding: MarkdownParser.standard.slashMenuExcludedKinds))
             let result = try await registry.run(registry.matches("page")[0], trigger: trig, in: doc, page: root.id)
             let child = try #require(result.openPage)
             let applied = EditResult(edits: [result.edit], selection: result.selection).apply(to: source)

@@ -10,8 +10,9 @@ public struct SlashTrigger: Hashable, Sendable {
     public static let maxQueryLength = 24
 
     /// Finds a trigger ending at `caret`: a `/` at the start of a line or after whitespace,
-    /// followed by letters, digits or `-`. Never inside code or a table.
-    public static func detect(in document: MarkdownDocument, caret: Int) -> SlashTrigger? {
+    /// followed by letters, digits or `-`. Never inside the excluded kinds' blocks (code, tables),
+    /// which the caller derives from its parser's registrations.
+    public static func detect(in document: MarkdownDocument, caret: Int, excluding excludedKinds: Set<BlockKind>) -> SlashTrigger? {
         let text = document.text
         // A caret from a newer text than this parse (the view reports before the model has
         // caught up) means there is nothing to find yet, not a crash.
@@ -30,7 +31,7 @@ public struct SlashTrigger: Hashable, Sendable {
         }
         guard caret - start <= maxQueryLength else { return nil }
         // Not in code, and not in a table's source, where a block command would break the table.
-        if document.blocks.contains(where: { ($0.kind == .codeBlock || $0.kind == .table) && $0.range.contains(slash) }) { return nil }
+        if document.blocks.contains(where: { excludedKinds.contains($0.kind) && $0.range.contains(slash) }) { return nil }
         if document.allInlines.contains(where: { $0.kind == .code && $0.range.contains(slash) }) { return nil }
         return SlashTrigger(range: slash..<caret, query: text[start..<caret])
     }

@@ -31,6 +31,7 @@ extension MarkdownParser {
 /// (a heading, list item, quote, fence).
 public struct TableParser: BlockParser {
     public init() {}
+    public var slashMenuExcludedKind: BlockKind? { .table }
 
     public func parse(_ slice: LineSlice, in context: BlockParsingContext) -> BlockMatch? {
         // Multi-line: declines inside a container, like fenced code.

@@ -10,6 +10,7 @@ public struct BlankLineParser: BlockParser {
 /// ``` or ~~~ fenced code, up to the matching fence or the end of the text.
 public struct FencedCodeParser: BlockParser {
     public init() {}
+    public var slashMenuExcludedKind: BlockKind? { .codeBlock }
 
     public func parse(_ slice: LineSlice, in context: BlockParsingContext) -> BlockMatch? {
         guard !context.isNested else { return nil }

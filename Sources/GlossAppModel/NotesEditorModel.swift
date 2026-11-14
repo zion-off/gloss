@@ -110,6 +110,8 @@ public enum NotesTableSettings {
     private var writeChain: Task<Void, Never>?
     private var dismissedSlashAt: Int?
     private var generation = 0
+    /// The blocks that never open the slash menu, from the notes dialect's registrations.
+    private let slashExcludedKinds = MarkdownParser.notes.slashMenuExcludedKinds
     /// Whether the text view has keyboard focus: without it there is no caret to edit a table with.
     private var isFocused = false
     /// The open page's resized tables, by ordinal (`NotesTableSettings`).
@@ -523,7 +525,7 @@ public enum NotesTableSettings {
     }
 
     private func updateSlashMenu() {
-        guard selection.isEmpty, let trigger = SlashTrigger.detect(in: document, caret: selection.lowerBound),
+        guard selection.isEmpty, let trigger = SlashTrigger.detect(in: document, caret: selection.lowerBound, excluding: slashExcludedKinds),
               trigger.range.lowerBound != dismissedSlashAt else {
             slashMenu = nil
             if let dismissed = dismissedSlashAt, dismissed >= text.utf16.count || MarkdownText(text).unit(at: dismissed) != 0x2F {

@@ -51,6 +51,11 @@ public struct MarkdownParser: Sendable {
         return MarkdownDocument(text: text, blocks: blocks)
     }
 
+    /// The block kinds that never open the slash menu, from the registered parsers.
+    public var slashMenuExcludedKinds: Set<BlockKind> {
+        Set(blockParsers.compactMap(\.slashMenuExcludedKind))
+    }
+
     /// Parses the inline content of `range` (used by block parsers and by tests).
     public func parseInlines(in text: MarkdownText, range: Range<Int>) -> [Inline] {
         InlineScanner(text: text, parser: self).parse(range)
@@ -83,6 +88,15 @@ public struct BlockMatch: Sendable {
 /// Recognises one kind of block at the start of a line slice.
 public protocol BlockParser: Sendable {
     func parse(_ slice: LineSlice, in context: BlockParsingContext) -> BlockMatch?
+    /// The kind this parser produces whose blocks never open the slash menu (their text isn't a
+    /// paragraph to format: code, tables). Nil, the default, for everything else. The editor
+    /// derives its excluded kinds from its registered parsers, so a new one needs no edit
+    /// anywhere else.
+    var slashMenuExcludedKind: BlockKind? { get }
+}
+
+extension BlockParser {
+    public var slashMenuExcludedKind: BlockKind? { nil }
 }
 
 /// What block parsers can see and do.
