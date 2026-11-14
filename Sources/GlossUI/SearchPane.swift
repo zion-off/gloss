@@ -66,78 +66,85 @@ struct SearchToolbarButton: View {
     }
 }
 
-/// Where a result sits in the results: its section and its place in it. Search hits carry no
-/// id of their own, and wrapping them in fresh UUIDs every render would churn the list's
-/// identity, so the rows are tagged by position instead.
-struct SearchResultKey: Hashable {
-    var section: String
-    var index: Int
+/// Which column the results are in: the sidebar (a book is open; the book or notes stay in the
+/// main pane beside it) or the main pane (the library, the trash).
+enum SearchResultsPlacement {
+    case sidebar, mainPane
 }
 
-/// The grouped results — notes, book text, library — with the hit marked in each snippet.
-/// Arrow keys move through the list (a plain `List` selection); choosing a row dismisses the
-/// search and jumps to the hit.
+/// The grouped results — notes, book text, library — with the match marked in each snippet.
+/// The flat index is the session's stepping place: a click, Up/Down in the list, or ⌘G makes a
+/// row current and opens it, and the list stays so the rest can be stepped through. The current
+/// row is selected and kept visible.
 struct SearchResults: View {
     let app: AppModel
-    @State private var chosen: SearchResultKey?
+    var placement: SearchResultsPlacement = .mainPane
+    @State private var chosen: Int?
 
     var body: some View {
-        List(selection: Binding(get: { chosen }, set: { chosen = $0 })) {
-            ForEach(app.search.results) { section in
-                Section(content: { hits(of: section) }, header: { Text(verbatim: section.group.title) })
-            }
-        }
-        .overlay {
-            if !app.search.hasQuery {
-                // The search is open but the field is empty: say what it will look through.
-                ContentUnavailableView {
-                    Label("search your books and notes", systemImage: "magnifyingglass")
-                } description: {
-                    Text(verbatim: app.search.scopeTitle.map { "type to search \($0)" } ?? "type to search gloss")
+        ScrollViewReader { proxy in
+            List(selection: selection) {
+                ForEach(app.search.results) { section in
+                    Section(content: { hits(of: section) }, header: { Text(verbatim: section.group.title) })
                 }
-            } else if !app.search.isSearching, app.search.results.isEmpty {
-                ContentUnavailableView("no matches", systemImage: "magnifyingglass",
-                                       description: Text("nothing in gloss matches that yet"))
             }
-        }
-        .onChange(of: chosen) { _, new in
-            guard let new else { return }
-            choose(new)
-        }
-        .onChange(of: app.search.results) { _, _ in
-            chosen = nil  // new results: nothing is selected, and a stale pick can't block a click
-        }
-        // Escape closes the search even when nothing has keyboard focus. A click on a blank part
-        // of the results (or the reader having had focus before the book was swapped out) leaves
-        // the window itself as first responder, where `.onExitCommand` never fires; a key
-        // equivalent is looked up through the window's views regardless of focus. Not
-        // `.hidden()`: hidden controls take no key equivalents.
-        .background {
-            Button("close search") { app.search.dismiss() }
-                .keyboardShortcut(.cancelAction)
-                .frame(width: 0, height: 0)
-                .opacity(0)
-                .accessibilityHidden(true)
+            .listStyle(placement == .sidebar ? .sidebar : .inset)
+            .overlay {
+                if !app.search.hasQuery {
+                    // The search is open but the field is empty: say what it will look through.
+                    ContentUnavailableView {
+                        Label("search your books and notes", systemImage: "magnifyingglass")
+                    } description: {
+                        Text(verbatim: app.search.scopeTitle.map { "type to search \($0)" } ?? "type to search gloss")
+                    }
+                } else if !app.search.isSearching, app.search.results.isEmpty {
+                    ContentUnavailableView("no matches", systemImage: "magnifyingglass",
+                                           description: Text("nothing in gloss matches that yet"))
+                }
+            }
+            // Stepping (⌘G, the menu) moves the current row: keep it visible, centred like the
+            // system's lists do. No animation, like the rest of the search.
+            .onChange(of: app.search.stepper.current, initial: true) { _, current in
+                chosen = current
+                if let current { proxy.scrollTo(current, anchor: .center) }
+            }
+            // Escape closes the search even when nothing has keyboard focus. A click on a blank part
+            // of the results (or the reader having had focus before the book was swapped out) leaves
+            // the window itself as first responder, where `.onExitCommand` never fires; a key
+            // equivalent is looked up through the window's views regardless of focus. Not
+            // `.hidden()`: hidden controls take no key equivalents.
+            .background {
+                Button("close search") { Task { await app.endSearch() } }
+                    .keyboardShortcut(.cancelAction)
+                    .frame(width: 0, height: 0)
+                    .opacity(0)
+                    .accessibilityHidden(true)
+            }
         }
     }
 
-    /// The section's rows, each tagged with where it sits.
+    /// The list's selection is the session's current result: setting it (a click, Up/Down in the
+    /// list) opens that result and makes it current. The window's ⌘G steps too, arriving here
+    /// through the stepper's change.
+    private var selection: Binding<Int?> {
+        Binding(get: { chosen }, set: { new in
+            guard let new, new != app.search.stepper.current else { return }
+            chosen = new
+            Task { await app.openSearchResult(at: new) }
+        })
+    }
+
+    /// The section's rows, each tagged with its place in the flat stepping list.
     private func hits(of section: SearchResultSection) -> some View {
         ForEach(Array(section.hits.enumerated()), id: \.offset) { index, hit in
             SearchHitRow(hit: hit)
-                .tag(SearchResultKey(section: section.id, index: index))
+                .tag(flatIndex(of: index, in: section) ?? 0)
+                .id(flatIndex(of: index, in: section) ?? 0)
         }
     }
 
-    /// A row became the selection: jump there and hand the window back.
-    private func choose(_ key: SearchResultKey) {
-        guard let section = app.search.results.first(where: { $0.id == key.section }),
-              section.hits.indices.contains(key.index) else { return }
-        let hit = section.hits[key.index]
-        Task {
-            await app.reveal(SearchModel.Hit(hit: hit, section: key.section).selection)
-            app.search.dismiss()
-        }
+    private func flatIndex(of index: Int, in section: SearchResultSection) -> Int? {
+        app.search.index(of: section.hits[index])
     }
 }
 
