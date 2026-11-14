@@ -118,6 +118,14 @@ import GlossNotes
         return attributes
     }
 
+    /// A list line's paragraph style: the marker at `firstLine`, wrapped lines at `head`.
+    func listLineStyle(_ indents: ListLayout.Indents) -> NSParagraphStyle {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.firstLineHeadIndent = CGFloat(indents.firstLine)
+        paragraph.headIndent = CGFloat(indents.head)
+        return paragraph
+    }
+
     /// A drawn table line's paragraph style: exactly `height` tall (its band of the grid), never wrapping.
     func tableLineStyle(height: CGFloat) -> NSParagraphStyle {
         let paragraph = NSMutableParagraphStyle()

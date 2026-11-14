@@ -8,7 +8,7 @@ import GlossNotes
 /// The notes sheet's one margin: the editor's text, the page title and breadcrumbs, and the reader
 /// card all keep this distance from the sheet's edges and from each other.
 public enum NotesEditorMetrics {
-    public static let margin: CGFloat = 16
+    public static let margin: CGFloat = 24
     /// The page title above the body, relative to the body text: a step above the largest
     /// heading (34 pt over 16 pt body).
     public static let titleScale: CGFloat = 34.0 / 16
@@ -18,13 +18,15 @@ public enum NotesEditorMetrics {
 /// types; the model restyles and saves. Model-issued edits (format bar, slash menu, key
 /// commands) go back through the view's change APIs so undo records them as one step.
 @MainActor
-final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutManagerDelegate {
+final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutManagerDelegate, NSTextContentStorageDelegate {
     private let model: NotesEditorModel
     private let notesTheme = NotesTheme.standard
     private let theme = NotesEditorTheme()
     private weak var textView: NotesTextView?
     private weak var scrollView: NSScrollView?
     private var lastRuns: [StyledRun] = []
+    /// The list lines the last restyle laid out (their prefixes display unbreakable).
+    private var listLines: [ListLayout.Line] = []
     private var displayedPageID: PageID?
     private var displayedSubpageRows: [SubpageRow] = []
     private var displayedSpans: [StyleSpan] = []
@@ -68,6 +70,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         let textView = NotesTextView(usingTextLayoutManager: true)
         textView.delegate = self
         textView.textLayoutManager?.delegate = self
+        textView.textContentStorage?.delegate = self
         textView.allowsUndo = true
         // Plain text: pastes arrive as plain markdown (no attachments or foreign fonts in the
         // buffer); the storage attributes are ours and presentation only.
@@ -226,6 +229,35 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
             if let font { fragment.font = font }
         }
         return fragment
+    }
+
+    /// A paragraph as displayed: a list line's prefix can't be broken (`ListLayout.unbreakable`),
+    /// so a first word too long for the line wraps beside its marker instead of under it. The
+    /// text itself is untouched; only what TextKit lays out differs, character for character.
+    nonisolated func textContentStorage(_ textContentStorage: NSTextContentStorage,
+                                        textParagraphWith range: NSRange) -> NSTextParagraph? {
+        guard let source = textContentStorage.attributedString, NSMaxRange(range) <= source.length else { return nil }
+        let paragraph = range.location..<NSMaxRange(range)
+        let prefixes = MainActor.assumeIsolated {
+            listLines.map(\.prefix).filter { $0.overlaps(paragraph) }
+        }
+        guard !prefixes.isEmpty else { return nil }
+        let shown = NSMutableAttributedString(attributedString: source.attributedSubstring(from: range))
+        for prefix in prefixes {
+            let local = prefix.clamped(to: paragraph)
+            Self.makeUnbreakable(shown, local.lowerBound - paragraph.lowerBound..<local.upperBound - paragraph.lowerBound)
+        }
+        return NSTextParagraph(attributedString: shown)
+    }
+
+    /// Swaps a list prefix's characters for their unbreakable look-alikes, each keeping the
+    /// replaced character's attributes (font, colour, kern).
+    nonisolated static func makeUnbreakable(_ string: NSMutableAttributedString, _ range: Range<Int>) {
+        let units = Array(string.string.utf16)
+        for index in range where index < units.count {
+            guard let unit = ListLayout.unbreakable(units[index], after: index > 0 ? units[index - 1] : nil) else { continue }
+            string.replaceCharacters(in: NSRange(location: index, length: 1), with: String(utf16CodeUnits: [unit], count: 1))
+        }
     }
 
     /// Where a paragraph sits in the text, in UTF-16 offsets (nil for anything but a paragraph).
@@ -480,6 +512,32 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         }
     }
 
+    /// List lines indented by level, with wrapped lines lined up under the text rather than the
+    /// marker (`ListLayout`). Only the lines a restyle touched: `setAttributes` cleared
+    /// theirs, and the rest keep what they had.
+    private func applyListIndents(in changed: [Range<Int>], storage: NSTextStorage) {
+        guard !changed.isEmpty else { return }
+        for item in listLines
+        where item.line.upperBound <= storage.length && changed.contains(where: { $0.overlaps(item.line) }) {
+            // Measured as drawn: unbreakable, and without the gap a previous pass left on it.
+            let marker = NSMutableAttributedString(attributedString: storage.attributedSubstring(from: NSRange(item.marker)))
+            marker.removeAttribute(.kern, range: NSRange(location: 0, length: marker.length))
+            Self.makeUnbreakable(marker, 0..<marker.length)
+            let width = CTLineGetTypographicBounds(CTLineCreateWithAttributedString(marker), nil, nil, nil)
+            let indents = ListLayout.indents(level: item.level, markerWidth: width, bodySize: Double(theme.bodySize),
+                                                  base: item.quoted ? Double(NotesEditorTheme.quoteIndent) : 0)
+            storage.addAttribute(.paragraphStyle, value: theme.listLineStyle(indents), range: NSRange(item.line))
+            // The gap goes before the space that ends the marker (`-`, `.`, `]`): Core Text puts
+            // the caret between a kerned character and the next one halfway through the kern, so
+            // on the space itself the caret before the text would sit in the middle of the gap.
+            let end = item.marker.upperBound
+            if indents.gap > 0, item.marker.count >= 2,
+               storage.attributedSubstring(from: NSRange(end - 1..<end)).string.first?.isWhitespace == true {
+                storage.addAttribute(.kern, value: indents.gap, range: NSRange(end - 2..<end - 1))
+            }
+        }
+    }
+
     /// The text size setting changed: every font, row, list indent and table grid follows.
     private func textSizeChanged() {
         guard let textView else { return }
@@ -644,6 +702,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         tableStore.replace(tables, appearance: textView.effectiveAppearance)
 
         let length = model.text.utf16.count
+        listLines = ListLayout.lines(in: model.document)  // before any edit below lays lines out
         let runs = notesTheme.runs(for: model.spans, length: length)
         let changed = StyledRunDiff.changedRanges(from: lastRuns, to: runs)
         lastRuns = runs
@@ -655,6 +714,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
             }
             applyLinkAttributes(in: range)
         }
+        applyListIndents(in: changed, storage: storage)
         applyTableLineHeights(tables, in: storage)
         storage.endEditing()
         for range in redraw { invalidateLayout(range) }

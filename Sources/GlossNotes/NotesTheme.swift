@@ -111,6 +111,7 @@ public struct NotesTheme: Sendable {
             NotesRole.trashedLink: Entry(TextStyle(color: .secondary, strikethrough: true), layer: 5),
             NotesRole.brokenLink: Entry(TextStyle(color: .warning, underline: .dotted), layer: 5),
             .listMarker: Entry(TextStyle(color: .secondary), layer: 6),
+            .listIndent: Entry(TextStyle(collapsed: true), layer: 8),
             .taskBox: Entry(TextStyle(font: .monospaced, color: .secondary), layer: 6),
             .taskBoxChecked: Entry(TextStyle(font: .monospaced, color: .accent), layer: 6),
             .taskDone: Entry(TextStyle(color: .secondary, strikethrough: true), layer: 6),
