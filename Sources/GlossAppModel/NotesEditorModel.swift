@@ -341,9 +341,16 @@ public enum NotesTableSettings {
         refreshPresentation()
     }
 
-    /// Back to automatic widths (a double-click on a divider), stored at once.
-    public func resetColumnWidths(ofTable ordinal: Int) {
-        guard columnWidths.removeValue(forKey: ordinal) != nil else { return }
+    /// The widths a table has now (nil: automatic), to put back on undo.
+    public func columnWidths(ofTable ordinal: Int) -> TableColumnWidths? {
+        columnWidths[ordinal]
+    }
+
+    /// Sets a table's widths (nil: back to automatic, a double-click on a divider, or an undo)
+    /// and stores them at once.
+    public func setColumnWidths(_ widths: TableColumnWidths?, ofTable ordinal: Int) {
+        guard tables.indices.contains(ordinal), columnWidths[ordinal] != widths else { return }
+        columnWidths[ordinal] = widths
         refreshPresentation()
         saveColumnWidths()
     }
