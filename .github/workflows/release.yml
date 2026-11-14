@@ -1,0 +1,189 @@
+name: release
+
+# Merging a pull request labelled "release" into main publishes v<version>: the dmg, its
+# checksum, the zip Sparkle updates from and the signed appcast.xml the app's feed points at
+# (releases/latest/download/appcast.xml). One of patch, minor or major picks the bump, patch
+# when there's none (scripts/next-version.sh). The labels job goes red before the merge when a
+# pull request has more than one of them.
+#
+# Run it by hand (workflow_dispatch) for a dry run: it builds and signs everything for the given
+# version and keeps it as a workflow artifact, but tags and publishes nothing.
+#
+# Needs the repository variable SPARKLE_PUBLIC_KEY and the secret SPARKLE_PRIVATE_KEY (README,
+# "releasing").
+
+on:
+  pull_request:
+    types: [opened, reopened, labeled, unlabeled, synchronize, closed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: version to build (dry run, nothing is published)
+        required: true
+        default: 0.0.0-dry-run
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  # The tools that sign updates and write the appcast. Keep in step with the Sparkle pin in
+  # Package.swift (checked below); the checksum is the release asset's sha256 on GitHub.
+  SPARKLE_VERSION: 2.10.1
+  SPARKLE_SHA256: 1a856d2a9edb8e628de88121d7be04cf0e2167f8641650b78fca00b14244cf27
+
+jobs:
+  labels:
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: check out
+        uses: actions/checkout@v4
+
+      - name: at most one of patch, minor and major
+        env:
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: scripts/next-version.sh --check
+
+  release:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.action == 'closed' && github.event.pull_request.merged == true &&
+       contains(github.event.pull_request.labels.*.name, 'release'))
+    runs-on: macos-26
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    # One release at a time, in order; label events never wait on it.
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    steps:
+      - name: check out the merge commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+          # All history and tags: the build number is the commit count, the version comes
+          # from the newest v* tag.
+          fetch-depth: 0
+
+      - name: work out the version
+        id: version
+        env:
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          DRY_RUN_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            version="$DRY_RUN_VERSION"
+          else
+            scripts/next-version.sh --check
+            version="$(scripts/next-version.sh)"
+            if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
+              echo "::error::v$version is already tagged"
+              exit 1
+            fi
+          fi
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'$version' isn't a semantic version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "releasing gloss $version"
+
+      - name: select the newest xcode 26
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
+
+      - name: fetch sparkle's tools
+        run: |
+          pinned="$(python3 -I -c 'import json, sys; print(next(p["state"]["version"] for p in json.load(open(sys.argv[1]))["pins"] if p["identity"] == "sparkle"))' Package.resolved)"
+          if [ "$pinned" != "$SPARKLE_VERSION" ]; then
+            echo "::error::Package.resolved pins sparkle $pinned but this workflow fetches $SPARKLE_VERSION"
+            exit 1
+          fi
+          tools="$RUNNER_TEMP/sparkle"
+          mkdir -p "$tools"
+          curl -fsSL -o "$tools/sparkle.tar.xz" \
+            "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz"
+          echo "$SPARKLE_SHA256  $tools/sparkle.tar.xz" | shasum -a 256 -c -
+          tar -xJf "$tools/sparkle.tar.xz" -C "$tools"
+          echo "SPARKLE_BIN=$tools/bin" >> "$GITHUB_ENV"
+
+      # Signing is ad hoc. For a Developer ID build, import the certificate into a temporary
+      # keychain here (from secrets such as DEVELOPER_ID_CERT_P12_BASE64 and
+      # DEVELOPER_ID_CERT_PASSWORD), then give the next step GLOSS_SIGN_IDENTITY, and
+      # GLOSS_NOTARY_PROFILE for a `notarytool store-credentials` profile (scripts/release.sh).
+      - name: build the app, the dmg and the zip
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          GLOSS_SPARKLE_PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
+        run: scripts/release.sh "$VERSION"
+
+      - name: sign the update and write the appcast
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          if [ -z "$SPARKLE_PRIVATE_KEY" ]; then
+            echo "::error::the SPARKLE_PRIVATE_KEY secret isn't set (README, \"releasing\")"
+            exit 1
+          fi
+          # The release notes: the pull request's title and description, for the release page
+          # and for Sparkle's update window alike.
+          notes="$RUNNER_TEMP/notes.md"
+          if [ -n "$PR_TITLE" ]; then
+            printf '## %s\n' "$PR_TITLE" > "$notes"
+            if [ -n "$PR_BODY" ]; then printf '\n%s\n' "$PR_BODY" >> "$notes"; fi
+          else
+            printf 'a dry run of gloss %s.\n' "$VERSION" > "$notes"
+          fi
+          # generate_appcast reads gloss-<version>.md as that archive's release notes. One item
+          # is enough: Sparkle updates any older version straight to the newest.
+          feed="$RUNNER_TEMP/feed"
+          rm -rf "$feed"
+          mkdir -p "$feed"
+          cp "dist/gloss-$VERSION.zip" "$feed/"
+          cp "$notes" "$feed/gloss-$VERSION.md"
+          rm -f dist/appcast.xml
+          log="$(printf '%s' "$SPARKLE_PRIVATE_KEY" | "$SPARKLE_BIN/generate_appcast" --ed-key-file - \
+            --download-url-prefix "https://github.com/$REPOSITORY/releases/download/v$VERSION/" \
+            --embed-release-notes --maximum-versions 1 \
+            -o dist/appcast.xml "$feed" 2>&1)"
+          echo "$log"
+          # generate_appcast only warns when the key doesn't match the app's SUPublicEDKey, but
+          # the app would then reject the update.
+          if grep -q "does not match" <<<"$log"; then
+            echo "::error::SPARKLE_PRIVATE_KEY doesn't match the SPARKLE_PUBLIC_KEY variable"
+            exit 1
+          fi
+          cat dist/appcast.xml
+
+      - name: publish v${{ steps.version.outputs.version }}
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TARGET: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          gh release create "v$VERSION" --target "$TARGET" --title "gloss $VERSION" --latest \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            "dist/gloss-$VERSION.dmg" "dist/gloss-$VERSION.dmg.sha256" "dist/gloss-$VERSION.zip" dist/appcast.xml
+
+      - name: keep the build (dry run)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gloss-${{ steps.version.outputs.version }}
+          path: |
+            dist/gloss-*.dmg
+            dist/gloss-*.dmg.sha256
+            dist/gloss-*.zip
+            dist/appcast.xml
+          if-no-files-found: error
