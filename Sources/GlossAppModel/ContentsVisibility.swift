@@ -23,7 +23,16 @@ public enum ContentsVisibility {
         previous != current && current != nil
     }
 
-    /// How far to scroll: the system's lists centre the row they are asked to show; centring is
-    /// also the least movement that guarantees visibility at either edge of a long list.
-    public static let scrollAnchor: String = "center"
+    /// The sidebar selection after the chapter being read changed, Preview-style (its sidebar's
+    /// selection follows the page): the current entry becomes selected when the selection is
+    /// the book itself or another contents entry. A selected highlight or notes page is the
+    /// user's, and is left alone. Nil: leave the selection as it is.
+    public static func followedSelection(_ selection: SidebarSelection, current: ContentsNode.ID?) -> SidebarSelection? {
+        guard let current else { return nil }
+        switch selection {
+        case .book: return .contents(current)
+        case .contents(let id) where id != current: return .contents(current)
+        default: return nil
+        }
+    }
 }

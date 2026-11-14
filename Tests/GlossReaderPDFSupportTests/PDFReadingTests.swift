@@ -36,6 +36,16 @@ struct PDFReadingTests {
         #expect(last.progression == 1 && last.atEnd && !last.atStart)
         #expect(PDFReaderPositions.location(page: 2, pageCount: 120, pageLabel: "xii").label == "page xii")
         #expect(PDFReaderPositions.location(page: 2, pageCount: 120, pageLabel: "  ").label == "page 3")
+        // The outline entry being read: the last one starting on or before the page.
+        let page = { PDFReaderPositions.locator(page: $0) }
+        let toc = [ReaderTocEntry(label: "one", target: page(2)),
+                   ReaderTocEntry(label: "two", target: page(10), children: [ReaderTocEntry(label: "two.a", target: page(14))]),
+                   ReaderTocEntry(label: "three", target: page(30))]
+        #expect(PDFReaderPositions.location(page: 15, pageCount: 120, toc: toc).contentsTarget == page(14))
+        #expect(PDFReaderPositions.location(page: 10, pageCount: 120, toc: toc).contentsTarget == page(10))
+        #expect(PDFReaderPositions.location(page: 1, pageCount: 120, toc: toc).contentsTarget == nil)  // before the first
+        #expect(PDFReaderPositions.location(page: 100, pageCount: 120, toc: toc).contentsTarget == page(30))
+        #expect(PDFReaderPositions.location(page: 5, pageCount: 120).contentsTarget == nil)  // no outline
         // Out of range pages clamp; a one-page document is both start and end.
         #expect(PDFReaderPositions.location(page: 500, pageCount: 3).locator.value == "2")
         let single = PDFReaderPositions.location(page: 0, pageCount: 1)

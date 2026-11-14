@@ -85,13 +85,32 @@ public enum PDFReaderPositions {
         return "page \(label.isEmpty ? String(page + 1) : label)"
     }
 
+    /// The outline entry a page is in: the last entry, in reading order, that starts on or before
+    /// it (outline entries carry `pdf-page` targets). Nil before the first entry or without an
+    /// outline. The sidebar keeps this entry in view, as it does an EPUB's chapter.
+    public static func contentsTarget(in toc: [ReaderTocEntry], page: Int) -> Locator? {
+        func flat(_ entries: [ReaderTocEntry]) -> [ReaderTocEntry] { entries.flatMap { [$0] + flat($0.children) } }
+        var current: Locator?
+        var bestPage = -1
+        for entry in flat(toc) {
+            guard entry.target.scheme == PDFLocators.pageScheme, let start = Int(entry.target.value), start <= page else { continue }
+            // Later entries on the same or a later start page win (a section inside its chapter).
+            if start >= bestPage {
+                bestPage = start
+                current = entry.target
+            }
+        }
+        return current
+    }
+
     /// Where the reader is, for `ReaderEngineEvent.relocated`.
-    public static func location(page: Int, pageCount: Int, pageLabel: String? = nil) -> ReaderLocation {
+    public static func location(page: Int, pageCount: Int, pageLabel: String? = nil, toc: [ReaderTocEntry] = []) -> ReaderLocation {
         let clamped = min(max(page, 0), max(pageCount - 1, 0))
         let text = pageCount > 0 ? "page \(clamped + 1) of \(pageCount)" : ""
         return ReaderLocation(locator: locator(page: clamped), progression: progression(page: clamped, pageCount: pageCount),
                               label: label(page: clamped, pageLabel: pageLabel), progressText: text,
-                              atStart: clamped == 0, atEnd: clamped >= pageCount - 1)
+                              atStart: clamped == 0, atEnd: clamped >= pageCount - 1,
+                              contentsTarget: contentsTarget(in: toc, page: clamped))
     }
 }
 
