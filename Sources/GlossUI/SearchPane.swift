@@ -62,7 +62,7 @@ struct SearchToolbarButton: View {
         Button { model.isPresented = true } label: {
             Label("search", systemImage: "magnifyingglass")
         }
-        .help("search your books and notes")
+        .help("search your books and notes (⌘F)")
     }
 }
 
@@ -116,6 +116,10 @@ struct SearchResults: View {
             .background {
                 Button("close search") { Task { await app.endSearch() } }
                     .keyboardShortcut(.cancelAction)
+                    // Escape closes the innermost thing first: with the results in the sidebar
+                    // the notes editor is on screen beside them, and its open slash menu takes
+                    // Escape before the search does (a key equivalent would otherwise win).
+                    .disabled(app.notes.slashMenu != nil)
                     .frame(width: 0, height: 0)
                     .opacity(0)
                     .accessibilityHidden(true)
