@@ -10,7 +10,8 @@ import GlossReaderPDFSupport
 /// pure lives in `GlossReaderPDFSupport` (Linux-tested); this file only measures, draws and
 /// forwards.
 @MainActor
-final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHighlighting, PDFViewDelegate, PDFPageOverlayViewProvider {
+final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHighlighting, ThemeColorsApplying, PDFViewDelegate,
+                              PDFPageOverlayViewProvider {
     var view: NSView { pdfView }
     var driver: any ReaderDriving { self }
 
@@ -20,7 +21,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
     private var document: PDFDocument?
     private var pageCount = 0
     private var annotations = PDFAnnotationLayout(.init())
-    private let colors: ReaderColors
+    private var colors: ReaderColors
     private var observers: [any NSObjectProtocol] = []
     /// Watches for the mouse button coming up, which reports a selection dragged out with it.
     private var mouseUpMonitor: Any?
@@ -49,11 +50,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
     init(library: LibraryService, appearance: ReaderAppearance,
          deliver: @escaping @MainActor @Sendable (ReaderEngineEvent) async -> Void) {
         self.library = library
-        // A PDF's pages are white paper whatever the theme (only the space around them is
-        // themed), so its highlights take the white page's shades.
-        var colors = appearance.colors
-        colors.highlights = AppearanceStyler.pageHighlights(for: .light)
-        self.colors = colors
+        self.colors = Self.pageColors(appearance.colors)
         self.inbox = ReaderEventInbox(deliver: deliver)
         super.init()
 
@@ -96,6 +93,24 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
         // PDFKit has no page to load, so the session can take commands at once. The controller
         // holds every `open` back until it hears this (the EPUB page says it from script).
         inbox.post(.ready)
+    }
+
+    /// A PDF's pages are white paper whatever the theme (only the space around them is
+    /// themed), so its highlights take the white page's shades.
+    private static func pageColors(_ theme: ReaderColors) -> ReaderColors {
+        var colors = theme
+        colors.highlights = AppearanceStyler.pageHighlights(for: .light)
+        return colors
+    }
+
+    // MARK: ThemeColorsApplying
+
+    /// A theme changed in settings: the space around the pages and the marks on pages already
+    /// shown follow it at once.
+    func apply(_ theme: ReaderColors) {
+        colors = Self.pageColors(theme)
+        pdfView.backgroundColor = Self.color(theme.background) ?? .textBackgroundColor
+        for overlay in overlays.values { overlay.colors = colors }
     }
 
     func invalidate() async {
@@ -483,7 +498,9 @@ final class PDFPageOverlay: NSView {
     var marks: [PDFAnnotationLayout.Mark] {
         didSet { if marks != oldValue { needsDisplay = true } }
     }
-    private let colors: ReaderColors
+    var colors: ReaderColors {
+        didSet { if colors != oldValue { needsDisplay = true } }
+    }
     private let onActivate: @MainActor (PDFAnnotationLayout.Hit, ReaderRect) -> Void
 
     init(pdfView: PDFView, page: PDFPage, marks: [PDFAnnotationLayout.Mark],

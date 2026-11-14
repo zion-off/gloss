@@ -136,6 +136,14 @@ public protocol ReflowableAppearanceApplying: AnyObject {
     func apply(_ appearance: ReaderAppearance) async throws
 }
 
+/// Engines whose look follows only the theme's colours, not the text settings: a PDF's pages
+/// stay white paper, but the space around them and its note markers are themed. Separate from
+/// `ReflowableAppearanceApplying` so neither engine ignores most of what it is given.
+@MainActor
+public protocol ThemeColorsApplying: AnyObject {
+    func apply(_ colors: ReaderColors)
+}
+
 /// Engines that can show a search session's matches: every match of a query softly, the
 /// current one emphasised, all of them cleared together. Engines that can't search skip the
 /// capability and the app searches without page highlights.
