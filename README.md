@@ -1,3 +1,5 @@
+<img width="1448" height="893" alt="image" src="https://github.com/user-attachments/assets/b1eb58de-a534-4cb7-9b0d-63b33d914784" />
+
 # gloss
 
 a mac app for reading epubs and pdfs, with a markdown notes page for every book, where your notes can link to exact passages.
