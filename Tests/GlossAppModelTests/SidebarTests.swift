@@ -195,3 +195,24 @@ struct OutlineRowTests {
         #expect(rows.map(\.depth) == [0, 1, 2, 0])
     }
 }
+
+@Suite("contents page count")
+struct ContentsPageCountTests {
+    @Test("pages left in the entry being read, worded like Books, only with a page count")
+    func caption() {
+        let target = Locator(scheme: FakeFormat.scheme, value: "c2")
+        let nodes = [
+            ContentsNode(id: "0", label: "one", target: Locator(scheme: FakeFormat.scheme, value: "c1"), children: [
+                ContentsNode(id: "0.0", label: "two", target: target, children: nil)]),
+        ]
+        func location(_ left: Int?, _ at: Locator? = target) -> ReaderLocation {
+            ReaderLocation(locator: target, progression: 0.5, label: nil, progressText: "", pagesLeftInSection: left, contentsTarget: at)
+        }
+        #expect(ContentsPageCount.current(in: nodes, at: location(7)) == ContentsPageCount(nodeID: "0.0", caption: "7 pages left in chapter"))
+        #expect(ContentsPageCount.current(in: nodes, at: location(1))?.caption == "1 page left in chapter")
+        #expect(ContentsPageCount.current(in: nodes, at: location(0))?.caption == "last page of chapter")
+        #expect(ContentsPageCount.current(in: nodes, at: location(nil)) == nil)  // scrolled flow, PDFs
+        #expect(ContentsPageCount.current(in: nodes, at: location(3, nil)) == nil)  // no entry
+        #expect(ContentsPageCount.current(in: nodes, at: nil) == nil)
+    }
+}

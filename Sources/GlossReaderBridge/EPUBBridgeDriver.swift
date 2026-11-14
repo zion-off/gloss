@@ -103,7 +103,8 @@ public final class EPUBBridgeDriver: ReaderDriving, ReflowableAppearanceApplying
             return .relocated(ReaderLocation(
                 locator: Locator(scheme: EPUBLocators.cfiScheme, value: payload.cfi), progression: payload.fraction,
                 label: ReaderEventMapping.progressLabel(of: payload), progressText: ReaderProgressText.describe(payload),
-                atStart: payload.atStart, atEnd: payload.atEnd))
+                atStart: payload.atStart, atEnd: payload.atEnd, pagesLeftInSection: payload.pagesLeftInSection,
+                contentsTarget: payload.tocHref.map { Locator(scheme: EPUBLocators.hrefScheme, value: $0) }))
         case .selectionChanged(let payload):
             return .selectionChanged(ReaderEventMapping.passage(from: payload), anchor: payload.rect)
         case .selectionCleared:

@@ -344,6 +344,8 @@ import GlossReaderBridge
 
     /// The open book's table of contents, as the sidebar nests it.
     public var contents: [ContentsNode] { ContentsNode.nodes(from: reader.toc) }
+    /// The contents entry being read and its pages left, for the sidebar (paginated EPUBs only).
+    public var contentsPageCount: ContentsPageCount? { ContentsPageCount.current(in: contents, at: reader.location) }
 
     /// The books the source list's book section shows: the reader's and the notes pane's.
     public var bookSidebarSubjects: BookSidebarSubjects {

@@ -37,6 +37,7 @@ test('maps a paginated relocate detail', () => {
         fraction: 0.281,
         section: { index: 3, count: 14 },
         tocLabel: 'Chapter 1. Loomings',
+        tocHref: 'text/ch1.xhtml',
         pageLabel: null,
         pagesLeftInSection: 7, // 12 total pages − 2 padding pages − current page 3
         atStart: false,

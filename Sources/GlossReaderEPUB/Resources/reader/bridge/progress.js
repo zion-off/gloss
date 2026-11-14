@@ -42,6 +42,7 @@ export const makeRelocated = (detail, renderer) => ({
         count: detail.section.total,
     },
     tocLabel: detail.tocItem?.label ?? null,
+    tocHref: detail.tocItem?.href ?? null,
     pageLabel: detail.pageItem?.label ?? null,
     pagesLeftInSection: pagesLeftInSection(renderer),
     atStart: renderer?.atStart === true,

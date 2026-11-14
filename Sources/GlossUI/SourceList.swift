@@ -65,11 +65,20 @@ struct SourceList: View {
         let nodes = app.contents
         if !nodes.isEmpty {
             Section("contents", isExpanded: $showsContents) {
+                let pageCount = app.contentsPageCount
                 ForEach(OutlineRow.rows(nodes, children: \.children)) { row in
-                    Text(verbatim: row.node.label)
-                        .lineLimit(2)
-                        .padding(.leading, Self.indent(row.depth))
-                        .tag(SidebarSelection.contents(row.node.id))
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(verbatim: row.node.label)
+                            .lineLimit(2)
+                        // Apple Books' "pages left in chapter", under the entry being read.
+                        if let pageCount, pageCount.nodeID == row.node.id {
+                            Text(verbatim: pageCount.caption)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.leading, Self.indent(row.depth))
+                    .tag(SidebarSelection.contents(row.node.id))
                 }
             }
         }
