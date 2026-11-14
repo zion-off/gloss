@@ -10,7 +10,7 @@ public struct SlashTrigger: Hashable, Sendable {
     public static let maxQueryLength = 24
 
     /// Finds a trigger ending at `caret`: a `/` at the start of a line or after whitespace,
-    /// followed by letters, digits or `-`. Never inside code.
+    /// followed by letters, digits or `-`. Never inside code or a table.
     public static func detect(in document: MarkdownDocument, caret: Int) -> SlashTrigger? {
         let text = document.text
         // A caret from a newer text than this parse (the view reports before the model has
@@ -29,7 +29,8 @@ public struct SlashTrigger: Hashable, Sendable {
             guard before == 0x20 || before == 0x09 || before == 0x0A else { return nil }
         }
         guard caret - start <= maxQueryLength else { return nil }
-        if document.blocks.contains(where: { $0.kind == .codeBlock && $0.range.contains(slash) }) { return nil }
+        // Not in code, and not in a table's source, where a block command would break the table.
+        if document.blocks.contains(where: { ($0.kind == .codeBlock || $0.kind == .table) && $0.range.contains(slash) }) { return nil }
         if document.allInlines.contains(where: { $0.kind == .code && $0.range.contains(slash) }) { return nil }
         return SlashTrigger(range: slash..<caret, query: text[start..<caret])
     }
