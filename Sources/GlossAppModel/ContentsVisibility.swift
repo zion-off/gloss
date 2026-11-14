@@ -3,7 +3,7 @@ import GlossCore
 import GlossReaderBridge
 
 /// What the sidebar's contents list should do with the chapter being read: which entry is
-/// current, and when its row should be scrolled into view. Pure logic; the list renders it.
+/// current, and what the selection does when it changes. Pure logic; the list renders it.
 ///
 /// The contents are laid out as flat indented rows (no disclosure triangles), so a nested entry
 /// is visible whenever its section is — there are no ancestors to expand. "An entry that appears
@@ -14,13 +14,6 @@ public enum ContentsVisibility {
     public static func currentRow(in nodes: [ContentsNode], at location: ReaderLocation?) -> ContentsNode.ID? {
         guard let target = location?.contentsTarget else { return nil }
         return OutlineRow.rows(nodes, children: \.children).first { $0.node.target == target }?.node.id
-    }
-
-    /// Whether the current row needs scrolling into view: only on a real change of entry — a
-    /// page turn inside the chapter, a resize or a restyle relocating with the same entry must
-    /// not yank the sidebar back while the user is reading it.
-    public static func shouldScroll(previous: ContentsNode.ID?, current: ContentsNode.ID?) -> Bool {
-        previous != current && current != nil
     }
 
     /// The sidebar selection after the chapter being read changed, Preview-style (its sidebar's

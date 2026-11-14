@@ -25,30 +25,21 @@ struct SourceList: View {
         ScrollViewReader { proxy in
             list
                 // The chapter being read changed (a page turn across a boundary, a jump, a link, a
-                // search hit, the book opening): the selection follows it, and its row comes into
-                // view. Same-entry relocations (resizes, restyles, page turns inside it) change
-                // nothing, so a sidebar the user scrolled by hand stays put until the chapter does.
-                .onChange(of: app.currentContentsRow, initial: true) { previous, current in
+                // search hit, the book opening): the selection follows it. The list itself never
+                // scrolls for this: a click on an entry, or turning pages, leaves it where it is.
+                .onChange(of: app.currentContentsRow, initial: true) { _, _ in
                     app.followCurrentContents()
-                    // The initial call (the book opened, the list was rebuilt) passes the same value
-                    // twice: that counts as arriving at the chapter, so it scrolls too.
-                    if ContentsVisibility.shouldScroll(previous: previous == current ? nil : previous, current: current) {
-                        reveal(current, with: proxy)
-                    }
                 }
-                // The list came into view (the sidebar opened, the search ended): bring the chapter
-                // being read into view, wherever the list had been left.
+                // The list came into view (the sidebar was closed and opened again, or the search
+                // results that covered it ended): bring the chapter being read into view, wherever
+                // the list had been left. This is the only time the list scrolls by itself.
                 .onChange(of: revealToken) { _, _ in reveal(app.currentContentsRow, with: proxy) }
-                // Another book: its rows replaced the old ones, and entry ids are per-book
-                // positions, so the same id ("1") in both books is no change to observe — the
-                // book switching is.
-                .onChange(of: app.workspace.document?.id) { _, _ in reveal(app.currentContentsRow, with: proxy) }
         }
     }
 
-    /// Scrolls the current chapter's row into view, centred like the system's lists show a row,
-    /// unless it is already fully visible. No animation: the sidebar should just be right. After
-    /// this turn of the run loop, so a list that was just (re)built has its rows to scroll to.
+    /// Scrolls the current chapter's row into view, centred like the system's lists show a row. No
+    /// animation: the sidebar should just be right. After this turn of the run loop, so a list
+    /// that was just (re)built has its rows to scroll to.
     private func reveal(_ row: ContentsNode.ID?, with proxy: ScrollViewProxy) {
         guard let row, showsContents else { return }
         Task { @MainActor in
