@@ -53,12 +53,23 @@ public struct TableParser: BlockParser {
             lineIndex += 1
         }
 
+        // A cell's inlines are scanned per cell (cells are separate inline contexts, as on GitHub:
+        // `| a * | b * |` is not emphasis). A cell holding none of the registered triggers or
+        // delimiters can't have any, so its scan is skipped — on a wide table that is most cells.
+        let inlineTriggers = Set(context.parser.inlineParsers.flatMap(\.triggers))
+            .union(context.parser.delimiterCharacters.keys)
+
         let rowBlocks = rows.enumerated().map { index, row in
             let role: TableRowRole = index == 0 ? .header : index == 1 ? .delimiter : .body
+            // A column's alignment is the header's to carry: `MarkdownTable` reads it there, and
+            // the body and delimiter rows' cells stay free of data nobody reads.
             let cells = zip(row.cells, alignments).map { cell, alignment in
-                Block(kind: .tableCell, range: cell, contentRange: TableRowScan.content(of: cell, in: text),
-                      attributes: BlockAttributes(extra: [TableKeys.alignment: alignment.rawValue]),
-                      inlines: role == .delimiter ? [] : context.inlines(in: TableRowScan.content(of: cell, in: text)))
+                let content = TableRowScan.content(of: cell, in: text)
+                let inlines = role == .delimiter || !content.contains(where: { inlineTriggers.contains(text.units[$0]) })
+                    ? [] : context.inlines(in: content)
+                return Block(kind: .tableCell, range: cell, contentRange: content,
+                             attributes: role == .header ? BlockAttributes(extra: [TableKeys.alignment: alignment.rawValue]) : BlockAttributes(),
+                             inlines: inlines)
             }
             return Block(kind: .tableRow, range: row.line, contentRange: row.line, syntax: row.pipes.map { $0..<$0 + 1 },
                          attributes: BlockAttributes(extra: [TableKeys.role: role.rawValue]), children: cells)
