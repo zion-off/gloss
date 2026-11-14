@@ -9,7 +9,7 @@ import GlossTestSupport
 
 /// Records what the controller asks the engine to do.
 @MainActor
-final class FakeDriver: ReaderDriving {
+final class FakeDriver: ReaderDriving, SearchHighlighting {
     enum Call: Equatable {
         case open(DocumentID, Locator?)
         case close
@@ -26,6 +26,8 @@ final class FakeDriver: ReaderDriving {
     var failOpen = false
     /// What live reading-settings changes sent (the `ReflowableAppearanceApplying` tests).
     var appliedAppearances: [ReaderAppearance] = []
+    /// What `setSearchHighlights` was called with (the search capability's tests).
+    var searchHighlightCalls: [String?] = []
 
     /// The id the engine would echo in `.opened` for the latest open.
     var lastOpenID: Int { openIDs.last ?? 0 }
@@ -44,6 +46,7 @@ final class FakeDriver: ReaderDriving {
     func show(_ annotations: ReaderAnnotations) async throws { calls.append(.show(annotations)) }
     func clearSelection() async throws { calls.append(.clearSelection) }
     func reveal(searchHit locator: Locator?, text: String) async throws { calls.append(.reveal(locator, text)) }
+    func setSearchHighlights(_ query: String?) async throws { searchHighlightCalls.append(query) }
 
     var lastAnnotations: ReaderAnnotations? {
         calls.reversed().compactMap { if case .show(let a) = $0 { a } else { nil } }.first

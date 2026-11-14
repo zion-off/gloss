@@ -46,6 +46,7 @@ let opened = false                          // a book is open and taking command
 let needsClose = false                      // view.open may have built a renderer
 const bookGeneration = queue.makeGeneration()   // late callbacks of a closed book bail
 const searchGeneration = queue.makeGeneration() // stopped searches stop posting
+const revealGeneration = queue.makeGeneration() // a superseded reveal stops landing
 const annotationRequests = queue.makeGeneration() // a newer setAnnotations supersedes quote lookups
 let colors: protocol.AppearanceColors | null = null
 let drawn: annotations.DrawnEntry[] = []   // annotations currently drawn
@@ -777,14 +778,17 @@ const commands: { [K in protocol.CommandType]: (payload: protocol.CommandPayload
         // must not hold back the commands sent after it), then go to it: flash plus the
         // session's current mark. Never view.search here — it clears and redraws the session's
         // soft matches, and its own results draw as outlines (the red boxes this replaces).
-        const generation = searchGeneration.bump()
+        // A generation of its own: the highlight command that follows a step shares the
+        // command queue, and bumping the search generation there would cancel this reveal
+        // mid-flight — the hit would never land.
+        const generation = revealGeneration.bump()
         void (async () => {
             try {
                 const found = await cfiOfFirstMatch(section, text)
-                if (!searchGeneration.isCurrent(generation) || found == null) return
+                if (!revealGeneration.isCurrent(generation) || found == null) return
                 await revealAndMark(await view.goTo(found))
             } catch (error) {
-                if (searchGeneration.isCurrent(generation)) postError(error, 'revealSearchHit')
+                if (revealGeneration.isCurrent(generation)) postError(error, 'revealSearchHit')
             }
         })()
     },
@@ -797,6 +801,9 @@ const commands: { [K in protocol.CommandType]: (payload: protocol.CommandPayload
     async setSearchHighlights({ query }: protocol.SearchHighlightsPayload) {
         requireRenderer()
         searchGeneration.bump()
+        // A highlight change also supersedes any reveal still in flight: a mark for a hit the
+        // session no longer stands on must not land after this.
+        revealGeneration.bump()
         clearCurrentSearchMark()
         if (query == null) {
             view.clearSearch()
