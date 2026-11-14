@@ -101,7 +101,7 @@ struct EPUBBridgeDriverTests {
         #expect(payload.appearance == dark)
     }
 
-    @Test("every event fixture translates (search batches belong to the find bar)")
+    @Test("every event fixture translates")
     func translateFixtures() throws {
         let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .deletingLastPathComponent().appendingPathComponent("Tests/Fixtures/bridge/events")
@@ -109,7 +109,6 @@ struct EPUBBridgeDriverTests {
         for url in try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) {
             translated[url.deletingPathExtension().lastPathComponent] = EPUBBridgeDriver.translate(try ReaderEvent.decode(fromJSON: Data(contentsOf: url)))
         }
-        #expect(translated["searchResults"] == .some(nil))
         guard case .relocated(let location)?? = translated["relocated"] else { Issue.record(); return }
         #expect(location.locator == Locator(scheme: EPUBLocators.cfiScheme, value: "epubcfi(/6/8!/4/2/1:23)"))
         #expect(location.progressText == "7 pages left in Chapter 1. Loomings")

@@ -15,7 +15,6 @@ export type CommandType =
     | 'setAppearance'
     | 'setAnnotations'
     | 'clearSelection'
-    | 'search'
     | 'clearSearch'
     | 'revealSearchHit'
     | 'setSearchHighlights'
@@ -28,7 +27,6 @@ export const COMMAND_TYPES: readonly CommandType[] = Object.freeze([
     'setAppearance',
     'setAnnotations',
     'clearSelection',
-    'search',
     'clearSearch',
     'revealSearchHit',
     'setSearchHighlights',
@@ -42,7 +40,6 @@ export type EventType =
     | 'selectionCleared'
     | 'annotationActivated'
     | 'linkActivated'
-    | 'searchResults'
     | 'error'
 
 export const EVENT_TYPES: readonly EventType[] = Object.freeze([
@@ -53,7 +50,6 @@ export const EVENT_TYPES: readonly EventType[] = Object.freeze([
     'selectionCleared',
     'annotationActivated',
     'linkActivated',
-    'searchResults',
     'error',
 ])
 
@@ -159,10 +155,6 @@ export interface SetAnnotationsPayload {
     markers: MarkerAnnotation[]
 }
 
-export interface SearchPayload {
-    query: string
-}
-
 export interface SearchHighlightsPayload {
     /** The session's query; null clears its highlights. */
     query: string | null
@@ -182,7 +174,6 @@ export interface CommandPayloads {
     setAppearance: SetAppearancePayload
     setAnnotations: SetAnnotationsPayload
     clearSelection: Record<string, never>
-    search: SearchPayload
     clearSearch: Record<string, never>
     revealSearchHit: RevealSearchHitPayload
     setSearchHighlights: SearchHighlightsPayload
@@ -229,25 +220,6 @@ export interface LinkActivatedPayload {
     external: boolean
 }
 
-export interface SearchExcerpt {
-    pre: string
-    match: string
-    post: string
-}
-
-export interface SearchItem {
-    cfi: string
-    label: string | null
-    excerpt: SearchExcerpt
-}
-
-export interface SearchResultsPayload {
-    query: string
-    items: SearchItem[]
-    progress: number
-    done: boolean
-}
-
 export interface ErrorPayload {
     message: string
     context: string | null
@@ -263,7 +235,6 @@ export interface EventPayloads {
     selectionCleared: Record<string, never>
     annotationActivated: AnnotationActivatedPayload
     linkActivated: LinkActivatedPayload
-    searchResults: SearchResultsPayload
     error: ErrorPayload
 }
 
@@ -474,9 +445,6 @@ export const COMMAND_PAYLOAD_SPECS: Record<CommandType, Record<string, FieldSpec
         },
     },
     clearSelection: {},
-    search: {
-        query: STR,
-    },
     clearSearch: {},
     revealSearchHit: {
         cfi: { t: 'string', nullable: true },
@@ -530,25 +498,6 @@ export const EVENT_PAYLOAD_SPECS: Record<EventType, Record<string, FieldSpec>> =
     linkActivated: {
         href: STR,
         external: BOOL,
-    },
-    searchResults: {
-        query: STR,
-        items: {
-            t: 'array',
-            item: {
-                t: 'object',
-                fields: {
-                    cfi: STR,
-                    label: { t: 'string', nullable: true },
-                    excerpt: {
-                        t: 'object',
-                        fields: { pre: STR, match: STR, post: STR },
-                    },
-                },
-            },
-        },
-        progress: { t: 'number', min: 0, max: 1 },
-        done: BOOL,
     },
     error: {
         message: STR,

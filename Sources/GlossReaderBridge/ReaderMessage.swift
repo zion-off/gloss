@@ -21,13 +21,12 @@ public enum ReaderCommand: Equatable, Sendable {
     case setAppearance(ReaderSetAppearancePayload)
     case setAnnotations(ReaderSetAnnotationsPayload)
     case clearSelection
-    case search(ReaderSearchPayload)
     case clearSearch
     case revealSearchHit(ReaderRevealSearchHitPayload)
     case setSearchHighlights(ReaderSearchHighlightsPayload)
 
     public static let typeNames = [
-        "open", "close", "goTo", "turnPage", "setAppearance", "setAnnotations", "clearSelection", "search", "clearSearch", "revealSearchHit", "setSearchHighlights",
+        "open", "close", "goTo", "turnPage", "setAppearance", "setAnnotations", "clearSelection", "clearSearch", "revealSearchHit", "setSearchHighlights",
     ]
 }
 
@@ -40,12 +39,11 @@ public enum ReaderEvent: Equatable, Sendable {
     case selectionCleared
     case annotationActivated(ReaderAnnotationActivatedPayload)
     case linkActivated(ReaderLinkActivatedPayload)
-    case searchResults(ReaderSearchResultsPayload)
     case error(ReaderErrorPayload)
 
     public static let typeNames = [
         "ready", "opened", "relocated", "selectionChanged", "selectionCleared", "annotationActivated", "linkActivated",
-        "searchResults", "error",
+        "error",
     ]
 }
 
@@ -74,7 +72,6 @@ extension ReaderCommand: Codable {
         case "clearSelection":
             self = .clearSelection
             _ = try container.nestedContainer(keyedBy: EmptyKeys.self, forKey: .payload)
-        case "search": self = .search(try payload(ReaderSearchPayload.self))
         case "clearSearch":
             self = .clearSearch
             _ = try container.nestedContainer(keyedBy: EmptyKeys.self, forKey: .payload)
@@ -109,9 +106,6 @@ extension ReaderCommand: Codable {
         case .clearSelection:
             try container.encode("clearSelection", forKey: .type)
             try container.encode([String: String](), forKey: .payload)
-        case .search(let payload):
-            try container.encode("search", forKey: .type)
-            try container.encode(payload, forKey: .payload)
         case .clearSearch:
             try container.encode("clearSearch", forKey: .type)
             try container.encode([String: String](), forKey: .payload)
@@ -150,7 +144,6 @@ extension ReaderEvent: Codable {
             _ = try container.nestedContainer(keyedBy: EmptyKeys.self, forKey: .payload)
         case "annotationActivated": self = .annotationActivated(try payload(ReaderAnnotationActivatedPayload.self))
         case "linkActivated": self = .linkActivated(try payload(ReaderLinkActivatedPayload.self))
-        case "searchResults": self = .searchResults(try payload(ReaderSearchResultsPayload.self))
         case "error": self = .error(try payload(ReaderErrorPayload.self))
         default: throw ReaderBridgeError.unknownType(type)
         }
@@ -180,9 +173,6 @@ extension ReaderEvent: Codable {
             try container.encode(payload, forKey: .payload)
         case .linkActivated(let payload):
             try container.encode("linkActivated", forKey: .type)
-            try container.encode(payload, forKey: .payload)
-        case .searchResults(let payload):
-            try container.encode("searchResults", forKey: .type)
             try container.encode(payload, forKey: .payload)
         case .error(let payload):
             try container.encode("error", forKey: .type)
