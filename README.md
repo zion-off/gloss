@@ -42,6 +42,9 @@ choose open, then open again. Or clear the quarantine flag once:
 xattr -dr com.apple.quarantine /Applications/gloss.app
 ```
 
+gloss keeps itself up to date: on the second launch it asks whether to check for updates
+automatically, and **gloss > check for updates…** looks right away.
+
 ## build and run
 
 To build it yourself you need macOS 14 or later and Xcode
@@ -49,12 +52,37 @@ To build it yourself you need macOS 14 or later and Xcode
 
 ```sh
 scripts/run-mac.sh        # builds build/gloss.app (ad hoc signed, for development) and opens it
-scripts/release.sh 0.1.0  # universal gloss.app, dmg and checksum in dist/
+GLOSS_NO_SPARKLE=1 scripts/release.sh 0.1.0  # universal gloss.app, dmg, zip and checksum in dist/
 ```
+
+`GLOSS_NO_SPARKLE=1` leaves out the update feed, so that build never updates itself; a real
+release sets `GLOSS_SPARKLE_PUBLIC_KEY` instead (see releasing).
 
 The reader's web side is TypeScript, but its compiled output is committed, so you only need Node 22
 and pnpm if you're changing `web/`. Run `scripts/check.sh` before committing; `CLAUDE.md` and
 `docs/ARCHITECTURE.md` explain how the code is laid out.
+
+## releasing
+
+Merging a pull request labelled `release` into main publishes the next version (the first is
+0.1.0) with the dmg, the zip and the signed `appcast.xml` that installed copies check. It's a patch
+release unless you add one of `minor`, `major` (or `patch`); more than one of those three fails
+the pull request's checks. Running the release workflow by hand is a dry run: it builds everything
+for the version you give and keeps it as a workflow artifact, publishing nothing.
+
+Once, before the first release, make the update signing keys with Sparkle's `generate_keys` (after
+a `swift build` it's in `.build/artifacts/sparkle/Sparkle/bin/`; it keeps the private key in your
+login keychain) and hand them to GitHub:
+
+```sh
+bin=.build/artifacts/sparkle/Sparkle/bin
+$bin/generate_keys --account gloss
+gh variable set SPARKLE_PUBLIC_KEY --body "$($bin/generate_keys --account gloss -p)"
+key="$(mktemp -d)/key" && $bin/generate_keys --account gloss -x "$key" \
+  && gh secret set SPARKLE_PRIVATE_KEY < "$key"; rm -f "$key"
+```
+
+Keep the private key safe: losing it means installed copies can't update to new releases.
 
 ## the `gloss` command
 
@@ -91,6 +119,7 @@ and the flag that picks one.
 ## license
 
 [MIT](LICENSE). Third-party code keeps its own licence: [foliate-js](https://github.com/johnfactotum/foliate-js)
-(MIT, vendored), [GRDB](https://github.com/groue/GRDB.swift) (MIT), and Apple's
+(MIT, vendored), [GRDB](https://github.com/groue/GRDB.swift) (MIT),
+[Sparkle](https://github.com/sparkle-project/Sparkle) (MIT), and Apple's
 [swift-crypto](https://github.com/apple/swift-crypto) and
 [swift-argument-parser](https://github.com/apple/swift-argument-parser) (Apache 2.0).

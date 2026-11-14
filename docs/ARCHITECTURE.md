@@ -89,3 +89,11 @@ app draws the marker within a second. The Swift and TypeScript resolvers share t
 The reader and notes panes move independently (a link changes the pane it points into), each with
 its own back/forward history. `ExternalChangeMonitor` refreshes models from the change journal.
 `gloss://` URLs and files opened from Finder share one door, `AppModel.open(url:)`.
+
+## Releases and updates
+
+`scripts/release.sh` builds a universal `gloss.app` (the CLI in `Contents/Helpers`, Sparkle in
+`Contents/Frameworks`), a dmg and the zip Sparkle updates from. Only `GlossMac` links Sparkle, and
+only release bundles carry its feed URL and public key, so development builds have no updater.
+`.github/workflows/release.yml` publishes a release when a pull request labelled `release` is
+merged, with an appcast signed by the key in the `SPARKLE_PRIVATE_KEY` secret.
