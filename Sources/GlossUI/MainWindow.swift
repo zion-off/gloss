@@ -126,6 +126,10 @@ public struct MainWindow: View {
         .overlay(alignment: .bottom) { TrashToastOverlay(app: app) }
     }
 
+    private var showsBook: Bool {
+        if case .book = app.workspace.detail { true } else { false }
+    }
+
     /// gloss's own sidebar beside the detail, or floating over it while undocked. Not a split
     /// view: a split view's collapsed sidebar has reveals of its own (the full-screen edge, macOS
     /// 26's peek) that fought the floating sidebar for the window's edge, with no public way to
@@ -158,6 +162,10 @@ public struct MainWindow: View {
             .accessibilityHidden(!docking.isDocked)
         }
         .clipped()
+        // Behind the docked sidebar's glass, the colour of what the detail shows: the book's sheet
+        // of paper inside a book, the window's own colour on the library and the trash. It
+        // changes at once, with the detail (the book's sheet appears at once too).
+        .background(showsBook ? Color(nsColor: .textBackgroundColor) : Color(nsColor: .windowBackgroundColor))
         .onChange(of: colorScheme, initial: true) { _, scheme in
             Task { await app.systemAppearanceChanged(dark: scheme == .dark) }
         }
