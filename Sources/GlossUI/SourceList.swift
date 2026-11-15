@@ -30,10 +30,10 @@ struct SourceList: View {
                 .onChange(of: app.currentContentsRow, initial: true) { _, _ in
                     app.followCurrentContents()
                 }
-                // The list came into view (the sidebar was closed and opened again, or the search
-                // results that covered it ended): bring the chapter being read into view, wherever
-                // the list had been left. This is the only time the list scrolls by itself.
-                .onChange(of: revealToken) { _, _ in reveal(app.currentContentsRow, with: proxy) }
+                // The list came into view (the sidebar docked or floated in, or the search results
+                // that covered it ended): bring the chapter being read into view, wherever the list
+                // had been left. This is the only time the list scrolls by itself.
+                .onChange(of: revealToken, initial: true) { _, _ in reveal(app.currentContentsRow, with: proxy) }
         }
     }
 

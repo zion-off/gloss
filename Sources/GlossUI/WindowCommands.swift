@@ -69,6 +69,17 @@ public final class WindowCommands {
         set { app?.workspace.layout = newValue }
     }
 
+    // MARK: Sidebar
+
+    /// Whether the window's sidebar is docked; the window owns the choice and keeps this current.
+    public internal(set) var sidebarDocked = true
+    @ObservationIgnored var toggleSidebarDocking: (() -> Void)?
+
+    /// View › show/hide sidebar (⌃⌘S): docks or undocks it, like the toolbar's sidebar button.
+    public func toggleSidebar() {
+        toggleSidebarDocking?()
+    }
+
     // MARK: History
 
     private var paneCanGoBack: Bool { notesFocused ? (app?.workspace.canGoBackInNotes ?? false) : (app?.workspace.canGoBackInReader ?? false) }
@@ -112,6 +123,13 @@ public struct GlossWindowCommands: Commands {
         CommandGroup(after: .newItem) {
             Button("open quickly…") { commands?.openQuickly() }
                 .keyboardShortcut("o", modifiers: [.shift, .command])
+                .disabled(commands == nil)
+        }
+        // The system's sidebar item and shortcut (⌃⌘S), for gloss's own sidebar: there is no split
+        // view for the system's to act on.
+        CommandGroup(replacing: .sidebar) {
+            Button(commands?.sidebarDocked == false ? "show sidebar" : "hide sidebar") { commands?.toggleSidebar() }
+                .keyboardShortcut("s", modifiers: [.control, .command])
                 .disabled(commands == nil)
         }
         CommandGroup(after: .sidebar) {
