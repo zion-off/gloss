@@ -285,9 +285,12 @@ struct DockedSidebar<Content: View>: View {
             let inset = DockedSidebarMetrics.glassInset
             content
                 .scrollContentBackground(.hidden)
+                // The soft edge under the toolbar, as on the system's sidebar: the window's main
+                // content gets a hard one, and outside a split view the list counted as that,
+                // so a solid band cut across the top of the glass.
+                .scrollEdgeEffectStyle(.soft, for: .top)
                 .frame(width: width)
-                .padding(.leading, inset)
-                .padding(.bottom, inset)
+                .padding([.leading, .bottom], inset)
                 .background {
                     SidebarGlass()
                         .padding([.leading, .top, .bottom], inset)
