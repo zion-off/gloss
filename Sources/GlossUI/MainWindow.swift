@@ -61,7 +61,75 @@ public struct MainWindow: View {
         if case .book = app.workspace.detail { true } else { false }
     }
 
+    // The body is split into a few properties on purpose: as one modifier chain it took the
+    // type checker about 26 s (Swift 6.2, -warn-long-function-bodies), most of a clean build.
     public var body: some View {
+        windowChrome
+        .task { await run() }
+        .task(id: app.workspace.readerFocusRequest) { await app.showReaderFocus() }
+        .task(id: app.bookSidebarSubjects) {
+            await app.showBookSidebar()
+            // The search follows the context: a session keeps its book (switching to another
+            // one any other way ends it), and without a session the scope adopts the default
+            // for where the user now is.
+            await app.searchFollowsContext()
+        }
+        .task(id: app.workspace.pendingNoteReveal) {
+            if let range = app.workspace.pendingNoteReveal, let page = app.workspace.page {
+                reveal = NotesReveal(pageID: page.id, range: range, focusesText: app.workspace.pendingNoteRevealFocuses)
+                app.workspace.consumeNoteReveal()
+            }
+        }
+        .alert("this page has unsaved changes", isPresented: Binding(get: { unsavedFailure != nil },
+                                                                        set: { if !$0 { unsavedFailure = nil } })) {
+            // Cancel role so Escape means "keep editing" too: the natural way out of a
+            // refuse-to-switch alert.
+            Button("keep editing", role: .cancel) { Task { await keepEditing() } }
+            Button("discard and switch", role: .destructive) { Task { await switchDiscarding() } }
+        } message: {
+            Text(verbatim: "the last save failed (\(unsavedFailure ?? "something went wrong")). switching pages would drop what you typed.")
+        }
+        .onDisappear {
+            // The window is going away: nothing will fire the debounced save or the position
+            // write anymore. Flush both so up to half a second of typing isn't lost,
+            // and the layout and sort choices too — their persist chains hold the window weakly,
+            // so the last ⌥⌘1/2/3 or sort click would otherwise die with it.
+            Task { await app.notes.flushSave() }
+            Task { await app.reader.flushPosition() }
+            Task { await app.workspace.flushLayoutPersistence() }
+            Task { await app.library.flushSortPersistence() }
+        }
+    }
+
+    /// The toolbar, the search, the window's sheets and alerts and its focused values.
+    private var windowChrome: some View {
+        splitView
+        // The system's own inline title, after back/forward (the navigation placement goes "ahead
+        // of the inline title"). It is also what splits the toolbar into a leading and a trailing
+        // part: removing it (`toolbar(removing: .title)`) left nothing
+        // between them, and every item packed in after the chevrons.
+        .navigationTitle(title)
+        .toolbar { toolbar }
+        .glossSearch(model: app.search)
+        // Escape leaves the search from anywhere in the window, not only from the field.
+        .onExitCommand { if app.search.showsResults { Task { await app.endSearch() } } }
+        // Results arriving (typing, a scope change) re-derive what the session highlights; the
+        // engines' searches are generation-guarded, so a query mid-typing cancels the last one.
+        .onChange(of: app.search.results) { _, _ in Task { await app.applySearchHighlights() } }
+        .libraryFeatures(app: app)  // the drop zone, ⇧⌘A, the import alert, the details sheet, the sort menu
+        .quickSwitcher(app: app, isPresented: Binding(get: { commands.showsSwitcher },
+                                                       set: { commands.showsSwitcher = $0 }))
+        .externalURLHandling(app: app, ready: started)
+        .exportFailureAlert(app: app)
+        .focusedSceneValue(\.windowCommands, commands)
+        .focusedSceneValue(\.exportActions, exportActions)
+        .focusedSceneValue(\.backupCommands, backup)
+        .backupResultAlert(backup)
+        .overlay(alignment: .bottom) { TrashToastOverlay(app: app) }
+    }
+
+    /// The sidebar and the detail column, and how the sidebar follows the place and the search.
+    private var splitView: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             // While a search runs inside a book, its results take the sidebar; the source list
             // stays mounted underneath (hidden, not gone), so ending the search puts the same
@@ -112,62 +180,6 @@ public struct MainWindow: View {
         }
         .onChange(of: columnVisibility) { old, new in
             if old == .detailOnly, new != .detailOnly { sidebarRevealToken += 1 }  // the sidebar opened
-        }
-        // The system's own inline title, after back/forward (the navigation placement goes "ahead
-        // of the inline title"). It is also what splits the toolbar into a leading and a trailing
-        // part: removing it (`toolbar(removing: .title)`) left nothing
-        // between them, and every item packed in after the chevrons.
-        .navigationTitle(title)
-        .toolbar { toolbar }
-        .glossSearch(model: app.search)
-        // Escape leaves the search from anywhere in the window, not only from the field.
-        .onExitCommand { if app.search.showsResults { Task { await app.endSearch() } } }
-        // Results arriving (typing, a scope change) re-derive what the session highlights; the
-        // engines' searches are generation-guarded, so a query mid-typing cancels the last one.
-        .onChange(of: app.search.results) { _, _ in Task { await app.applySearchHighlights() } }
-        .libraryFeatures(app: app)  // the drop zone, ⇧⌘A, the import alert, the details sheet, the sort menu
-        .quickSwitcher(app: app, isPresented: Binding(get: { commands.showsSwitcher },
-                                                       set: { commands.showsSwitcher = $0 }))
-        .externalURLHandling(app: app, ready: started)
-        .exportFailureAlert(app: app)
-        .focusedSceneValue(\.windowCommands, commands)
-        .focusedSceneValue(\.exportActions, exportActions)
-        .focusedSceneValue(\.backupCommands, backup)
-        .backupResultAlert(backup)
-        .overlay(alignment: .bottom) { TrashToastOverlay(app: app) }
-        .task { await run() }
-        .task(id: app.workspace.readerFocusRequest) { await app.showReaderFocus() }
-        .task(id: app.bookSidebarSubjects) {
-            await app.showBookSidebar()
-            // The search follows the context: a session keeps its book (switching to another
-            // one any other way ends it), and without a session the scope adopts the default
-            // for where the user now is.
-            await app.searchFollowsContext()
-        }
-        .task(id: app.workspace.pendingNoteReveal) {
-            if let range = app.workspace.pendingNoteReveal, let page = app.workspace.page {
-                reveal = NotesReveal(pageID: page.id, range: range, focusesText: app.workspace.pendingNoteRevealFocuses)
-                app.workspace.consumeNoteReveal()
-            }
-        }
-        .alert("this page has unsaved changes", isPresented: Binding(get: { unsavedFailure != nil },
-                                                                        set: { if !$0 { unsavedFailure = nil } })) {
-            // Cancel role so Escape means "keep editing" too: the natural way out of a
-            // refuse-to-switch alert.
-            Button("keep editing", role: .cancel) { Task { await keepEditing() } }
-            Button("discard and switch", role: .destructive) { Task { await switchDiscarding() } }
-        } message: {
-            Text(verbatim: "the last save failed (\(unsavedFailure ?? "something went wrong")). switching pages would drop what you typed.")
-        }
-        .onDisappear {
-            // The window is going away: nothing will fire the debounced save or the position
-            // write anymore. Flush both so up to half a second of typing isn't lost,
-            // and the layout and sort choices too — their persist chains hold the window weakly,
-            // so the last ⌥⌘1/2/3 or sort click would otherwise die with it.
-            Task { await app.notes.flushSave() }
-            Task { await app.reader.flushPosition() }
-            Task { await app.workspace.flushLayoutPersistence() }
-            Task { await app.library.flushSortPersistence() }
         }
     }
 
