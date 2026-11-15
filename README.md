@@ -1,4 +1,4 @@
-<img width="1448" height="893" alt="image" src="https://github.com/user-attachments/assets/b1eb58de-a534-4cb7-9b0d-63b33d914784" />
+<img width="1448" height="893" alt="image" src="https://github.com/user-attachments/assets/59aad70d-a9d7-49f9-b08c-40d0dfce4067" />
 
 # gloss
 
