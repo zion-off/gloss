@@ -146,11 +146,11 @@ public struct MainWindow: View {
                                         width: sidebarWidth, hover: hover)
                     }
                 }
-                .padding(.leading, docking.isDocked ? sidebarWidth + 1 : 0)
+                .padding(.leading, docking.isDocked ? DockedSidebarMetrics.footprint(sidebarWidth) : 0)
             DockedSidebar(width: $sidebarWidth) {
                 SidebarContent(app: app, revealToken: sidebarRevealToken)
             }
-            .offset(x: docking.isDocked ? 0 : -(sidebarWidth + 1))
+            .offset(x: docking.isDocked ? 0 : -DockedSidebarMetrics.footprint(sidebarWidth))
             .disabled(!docking.isDocked)
             .accessibilityHidden(!docking.isDocked)
         }

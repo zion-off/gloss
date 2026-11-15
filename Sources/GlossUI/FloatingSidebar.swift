@@ -249,10 +249,29 @@ private final class FloatingPanelHostingView<Content: View>: NSHostingView<Conte
     }
 }
 
-/// The docked sidebar: the sidebar's content in the system's sidebar material, a hairline, and a
-/// grab area over the hairline that resizes it (the notes divider's, minus the line). gloss draws
-/// it rather than using a split view's sidebar, whose own reveals (the full-screen edge, macOS 26's
-/// peek) fought the floating one for the window's edge.
+/// How much room the docked sidebar takes beside the content, for the window's layout.
+enum DockedSidebarMetrics {
+    /// macOS 26's sidebar is a Liquid Glass panel inset from the window's edges; earlier systems'
+    /// is a full-height material column with a hairline.
+    static var usesGlass: Bool {
+        if #available(macOS 26.0, *) { true } else { false }
+    }
+    /// The glass panel's distance from the window's edges (the system sidebar's, measured).
+    static let glassInset: Double = 8
+
+    /// The sidebar's width plus its inset or hairline.
+    static func footprint(_ width: Double) -> Double {
+        usesGlass ? width + glassInset : width + 1
+    }
+}
+
+/// The docked sidebar, drawn the way the system draws a split view's: on macOS 26 a Liquid Glass
+/// panel inset 8pt from the window's edges, full height under the toolbar, its corners
+/// concentric with the window's (a probe measured the system's: an 8pt minimum radius); before
+/// that, the sidebar material behind the window with a hairline. A grab area at its trailing
+/// edge resizes it (the notes divider's, minus the line). gloss draws it rather than using a split
+/// view's sidebar, whose own reveals (the full-screen edge, macOS 26's peek) fought the floating
+/// one for the window's edge.
 struct DockedSidebar<Content: View>: View {
     @Binding var width: Double
     @ViewBuilder let content: Content
@@ -262,17 +281,33 @@ struct DockedSidebar<Content: View>: View {
     static var maxWidth: Double { 360 }
 
     var body: some View {
-        HStack(spacing: 0) {
+        if #available(macOS 26.0, *) {
+            let inset = DockedSidebarMetrics.glassInset
             content
                 .scrollContentBackground(.hidden)
                 .frame(width: width)
-                .background(SidebarMaterial())
-            Divider()
+                .padding(.leading, inset)
+                .padding(.bottom, inset)
+                .background {
+                    SidebarGlass()
+                        .padding([.leading, .top, .bottom], inset)
+                        .ignoresSafeArea(.container, edges: .top)
+                }
+                .overlay(alignment: .trailing) { grabArea }
+        } else {
+            HStack(spacing: 0) {
+                content
+                    .scrollContentBackground(.hidden)
+                    .frame(width: width)
+                    .background(SidebarMaterial())
+                Divider()
+            }
+            .overlay(alignment: .trailing) { grabArea }
         }
-        .overlay(alignment: .trailing) { grabArea }
     }
 
-    /// Centred on the hairline, so it reaches a little into the content like a split view's.
+    /// On the sidebar's trailing edge (centred on the hairline before macOS 26), reaching a
+    /// little into the content like a split view's divider.
     private var grabArea: some View {
         Color.clear
             .frame(width: 7)
@@ -307,4 +342,14 @@ private struct SidebarMaterial: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+}
+
+/// macOS 26's sidebar glass: the system's regular Liquid Glass in a rectangle concentric with the
+/// window, never rounder-cornered than 8pt where it meets the content.
+@available(macOS 26.0, *)
+private struct SidebarGlass: View {
+    var body: some View {
+        Color.clear
+            .glassEffect(.regular, in: ConcentricRectangle(corners: .concentric(minimum: .fixed(8))))
+    }
 }
