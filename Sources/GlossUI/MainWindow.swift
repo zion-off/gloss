@@ -135,6 +135,9 @@ public struct MainWindow: View {
     private var windowContent: some View {
         ZStack(alignment: .leading) {
             detailColumn
+                // The whole window, whatever the detail's own size (an empty library's message is
+                // narrow): a split view's detail column always filled it.
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 // A click on empty space takes focus from the search field (and any other field):
                 // a plain background view never asks for it, so it stayed in the field.
                 .contentShape(Rectangle())

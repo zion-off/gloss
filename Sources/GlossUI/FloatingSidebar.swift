@@ -265,10 +265,10 @@ enum DockedSidebarMetrics {
     }
 }
 
-/// The docked sidebar, drawn the way the system draws a split view's: on macOS 26 a Liquid Glass
-/// panel inset 8pt from the window's edges, full height under the toolbar, its corners
-/// concentric with the window's (a probe measured the system's: an 8pt minimum radius); before
-/// that, the sidebar material behind the window with a hairline. A grab area at its trailing
+/// The docked sidebar: on macOS 26 a Liquid Glass panel like the system sidebar's (its corners
+/// concentric with the window's, an 8pt minimum radius, measured), but inset 8pt below the
+/// toolbar rather than reaching under it; before that, the sidebar material behind the window
+/// with a hairline, as those systems' split views draw it. A grab area at its trailing
 /// edge resizes it (the notes divider's, minus the line). gloss draws it rather than using a split
 /// view's sidebar, whose own reveals (the full-screen edge, macOS 26's peek) fought the floating
 /// one for the window's edge.
@@ -285,17 +285,13 @@ struct DockedSidebar<Content: View>: View {
             let inset = DockedSidebarMetrics.glassInset
             content
                 .scrollContentBackground(.hidden)
-                // The soft edge under the toolbar, as on the system's sidebar: the window's main
-                // content gets a hard one, and outside a split view the list counted as that,
-                // so a solid band cut across the top of the glass.
                 .scrollEdgeEffectStyle(.soft, for: .top)
                 .frame(width: width)
-                .padding([.leading, .bottom], inset)
-                .background {
-                    SidebarGlass()
-                        .padding([.leading, .top, .bottom], inset)
-                        .ignoresSafeArea(.container, edges: .top)
-                }
+                .background { SidebarGlass() }
+                .clipShape(SidebarGlass.shape)
+                // Below the toolbar, inset 8pt all round: the list then never reaches under the
+                // toolbar, whose scroll edge drew a band across the panel's top when it did.
+                .padding([.leading, .top, .bottom], inset)
                 .overlay(alignment: .trailing) { grabArea }
         } else {
             HStack(spacing: 0) {
@@ -351,8 +347,9 @@ private struct SidebarMaterial: NSViewRepresentable {
 /// window, never rounder-cornered than 8pt where it meets the content.
 @available(macOS 26.0, *)
 private struct SidebarGlass: View {
+    static var shape: ConcentricRectangle { ConcentricRectangle(corners: .concentric(minimum: .fixed(8))) }
+
     var body: some View {
-        Color.clear
-            .glassEffect(.regular, in: ConcentricRectangle(corners: .concentric(minimum: .fixed(8))))
+        Color.clear.glassEffect(.regular, in: Self.shape)
     }
 }
