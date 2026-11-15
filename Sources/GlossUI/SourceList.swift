@@ -96,6 +96,7 @@ struct SourceList: View {
             Section("contents", isExpanded: $showsContents) {
                 let pageCount = app.contentsPageCount
                 let current = app.currentContentsRow
+                let readingMark = app.contentsReadingMark
                 ForEach(OutlineRow.rows(nodes, children: \.children)) { row in
                     let isCurrent = row.node.id == current
                     VStack(alignment: .leading, spacing: 1) {
@@ -112,6 +113,9 @@ struct SourceList: View {
                     // The selection follows the chapter (the standard selected row); VoiceOver
                     // also hears which entry is being read when the selection is elsewhere.
                     .accessibilityValue(isCurrent ? Text("current chapter") : Text(verbatim: ""))
+                    // The chapter being read keeps a quieter highlight while the selection is elsewhere
+                    // (a notes page, a highlight), Apple Books-style, so it's findable at a glance.
+                    .listRowBackground(row.node.id == readingMark ? ReadingMarkHighlight() : nil)
                     // Last, on the row itself: the list reads the selection value from the row's
                     // tag, and a view wrapped around it after the tag (an `.id`, or a modifier with
                     // `if #available`, which the view builder erases to `AnyView`) hid it, so a
@@ -191,6 +195,19 @@ struct SourceList: View {
         case .library, .trash, .contents, .book:
             break
         }
+    }
+}
+
+/// The chapter being read, marked like a selected row in an unfocused list: the system's
+/// unemphasized selection colour in the selection's rounded shape and insets.
+struct ReadingMarkHighlight: View {
+    static let horizontalInset: CGFloat = 10
+    static let cornerRadius: CGFloat = 5
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
+            .fill(Color(nsColor: .unemphasizedSelectedContentBackgroundColor))
+            .padding(.horizontal, Self.horizontalInset)
     }
 }
 

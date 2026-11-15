@@ -16,6 +16,15 @@ public enum ContentsVisibility {
         return OutlineRow.rows(nodes, children: \.children).first { $0.node.target == target }?.node.id
     }
 
+    /// The entry to mark as being read, Apple Books-style, with the quieter highlight of an
+    /// unfocused selection: the current entry, unless it is the selection itself (which already
+    /// shows it). The selection stays the user's (a notes page, a highlight, a clicked chapter
+    /// that covers the position); this mark is how the chapter being read stays findable.
+    public static func readingMark(current: ContentsNode.ID?, selection: SidebarSelection) -> ContentsNode.ID? {
+        guard let current, selection != .contents(current) else { return nil }
+        return current
+    }
+
     /// The sidebar selection after the chapter being read changed, Preview-style (its sidebar's
     /// selection follows the page): the current entry becomes selected when the selection is
     /// the book itself or another contents entry. A selected highlight or notes page is the
