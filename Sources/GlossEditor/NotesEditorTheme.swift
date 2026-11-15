@@ -57,7 +57,7 @@ import GlossNotes
     func attributes(for style: TextStyle) -> [NSAttributedString.Key: Any] {
         // Every run sets its colour: `setAttributes` replaces the whole attribute set, and an
         // attributed string with no foreground colour draws black, which vanishes in dark mode.
-        var attributes: [NSAttributedString.Key: Any] = [.foregroundColor: NSColor.textColor]
+        var attributes: [NSAttributedString.Key: Any] = [.foregroundColor: NotesTextColors.primary]
         var font = baseFont(style.font ?? .body)
         if style.bold == true { font = Self.withTraits(font, .bold) }
         if style.italic == true { font = Self.withTraits(font, .italic) }
@@ -86,10 +86,15 @@ import GlossNotes
         case nil: break
         }
 
-        if style.block == .quote {
+        if style.block != .row, style.block != .table {
+            // Notion's line heights. The line comes from its block's font, not the run's, so inline
+            // code keeps the paragraph's.
             let paragraph = NSMutableParagraphStyle()
-            paragraph.headIndent = Self.quoteIndent
-            paragraph.firstLineHeadIndent = Self.quoteIndent
+            applyLineHeight(NotesTypography.lineRole(for: style), to: paragraph)
+            if style.block == .quote {
+                paragraph.headIndent = Self.quoteIndent
+                paragraph.firstLineHeadIndent = Self.quoteIndent
+            }
             attributes[.paragraphStyle] = paragraph
         }
         if style.block == .row {
@@ -118,9 +123,18 @@ import GlossNotes
         return attributes
     }
 
-    /// A list line's paragraph style: the marker at `firstLine`, wrapped lines at `head`.
+    /// Gives a paragraph Notion's line height for a role.
+    func applyLineHeight(_ role: TextStyle.FontRole, to paragraph: NSMutableParagraphStyle) {
+        let height = CGFloat(NotesTypography.lineHeight(for: role, fontSize: Double(baseFont(role).pointSize)))
+        paragraph.minimumLineHeight = height
+        paragraph.maximumLineHeight = height
+    }
+
+    /// A list line's paragraph style: the marker at `firstLine`, wrapped lines at `head`, on a
+    /// body line's height.
     func listLineStyle(_ indents: ListLayout.Indents) -> NSParagraphStyle {
         let paragraph = NSMutableParagraphStyle()
+        applyLineHeight(.body, to: paragraph)
         paragraph.firstLineHeadIndent = CGFloat(indents.firstLine)
         paragraph.headIndent = CGFloat(indents.head)
         return paragraph
@@ -140,5 +154,17 @@ import GlossNotes
     static func withTraits(_ font: NSFont, _ traits: NSFontDescriptor.SymbolicTraits) -> NSFont {
         let descriptor = font.fontDescriptor.withSymbolicTraits(font.fontDescriptor.symbolicTraits.union(traits))
         return NSFont(descriptor: descriptor, size: font.pointSize) ?? font
+    }
+}
+
+/// The notes' text colour, Notion's: a warm dark grey on light paper, 81% white on dark. With
+/// Increase Contrast it's the system's full-strength text colour (the setting, not the
+/// appearance's name: a probe found the high-contrast appearances resolving as plain aqua).
+public enum NotesTextColors {
+    public static let primary = NSColor(name: "gloss.notes.text") { appearance in
+        if NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast { return NSColor.textColor }
+        return appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            ? NSColor(white: 1, alpha: 0.81)
+            : NSColor(srgbRed: 55 / 255, green: 53 / 255, blue: 47 / 255, alpha: 1)
     }
 }
