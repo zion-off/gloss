@@ -367,6 +367,10 @@ import GlossReaderBridge
     /// The contents entry being read (any flow, fixed layout, PDF outlines), for the sidebar to
     /// keep in view and mark.
     public var currentContentsRow: ContentsNode.ID? { ContentsVisibility.currentRow(in: contents, at: reader.location) }
+    /// The contents entry the sidebar marks as being read, when the selection isn't on it.
+    public var contentsReadingMark: ContentsNode.ID? {
+        ContentsVisibility.readingMark(current: currentContentsRow, selection: workspace.sidebar)
+    }
 
     /// The chapter being read changed: the sidebar's selection follows it when it is on the book
     /// or the contents (never a highlight or notes page the user picked). Only the selection

@@ -48,6 +48,18 @@ struct ContentsVisibilityTests {
         #expect(ContentsVisibility.followedSelection(.book, in: nodes, at: location("missing")) == nil)
     }
 
+    @Test("the chapter being read is marked unless the selection is on it")
+    func readingMark() {
+        let highlight = HighlightID(GlossID(high: 9, low: 1)), page = PageID(GlossID(high: 9, low: 2))
+        #expect(ContentsVisibility.readingMark(current: "1.1", selection: .page(page)) == "1.1")
+        #expect(ContentsVisibility.readingMark(current: "1.1", selection: .highlight(highlight)) == "1.1")
+        #expect(ContentsVisibility.readingMark(current: "1.1", selection: .book) == "1.1")
+        // A clicked chapter that covers the part being read keeps the selection; the part is marked.
+        #expect(ContentsVisibility.readingMark(current: "1.1", selection: .contents("1")) == "1.1")
+        #expect(ContentsVisibility.readingMark(current: "1.1", selection: .contents("1.1")) == nil)
+        #expect(ContentsVisibility.readingMark(current: nil, selection: .page(page)) == nil)
+    }
+
     @Test("a clicked entry that still covers the position keeps the selection")
     func clickedEntryStays() {
         // "two" clicked, landing where its "part b" is: the chapter the user picked stays selected.
