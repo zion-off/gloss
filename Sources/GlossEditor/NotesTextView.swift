@@ -374,14 +374,71 @@ final class NotesTextView: NSTextView {
         return NSPoint(x: origin.x, y: origin.y + headerHeight)
     }
 
-    /// The text view sizes itself to its text and insets; the header is on top of that.
+    /// The text view sizes itself to its text and insets; the header is on top of that, and
+    /// Notion-like empty space under the last line (`NotesBottomSpace`), so the end of a page can
+    /// be written above the bottom of the pane.
     override func setConstrainedFrameSize(_ desiredSize: NSSize) {
         var size = desiredSize
-        if headerHeight > 0, let manager = textLayoutManager {
+        if let manager = textLayoutManager {
             let natural = manager.usageBoundsForTextContainer.height + textContainerInset.height * 2 + headerHeight
-            size.height = max(size.height, natural)
+            size.height = NotesBottomSpace.documentHeight(natural: natural, visibleHeight: visibleHeight,
+                                                          minimum: desiredSize.height)
         }
         super.setConstrainedFrameSize(size)
+    }
+
+    /// The pane's height: the scroll view's visible area.
+    private var visibleHeight: Double {
+        Double(enclosingScrollView?.contentView.bounds.height ?? 0)
+    }
+
+    /// A taller or shorter pane changes the space under the last line.
+    override func resize(withOldSuperviewSize oldSize: NSSize) {
+        super.resize(withOldSuperviewSize: oldSize)
+        if superview?.frame.height != oldSize.height { sizeToFit() }
+    }
+
+    /// Typing (and moving the caret from the keyboard) keeps the space below the caret in view,
+    /// so the line being written stays above the bottom of the pane rather than on its edge.
+    /// Scrolls the mouse asks for (a drag past the edge, a click) are left as they are.
+    ///
+    /// It goes by the caret's own line rather than the rect AppKit asks for, which TextKit 2 pads
+    /// by an amount of its own (a probe saw 726pt for a 2pt caret). A selection keeps AppKit's.
+    override func scrollToVisible(_ rect: NSRect) -> Bool {
+        guard NSApp.currentEvent?.type == .keyDown, let caret = caretRect() else { return super.scrollToVisible(rect) }
+        return keepRoomBelow(caret)
+    }
+
+    /// AppKit asks for the caret after every keystroke, but goes no further while the caret is
+    /// visible, so a caret that typing walked into the space below would sink to the pane's edge.
+    override func scrollRangeToVisible(_ range: NSRange) {
+        guard NSApp.currentEvent?.type == .keyDown, range == selectedRange(), let caret = caretRect() else {
+            return super.scrollRangeToVisible(range)
+        }
+        keepRoomBelow(caret)
+    }
+
+    @discardableResult private func keepRoomBelow(_ caret: NSRect) -> Bool {
+        let target = NotesBottomSpace.typingTarget(minY: caret.minY, maxY: caret.maxY, visibleHeight: visibleHeight,
+                                                   documentHeight: bounds.height)
+        return super.scrollToVisible(NSRect(x: caret.minX, y: target.minY, width: max(caret.width, 1),
+                                            height: target.maxY - target.minY))
+    }
+
+    /// The insertion point's line, in this view's coordinates; nil with a selection or no layout.
+    func caretRect() -> NSRect? {
+        let selection = selectedRange()
+        guard selection.length == 0, let manager = textLayoutManager,
+              let location = manager.location(manager.documentRange.location, offsetBy: selection.location) else { return nil }
+        var frame: CGRect?
+        manager.enumerateTextSegments(in: NSTextRange(location: location), type: .selection,
+                                      options: .rangeNotRequired) { _, segment, _, _ in
+            frame = segment
+            return false
+        }
+        guard let frame, frame.height > 0 else { return nil }
+        let origin = textContainerOrigin
+        return frame.offsetBy(dx: origin.x, dy: origin.y)
     }
 
     override func layout() {
