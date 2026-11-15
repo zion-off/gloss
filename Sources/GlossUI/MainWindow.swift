@@ -48,18 +48,15 @@ public struct MainWindow: View {
         _backup = State(initialValue: BackupCommands(services: services, activity: backupActivity))
     }
 
-    @State private var columnVisibility = NavigationSplitViewVisibility.all
-    /// What the sidebar showed before the search results took it (nil: they haven't). The
-    /// source list stays mounted under the results, so its selection, sections and scroll are
-    /// exactly as they were when the search ends.
-    @State private var sidebarBeforeSearch: NavigationSplitViewVisibility?
-    /// Bumped whenever the source list comes into view (the sidebar opening, the search results
-    /// leaving it), so it can bring the chapter being read into view.
+    /// Docked (the content makes room) or undocked (it floats in over the content from the
+    /// window's leading edge): one choice for every place and every window, remembered.
+    @AppStorage("sidebar.docked") private var sidebarDocked = true
+    /// The docked sidebar's width as last dragged; the floating one matches it.
+    @AppStorage("sidebar.width") private var sidebarWidth = 220.0
+    @State private var docking = SidebarDocking(docked: true)
+    /// Bumped whenever the source list comes into view (the sidebar docking or floating in, the
+    /// search results leaving it), so it can bring the chapter being read into view.
     @State private var sidebarRevealToken = 0
-
-    private var showsBook: Bool {
-        if case .book = app.workspace.detail { true } else { false }
-    }
 
     // The body is split into a few properties on purpose: as one modifier chain it took the
     // type checker about 26 s (Swift 6.2, -warn-long-function-bodies), most of a clean build.
@@ -101,9 +98,10 @@ public struct MainWindow: View {
         }
     }
 
+
     /// The toolbar, the search, the window's sheets and alerts and its focused values.
     private var windowChrome: some View {
-        splitView
+        windowContent
         // The system's own inline title, after back/forward (the navigation placement goes "ahead
         // of the inline title"). It is also what splits the toolbar into a leading and a trailing
         // part: removing it (`toolbar(removing: .title)`) left nothing
@@ -128,58 +126,53 @@ public struct MainWindow: View {
         .overlay(alignment: .bottom) { TrashToastOverlay(app: app) }
     }
 
-    /// The sidebar and the detail column, and how the sidebar follows the place and the search.
-    private var splitView: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
-            // While a search runs inside a book, its results take the sidebar; the source list
-            // stays mounted underneath (hidden, not gone), so ending the search puts the same
-            // sections, selection and scroll position back. No control switches between them:
-            // ending the search is how the contents come back.
-            ZStack(alignment: .topLeading) {
-                SourceList(app: app, revealToken: sidebarRevealToken)
-                    // Hidden, not removed, while the results cover it: a sidebar list is
-                    // translucent, so it must not draw through them, take clicks or be read by
-                    // VoiceOver — but it keeps its selection and scroll position.
-                    .opacity(app.search.showsResultsInSidebar ? 0 : 1)
-                    .allowsHitTesting(!app.search.showsResultsInSidebar)
-                    .accessibilityHidden(app.search.showsResultsInSidebar)
-                if app.search.showsResultsInSidebar {
-                    SearchResults(app: app, placement: .sidebar)
-                }
-            }
-            .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 360)
-        } detail: {
+    /// gloss's own sidebar beside the detail, or floating over it while undocked. Not a split
+    /// view: a split view's collapsed sidebar has reveals of its own (the full-screen edge, macOS
+    /// 26's peek) that fought the floating sidebar for the window's edge, with no public way to
+    /// turn them off. The docked sidebar stays mounted while undocked, parked past the window's
+    /// edge, so docking slides it in rather than building the source list on the slide's first
+    /// frame.
+    private var windowContent: some View {
+        ZStack(alignment: .leading) {
             detailColumn
                 // A click on empty space takes focus from the search field (and any other field):
                 // a plain background view never asks for it, so it stayed in the field.
                 .contentShape(Rectangle())
                 .simultaneousGesture(TapGesture().onEnded { NSApp.keyWindow?.makeFirstResponder(nil) })
+                // Undocked, the sidebar floats over the content instead of moving it.
+                .overlay(alignment: .leading) {
+                    if !docking.isDocked {
+                        FloatingSidebar(app: app, docking: docking, revealToken: sidebarRevealToken,
+                                        width: sidebarWidth, hover: hover)
+                    }
+                }
+                .padding(.leading, docking.isDocked ? sidebarWidth + 1 : 0)
+            DockedSidebar(width: $sidebarWidth) {
+                SidebarContent(app: app, revealToken: sidebarRevealToken)
+            }
+            .offset(x: docking.isDocked ? 0 : -(sidebarWidth + 1))
+            .disabled(!docking.isDocked)
+            .accessibilityHidden(!docking.isDocked)
         }
-        // A book gets the whole window: the sidebar steps aside when one opens and returns for the
-        // library and the trash, where it is the way around. Opening it by hand inside a book sticks
-        // until the next change of place.
+        .clipped()
         .onChange(of: colorScheme, initial: true) { _, scheme in
             Task { await app.systemAppearanceChanged(dark: scheme == .dark) }
         }
-        .onChange(of: showsBook, initial: true) { _, isBook in
-            withAnimation { columnVisibility = isBook ? .detailOnly : .all }
+        // The remembered choice, at launch and when another window changes it.
+        .onChange(of: sidebarDocked, initial: true) { old, new in
+            commands.sidebarDocked = new
+            commands.toggleSidebarDocking = { sidebarDocked.toggle() }
+            dock(new, animated: old != new)
         }
-        // The search opening its results in the sidebar opens the sidebar for them (a book
-        // usually keeps it closed) and puts it back exactly as it was when they go. The sidebar
-        // slides in and out the standard way, like opening it by hand; the results themselves
-        // appear without any transition (the owner removed that one as too slow).
+        // The floating panel is kept between floats, so it brings the chapter being read into view
+        // each time it comes in, as the docked one does when it docks.
+        .onChange(of: docking.isFloating) { _, floating in if floating { sidebarRevealToken += 1 } }
+        // Undocked, search results inside a book float the sidebar in and hold it until they go;
+        // the results themselves appear without any transition (the owner removed that one as
+        // too slow).
         .onChange(of: app.search.showsResultsInSidebar) { _, showing in
-            if showing {
-                sidebarBeforeSearch = columnVisibility
-                withAnimation { columnVisibility = .all }
-            } else if let before = sidebarBeforeSearch {
-                sidebarBeforeSearch = nil
-                withAnimation { columnVisibility = before }
-            }
+            withAnimation(Self.floatAnimation) { docking.holdsForSearch = showing }
             if !showing { sidebarRevealToken += 1 }  // the source list is back in view
-        }
-        .onChange(of: columnVisibility) { old, new in
-            if old == .detailOnly, new != .detailOnly { sidebarRevealToken += 1 }  // the sidebar opened
         }
     }
 
@@ -252,6 +245,7 @@ public struct MainWindow: View {
     /// `ControlGroup` in the navigation style, so the system draws Finder's grouped pair (one
     /// capsule, system chevrons, hover and disabled states); the system's inline title follows it.
     @ToolbarContentBuilder private var toolbar: some ToolbarContent {
+        ToolbarItem(placement: .navigation) { sidebarButton }
         ToolbarItem(placement: .navigation) { backForward }
         // No `DefaultToolbarItem(kind: .title)`: on macOS 26 it drew an empty glass capsule of its
         // own while `navigationTitle` drew the title beside it. The system title already
@@ -310,6 +304,47 @@ public struct MainWindow: View {
                 .help("forward (⌘])")
         }
         .controlGroupStyle(.navigation)
+    }
+
+    // MARK: Sidebar
+
+    /// The floating sidebar's slide: quick, since it answers the pointer.
+    private static let floatAnimation = Animation.smooth(duration: 0.2)
+    /// Docking and undocking: the docked sidebar slides and the content makes room, as a split
+    /// view's sidebar does.
+    private static let dockAnimation = Animation.smooth(duration: 0.28)
+
+    /// Docks or undocks the sidebar, like View › show sidebar (⌃⌘S). Hovering it does nothing:
+    /// the window's leading edge is what floats the undocked sidebar in.
+    private var sidebarButton: some View {
+        Button { sidebarDocked.toggle() } label: {
+            Label(docking.isDocked ? "hide sidebar" : "show sidebar", systemImage: "sidebar.left")
+        }
+        .help(docking.isDocked ? "hide sidebar (⌃⌘S)" : "show sidebar (⌃⌘S)")
+    }
+
+    /// Docks or undocks to match `docked`. The docked sidebar slides, except when a floating one is
+    /// docked: the docked one takes its place at once rather than sliding in from nothing.
+    private func dock(_ docked: Bool, animated: Bool) {
+        let wasFloating = docking.isFloating
+        if animated, !wasFloating {
+            withAnimation(Self.dockAnimation) { docking.setDocked(docked) }
+        } else {
+            docking.setDocked(docked)
+        }
+        if docked { sidebarRevealToken += 1 }  // the docked list is in view again
+    }
+
+    private func hover(_ zone: SidebarDocking.Zone, _ inside: Bool) {
+        guard !inside else {
+            withAnimation(Self.floatAnimation) { docking.enter(zone) }
+            return
+        }
+        guard let linger = docking.leave(zone) else { return }
+        Task {
+            try? await Task.sleep(for: SidebarDocking.linger)
+            withAnimation(Self.floatAnimation) { docking.settle(linger) }
+        }
     }
 
 
