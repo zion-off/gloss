@@ -519,6 +519,7 @@ private struct NotesPageHeader: View {
             .lineLimit(1...)
             .textFieldStyle(.plain)
             .font(.system(size: CGFloat(app.notes.textSize) * NotesEditorMetrics.titleScale, weight: .bold))
+            .foregroundStyle(Color(nsColor: NotesTextColors.primary))  // the body text's colour, Notion's
             .focused($titleFocused)
             .onSubmit { submitTitle() }
             .onChange(of: titleFocused) { _, focused in if !focused { commitTitle() } }
