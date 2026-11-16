@@ -2,13 +2,34 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
     normalizeText,
     makeSelectionPayload,
     makeDebouncer,
     makeSelectionGate,
+    selectionAnchor,
     type DebouncerTimers,
+    type PointLike,
+    type RectLike,
 } from '../src/bridge/selection.ts'
+import { fixturesDir } from './helpers.ts'
+
+interface AnchorCase {
+    name: string
+    lines: RectLike[]
+    pointer: PointLike | null
+    backward: boolean
+    expected: RectLike | null
+}
+
+// The same cases as Swift's SelectionAnchorTests, so EPUB and PDF popovers point alike.
+test('the popover anchor: the shared cases', () => {
+    const cases = JSON.parse(readFileSync(fixturesDir('selection-anchor.json'), 'utf8')) as AnchorCase[]
+    assert.ok(cases.length >= 10)
+    for (const item of cases)
+        assert.deepEqual(selectionAnchor(item.lines, item.pointer, item.backward), item.expected, item.name)
+})
 
 test('builds the payload, offsetting the rect by the iframe position', () => {
     const payload = makeSelectionPayload({
