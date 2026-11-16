@@ -25,6 +25,9 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
     private weak var textView: NotesTextView?
     private weak var scrollView: NSScrollView?
     private var lastRuns: [StyledRun] = []
+    /// The text `lastRuns` were styled for: the next restyle diffs against it, so an edit
+    /// restyles only what it changed.
+    private var lastStyledText = ""
     /// The list lines the last restyle laid out (their prefixes display unbreakable).
     private var listLines: [ListLayout.Line] = []
     private var displayedPageID: PageID?
@@ -725,8 +728,10 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         let length = model.text.utf16.count
         listLines = ListLayout.lines(in: model.document)  // before any edit below lays lines out
         let runs = notesTheme.runs(for: model.spans, length: length)
-        let changed = StyledRunDiff.changedRanges(from: lastRuns, to: runs)
+        let edit = lastStyledText == model.text ? nil : TextDiff.minimalEdit(from: lastStyledText, to: model.text)
+        let changed = StyledRunDiff.changedRanges(from: lastRuns, to: runs, edit: edit)
         lastRuns = runs
+        lastStyledText = model.text
 
         storage.beginEditing()
         for range in changed {

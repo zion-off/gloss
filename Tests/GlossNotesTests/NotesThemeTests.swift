@@ -91,4 +91,36 @@ struct NotesThemeTests {
         #expect(StyledRunDiff.changedRanges(from: before, to: runs(text + "!")) == [0..<(text.utf16.count + 1)])
         #expect(StyledRunDiff.changedRanges(from: [], to: []).isEmpty)
     }
+
+    /// The edit and the diff for typing `old` into `new`, as the editor computes them.
+    func typed(_ old: String, _ new: String) -> [Range<Int>] {
+        StyledRunDiff.changedRanges(from: runs(old), to: runs(new), edit: TextDiff.minimalEdit(from: old, to: new))
+    }
+
+    @Test("typing restyles what it typed and what its edit restyled, never the whole page")
+    func editDiff() {
+        let page = (1...50).map { "line \($0) with **bold** words" }.joined(separator: "\n")
+        let end = page.utf16.count
+        // A character typed at the end, in the middle, a line break, a deletion.
+        #expect(typed(page, page + "x") == [end..<end + 1])
+        let middle = page.utf16.count / 2
+        let inserted = String(page.prefix(middle)) + "y" + String(page.dropFirst(middle))
+        #expect(typed(page, inserted).allSatisfy { $0.count <= 12 })
+        #expect(typed(page, page + "\n") == [end..<end + 1])
+        #expect(typed(page + "z", page).isEmpty)  // nothing left to style differently
+        // An edit that changes the styling after it restyles that too, but no more.
+        let opened = "a **b** c and more text after it"
+        let broken = "a *b** c and more text after it"
+        let changed = typed(opened, broken)
+        #expect(!changed.isEmpty && changed.allSatisfy { $0.upperBound <= 8 })
+        // A heading made from a line restyles the line.
+        #expect(typed("title\nbody", "# title\nbody") == [0..<7])
+    }
+
+    @Test("an edit that doesn't fit the runs restyles everything")
+    func editDiffMismatch() {
+        let before = runs("abc"), after = runs("abcd")
+        #expect(StyledRunDiff.changedRanges(from: before, to: after, edit: TextEdit(range: 0..<0, replacement: "xx")) == [0..<4])
+        #expect(StyledRunDiff.changedRanges(from: [], to: after, edit: TextEdit(range: 0..<0, replacement: "abcd")) == [0..<4])
+    }
 }
