@@ -233,7 +233,17 @@ const revealAndMark = async (resolved: ResolvedTarget | undefined): Promise<void
 
 // -- selection --------------------------------------------------------------
 
-const emitSelection = (doc: Document, index: number): void => {
+// Whether the user extended the selection backwards (its focus before its anchor).
+const isBackward = (sel: Selection): boolean => {
+    const { anchorNode, focusNode } = sel
+    if (!anchorNode || !focusNode) return false
+    if (anchorNode === focusNode) return sel.focusOffset < sel.anchorOffset
+    return (anchorNode.compareDocumentPosition(focusNode) & Node.DOCUMENT_POSITION_PRECEDING) !== 0
+}
+
+// `pointer`: where the button came up, when the selection was made with the mouse (the section's
+// client coordinates); the popover points there rather than at the whole selection.
+const emitSelection = (doc: Document, index: number, pointer: selection.PointLike | null = null): void => {
     const sel = doc.getSelection()
     const collapsed = !sel || sel.rangeCount === 0 || sel.isCollapsed
     if (collapsed) {
@@ -251,7 +261,8 @@ const emitSelection = (doc: Document, index: number): void => {
         // best available book fraction for a selection: the fraction of the
         // page it is on (foliate has no per-range fraction API)
         fraction: view.lastLocation?.fraction ?? null,
-        rect: selRange.getBoundingClientRect(),
+        rect: selection.selectionAnchor(Array.from(selRange.getClientRects()), pointer, isBackward(sel))
+            ?? selRange.getBoundingClientRect(),
         iframeOffset: doc.defaultView?.frameElement?.getBoundingClientRect(),
     })
     if (!payload) return
@@ -263,8 +274,10 @@ view.addEventListener('load', e => {
     const { doc, index } = eventDetail<{ doc: Document; index: number }>(e)
     // a debounced selection that settles after its book closed must not reach Swift
     const generation = bookGeneration.value()
+    // Set only while the button coming up reports the selection (the gate reports at once).
+    let releasedAt: selection.PointLike | null = null
     const gate = selection.makeSelectionGate(() => {
-        if (bookGeneration.isCurrent(generation) && opened) emitSelection(doc, index)
+        if (bookGeneration.isCurrent(generation) && opened) emitSelection(doc, index, releasedAt)
     })
     const debounced = selection.makeDebouncer(() => {
         const sel = doc.getSelection()
@@ -277,7 +290,12 @@ view.addEventListener('load', e => {
         debounced.cancel()
         gate.release()
     }
-    doc.addEventListener('pointerup', e => { if (e.button === 0) release() })
+    doc.addEventListener('pointerup', e => {
+        if (e.button !== 0) return
+        releasedAt = { x: e.clientX, y: e.clientY }
+        release()
+        releasedAt = null
+    })
     doc.addEventListener('pointercancel', release)
 })
 

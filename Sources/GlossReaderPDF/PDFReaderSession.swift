@@ -28,6 +28,9 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
     private var mouseUpMonitor: Any?
     /// A selection made while the button was down, waiting for it to come up.
     private var selectionHeld = false
+    /// Where the button came up over a held selection (the reader's coordinates), for the
+    /// popover to point at; set only until that selection is reported.
+    private var releasePoint: SelectionAnchor.Point?
     /// The overlays PDFKit is showing, by page index: a new set of annotations reaches the
     /// pages already on screen through these (PDFKit only asks for an overlay once per page).
     private var overlays: [Int: PDFPageOverlay] = [:]
@@ -88,7 +91,8 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
 
         mouseUpMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseUp) { [weak self] event in
             let window = event.window
-            MainActor.assumeIsolated { self?.mouseCameUp(in: window) }
+            let location = event.locationInWindow
+            MainActor.assumeIsolated { self?.mouseCameUp(in: window, at: location) }
             return event
         }
         // PDFKit has no page to load, so the session can take commands at once. The controller
@@ -396,8 +400,10 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
 
     /// The button came up: a selection held while it was down is final now. Reported after the
     /// view has handled the mouse-up, which may still change the selection.
-    private func mouseCameUp(in window: NSWindow?) {
+    private func mouseCameUp(in window: NSWindow?, at windowPoint: NSPoint) {
         guard selectionHeld, window === pdfView.window else { return }
+        let point = Self.readerRect(NSRect(origin: pdfView.convert(windowPoint, from: nil), size: .zero), in: pdfView)
+        releasePoint = SelectionAnchor.Point(x: point.x, y: point.y)
         Task { @MainActor [weak self] in
             guard let self, self.selectionHeld else { return }
             self.selectionChanged()
@@ -410,6 +416,7 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
         guard let selection = pdfView.currentSelection,
               let text = selection.string, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             selectionHeld = false
+            releasePoint = nil
             inbox.post(.selectionCleared)
             return
         }
@@ -420,6 +427,8 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
             return
         }
         selectionHeld = false
+        let pointer = releasePoint
+        releasePoint = nil
         // Group the selection's lines into pages (the portable mapping does the rest).
         var byPage: [Int: PDFPageSelection] = [:]
         for line in selection.selectionsByLine() {
@@ -438,17 +447,18 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
         let pages = byPage.keys.sorted().compactMap { byPage[$0] }
         guard let passage = PDFSelectionMapping.passage(from: pages, pageCount: pageCount,
                                                         pageLabel: { pdf.page(at: $0)?.label }) else { return }
-        inbox.post(.selectionChanged(passage, anchor: anchorRect(for: selection)))
+        inbox.post(.selectionChanged(passage, anchor: anchorRect(for: selection, pointer: pointer)))
     }
 
-    /// The selection's first line, in the reader's top-left-origin coordinates (what popovers
-    /// anchor to).
-    private func anchorRect(for selection: PDFSelection) -> ReaderRect {
-        for line in selection.selectionsByLine() {
-            guard let page = line.pages.first else { continue }
+    /// Where the popover points (`SelectionAnchor`), in the reader's top-left-origin coordinates:
+    /// under the pointer on the line it came up nearest, or the end of the last line. PDFKit
+    /// doesn't say which way a selection was extended, so a keyboard one is taken as forwards.
+    private func anchorRect(for selection: PDFSelection, pointer: SelectionAnchor.Point?) -> ReaderRect {
+        let lines = selection.selectionsByLine().compactMap { line -> ReaderRect? in
+            guard let page = line.pages.first else { return nil }
             return Self.readerRect(pdfView.convert(line.bounds(for: page), from: page), in: pdfView)
         }
-        return ReaderRect(x: 0, y: 0, width: 0, height: 0)
+        return SelectionAnchor.rect(lines: lines, pointer: pointer, backward: false) ?? ReaderRect(x: 0, y: 0, width: 0, height: 0)
     }
 
     /// A rect in `view`'s coordinates, in the reader contract's top-left origin. Whether

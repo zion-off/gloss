@@ -1,0 +1,72 @@
+[
+  {
+    "name": "a pointer on a line points just under it",
+    "lines": [{ "x": 0, "y": 0, "width": 300, "height": 20 }, { "x": 0, "y": 20, "width": 300, "height": 20 }, { "x": 0, "y": 40, "width": 120, "height": 20 }],
+    "pointer": { "x": 110, "y": 50 },
+    "backward": false,
+    "expected": { "x": 110, "y": 40, "width": 1, "height": 20 }
+  },
+  {
+    "name": "a pointer past the line's end stays on the line",
+    "lines": [{ "x": 0, "y": 0, "width": 300, "height": 20 }, { "x": 0, "y": 20, "width": 300, "height": 20 }, { "x": 0, "y": 40, "width": 120, "height": 20 }],
+    "pointer": { "x": 250, "y": 45 },
+    "backward": false,
+    "expected": { "x": 120, "y": 40, "width": 1, "height": 20 }
+  },
+  {
+    "name": "a pointer that ends up above the selection takes the nearest line",
+    "lines": [{ "x": 0, "y": 100, "width": 300, "height": 20 }, { "x": 0, "y": 120, "width": 300, "height": 20 }],
+    "pointer": { "x": 40, "y": 30 },
+    "backward": false,
+    "expected": { "x": 40, "y": 100, "width": 1, "height": 20 }
+  },
+  {
+    "name": "a pointer between two lines takes the nearer",
+    "lines": [{ "x": 0, "y": 0, "width": 300, "height": 18 }, { "x": 0, "y": 24, "width": 300, "height": 18 }],
+    "pointer": { "x": 10, "y": 20 },
+    "backward": false,
+    "expected": { "x": 10, "y": 0, "width": 1, "height": 18 }
+  },
+  {
+    "name": "two columns: the line in the pointer's column",
+    "lines": [{ "x": 0, "y": 0, "width": 200, "height": 20 }, { "x": 300, "y": 0, "width": 200, "height": 20 }],
+    "pointer": { "x": 350, "y": 10 },
+    "backward": false,
+    "expected": { "x": 350, "y": 0, "width": 1, "height": 20 }
+  },
+  {
+    "name": "a selected element's box around its lines is not a line",
+    "lines": [{ "x": 0, "y": 0, "width": 300, "height": 60 }, { "x": 0, "y": 0, "width": 300, "height": 20 }, { "x": 0, "y": 20, "width": 300, "height": 20 }, { "x": 0, "y": 40, "width": 300, "height": 20 }],
+    "pointer": { "x": 10, "y": 30 },
+    "backward": false,
+    "expected": { "x": 10, "y": 20, "width": 1, "height": 20 }
+  },
+  {
+    "name": "empty rects (a line break's) are not lines",
+    "lines": [{ "x": 0, "y": 0, "width": 300, "height": 20 }, { "x": 0, "y": 20, "width": 0, "height": 20 }],
+    "pointer": { "x": 5, "y": 30 },
+    "backward": false,
+    "expected": { "x": 5, "y": 0, "width": 1, "height": 20 }
+  },
+  {
+    "name": "from the keyboard: the end of the last line",
+    "lines": [{ "x": 0, "y": 0, "width": 300, "height": 20 }, { "x": 0, "y": 20, "width": 120, "height": 20 }],
+    "pointer": null,
+    "backward": false,
+    "expected": { "x": 120, "y": 20, "width": 1, "height": 20 }
+  },
+  {
+    "name": "from the keyboard, backwards: the start of the first line",
+    "lines": [{ "x": 30, "y": 0, "width": 270, "height": 20 }, { "x": 0, "y": 20, "width": 120, "height": 20 }],
+    "pointer": null,
+    "backward": true,
+    "expected": { "x": 30, "y": 0, "width": 1, "height": 20 }
+  },
+  {
+    "name": "no lines: no anchor",
+    "lines": [{ "x": 0, "y": 0, "width": 0, "height": 0 }],
+    "pointer": { "x": 5, "y": 5 },
+    "backward": false,
+    "expected": null
+  }
+]
