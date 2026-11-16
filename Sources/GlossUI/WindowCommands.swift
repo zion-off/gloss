@@ -4,9 +4,10 @@ import GlossCore
 import GlossEditor
 import GlossMarkdown
 
-/// The window's commands that need the focused pane: "link to passage" (⌘K) and "add to
-/// notes" act on the notes editor and the book selection; back/forward (⌘[ ⌘]) follow whichever
-/// pane has focus. Enabled state comes from the models, so a disabled command explains itself.
+/// The window's commands that need the focused pane: "link to passage" (⌘K), "add to notes"
+/// and "highlight" (⇧⌘H) act on the notes editor and the book selection; back/forward (⌘[ ⌘])
+/// follow whichever pane has focus. Enabled state comes from the models, so a disabled command
+/// explains itself.
 @MainActor @Observable
 public final class WindowCommands {
     @ObservationIgnored weak var app: AppModel?
@@ -39,6 +40,12 @@ public final class WindowCommands {
     }
 
     public var canQuote: Bool { app?.reader.selection != nil }
+
+    /// Format › highlight (⇧⌘H, Books' shortcut): the book's selection, in the colour last picked.
+    public func highlightSelection() {
+        guard let reader = app?.reader else { return }
+        Task { _ = try? await reader.highlightSelection() }
+    }
 
     /// Into the editor at the caret when it shows the book's page, else straight to the page.
     public func addToNotes() async {
@@ -172,6 +179,10 @@ public struct GlossWindowCommands: Commands {
             Button("add to notes") { Task { await commands?.addToNotes() } }
                 .disabled(commands?.canQuote != true)
                 .help("the book's selection, quoted at the cursor")
+            Button("highlight") { commands?.highlightSelection() }
+                .keyboardShortcut("h", modifiers: [.shift, .command])
+                .disabled(commands?.canQuote != true)
+                .help("the book's selection, in the colour you used last")
         }
     }
 }

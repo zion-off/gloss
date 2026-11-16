@@ -26,7 +26,7 @@ struct ReaderPopoverContent: View {
 
     private var selection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            colours(current: nil) { colour in
+            colours(current: nil, shortcut: reader.lastHighlightColor) { colour in
                 Task { _ = try? await reader.highlightSelection(colour) }
             }
             Divider()
@@ -90,7 +90,9 @@ struct ReaderPopoverContent: View {
 
     // MARK: Colour row
 
-    private func colours(current: HighlightColor?, pick: @escaping (HighlightColor) -> Void) -> some View {
+    /// `shortcut`: the colour Format › highlight (⇧⌘H) would use, whose tooltip says so.
+    private func colours(current: HighlightColor?, shortcut: HighlightColor? = nil,
+                         pick: @escaping (HighlightColor) -> Void) -> some View {
         HStack(spacing: 10) {
             ForEach(HighlightColor.allCases, id: \.self) { colour in
                 Button { pick(colour) } label: {
@@ -108,7 +110,7 @@ struct ReaderPopoverContent: View {
                 .buttonStyle(.plain)
                 // Built from data, not a localization key: verbatim, so nothing in it is read as a
                 // format specifier.
-                .help(Text(verbatim: "\(colour.rawValue) highlight"))
+                .help(Text(verbatim: colour == shortcut ? "\(colour.rawValue) highlight (⇧⌘H)" : "\(colour.rawValue) highlight"))
                 .accessibilityLabel(Text(verbatim: "\(colour.rawValue) highlight"))
                 .accessibilityAddTraits(colour == current ? .isSelected : [])
             }
