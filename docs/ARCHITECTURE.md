@@ -103,5 +103,8 @@ its own back/forward history. `ExternalChangeMonitor` refreshes models from the 
 `scripts/release.sh` builds a universal `gloss.app` (the CLI in `Contents/Helpers`, Sparkle in
 `Contents/Frameworks`), a dmg and the zip Sparkle updates from. Only `GlossMac` links Sparkle, and
 only release bundles carry its feed URL and public key, so development builds have no updater.
+Sparkle checks, downloads and installs; the window is gloss's own (`UpdateFlow` in `GlossAppModel`,
+`UpdateView` in `GlossUI`, driven through Sparkle's `SPUUserDriver`), and
+`GLOSS_UPDATE_PREVIEW=available` shows it with a pretend update in a development build.
 `.github/workflows/release.yml` publishes a release when a pull request labelled `release` is
 merged, with an appcast signed by the key in the `SPARKLE_PRIVATE_KEY` secret.
