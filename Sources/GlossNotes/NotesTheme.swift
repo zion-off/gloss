@@ -176,11 +176,38 @@ public struct NotesTheme: Sendable {
 }
 
 public enum StyledRunDiff {
-    /// The ranges whose style differs between two run lists over text of the same length (a
-    /// selection move that revealed other syntax). Lists of different lengths differ everywhere.
-    public static func changedRanges(from old: [StyledRun], to new: [StyledRun]) -> [Range<Int>] {
+    /// The ranges, in `new`'s coordinates, whose style differs between the runs styled for a text
+    /// and the runs for that text after `edit` (a replacement of the old text's `range`, as
+    /// `TextDiff.minimalEdit` gives; nil when the text is the same, as on a selection move that
+    /// revealed other syntax). The edited text always counts as changed; text after it is
+    /// compared with where it was before the edit, so typing restyles only what the keystroke
+    /// changed, not the whole page: re-setting a range's attributes makes TextKit 2 drop its
+    /// layout, and a page re-laid from estimates jumped and left lines undrawn. Without an edit,
+    /// lists of different lengths differ everywhere.
+    public static func changedRanges(from old: [StyledRun], to new: [StyledRun], edit: TextEdit? = nil) -> [Range<Int>] {
         let oldLength = old.last?.range.upperBound ?? 0, newLength = new.last?.range.upperBound ?? 0
-        guard oldLength == newLength else { return max(oldLength, newLength) > 0 ? [0..<max(oldLength, newLength)] : [] }
+        let everything = max(oldLength, newLength) > 0 ? [0..<max(oldLength, newLength)] : []
+        guard let edit else { return oldLength == newLength ? differences(old.map { ($0.range, $0.style) }, new) : everything }
+        let inserted = edit.replacement.utf16.count
+        guard !old.isEmpty, edit.range.upperBound <= oldLength, newLength == oldLength - edit.range.count + inserted else {
+            return everything
+        }
+        // The old runs moved into the new text's coordinates, the edited span unknown (nil).
+        let delta = inserted - edit.range.count
+        var shifted: [(Range<Int>, TextStyle?)] = []
+        for run in old where run.range.lowerBound < edit.range.lowerBound {
+            shifted.append((run.range.lowerBound..<min(run.range.upperBound, edit.range.lowerBound), run.style))
+        }
+        if inserted > 0 { shifted.append((edit.range.lowerBound..<edit.range.lowerBound + inserted, nil)) }
+        for run in old where run.range.upperBound > edit.range.upperBound {
+            let lower = max(run.range.lowerBound, edit.range.upperBound)
+            shifted.append((lower + delta..<run.range.upperBound + delta, run.style))
+        }
+        return differences(shifted, new)
+    }
+
+    /// Where two run lists over the same length differ (a nil style differs from everything).
+    private static func differences(_ old: [(range: Range<Int>, style: TextStyle?)], _ new: [StyledRun]) -> [Range<Int>] {
         var changed: [Range<Int>] = []
         var i = 0, j = 0, position = 0
         while i < old.count, j < new.count {
