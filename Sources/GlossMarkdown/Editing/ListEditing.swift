@@ -52,28 +52,39 @@ public enum ListContinuation {
     }
 }
 
-/// Tab / Shift-Tab on list items: indent or outdent by one level (two spaces).
+/// Tab / Shift-Tab on list items: indent or outdent by one level (two spaces), renumbering
+/// ordered items for their new level.
 public enum ListIndentation {
     public static let unit = "  "
 
     public static func indent(in document: MarkdownDocument, selection: Range<Int>) -> EditResult? {
         let lines = LineStructure.all(in: document, touching: selection).filter { $0.leaf.kind == .listItem && !$0.isCode }
         guard !lines.isEmpty else { return nil }
-        let edits = lines.map { TextEdit.insert(unit, at: $0.quoteEnd) }
+        let text = document.text
+        var edits = lines.map { TextEdit.insert(unit, at: $0.quoteEnd) }
+        var levels: [Int: Int] = [:]
+        for line in lines {
+            levels[text.lineIndex(containing: line.line.lowerBound)] = (ListNumbering.indentWidth(of: line, in: text) + unit.count) / 2
+        }
+        edits += ListNumbering.edits(in: document, levels: levels)
         return EditResult(edits: edits, originalSelection: selection, lowerAfterInsertions: true, upperAfterInsertions: true)
     }
 
     public static func outdent(in document: MarkdownDocument, selection: Range<Int>) -> EditResult? {
         let lines = LineStructure.all(in: document, touching: selection).filter { $0.leaf.kind == .listItem && !$0.isCode }
-        let edits: [TextEdit] = lines.compactMap { line in
+        let text = document.text
+        var edits: [TextEdit] = []
+        var levels: [Int: Int] = [:]
+        for line in lines {
             let indent = line.indentRange
-            guard !indent.isEmpty else { return nil }
-            let text = document.text
-            if text.units[indent.lowerBound] == .tab { return .delete(indent.lowerBound..<indent.lowerBound + 1) }
-            let width = min(2, indent.count)
-            return .delete(indent.lowerBound..<indent.lowerBound + width)
+            guard !indent.isEmpty else { continue }
+            let removed = text.units[indent.lowerBound] == .tab ? 1 : min(2, indent.count)
+            let removedWidth = text.units[indent.lowerBound] == .tab ? 2 : removed
+            edits.append(.delete(indent.lowerBound..<indent.lowerBound + removed))
+            levels[text.lineIndex(containing: line.line.lowerBound)] = (ListNumbering.indentWidth(of: line, in: text) - removedWidth) / 2
         }
         guard !edits.isEmpty else { return nil }
+        edits += ListNumbering.edits(in: document, levels: levels)
         return EditResult(edits: edits, originalSelection: selection)
     }
 }

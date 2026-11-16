@@ -198,6 +198,53 @@ struct ListEditingTests {
         #expect(ListIndentation.indent(in: MarkdownParser.standard.parse("plain"), selection: 0..<0) == nil)
     }
 
+    func indent(_ marked: String) -> String? {
+        let (text, selection) = unmark(marked)
+        guard let result = ListIndentation.indent(in: MarkdownParser.standard.parse(text), selection: selection) else { return nil }
+        return mark(result.apply(to: text), result.selection)
+    }
+
+    func outdent(_ marked: String) -> String? {
+        let (text, selection) = unmark(marked)
+        guard let result = ListIndentation.outdent(in: MarkdownParser.standard.parse(text), selection: selection) else { return nil }
+        return mark(result.apply(to: text), result.selection)
+    }
+
+    @Test("an indented numbered item starts its own count, and the items after it close up")
+    func indentRenumbers() {
+        #expect(indent("1. a\n2. b|\n3. c") == "1. a\n  1. b|\n2. c")
+        #expect(indent("1. a\n  1. b\n2. c|") == "1. a\n  1. b\n  2. c|")
+        #expect(indent("1. a\n  1. b\n  2. c|") == "1. a\n  1. b\n    1. c|")
+        #expect(indent("1. a\n  1. b\n    1. c\n  2. d|") == "1. a\n  1. b\n    1. c\n    2. d|")
+        #expect(indent("1. a\n‹2. b\n3. c›\n4. d") == "1. a\n  ‹1. b\n  2. c›\n2. d")
+        #expect(indent("1) a\n2) b|") == "1) a\n  1) b|")
+    }
+
+    @Test("return then tab on a numbered item starts a sublist at one")
+    func returnThenTab() {
+        let continued = enter("1. a|")!
+        #expect(continued == "1. a\n2. |")
+        #expect(indent(continued) == "1. a\n  1. |")
+    }
+
+    @Test("an outdented numbered item continues its parent's count")
+    func outdentRenumbers() {
+        #expect(outdent("1. a\n  1. x\n  2. y|") == "1. a\n  1. x\n2. y|")
+        #expect(outdent("1. a\n  1. x\n  2. y|\n  3. z\n2. b") == "1. a\n  1. x\n2. y|\n  1. z\n3. b")
+        #expect(outdent("1. a\n  1. b\n    1. c|") == "1. a\n  1. b\n  2. c|")
+        #expect(enter("1. a\n  1. x\n  2. |") == "1. a\n  1. x\n2. |")
+    }
+
+    @Test("renumbering keeps a list's start and leaves other lists and bullets alone")
+    func renumberingScope() {
+        #expect(indent("5. a\n6. b|\n7. c") == "5. a\n  1. b|\n6. c")
+        #expect(indent("- a\n- b|\n- c") == "- a\n  - b|\n- c")
+        #expect(indent("1. a\n2. b|\n\n7. other") == "1. a\n  1. b|\n\n7. other")
+        #expect(indent("3. x\n\n1. a\n2. b|") == "3. x\n\n1. a\n  1. b|")
+        #expect(indent("- a\n1. b|") == "- a\n  1. b|")
+        #expect(indent("> 1. a\n> 2. b|") == "> 1. a\n>   1. b|")
+    }
+
     @Test("task boxes toggle")
     func tasks() {
         let doc = MarkdownParser.standard.parse("- [ ] write\n- [x] read")
