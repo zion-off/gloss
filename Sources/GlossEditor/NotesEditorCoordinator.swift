@@ -81,6 +81,9 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         textView.isAutomaticQuoteSubstitutionEnabled = false   // markdown source: no smart quotes
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false
+        // Spelling, grammar and autocorrect as the user last chose; they skip code, links and
+        // hidden syntax (`textView(_:didCheckTextIn:…)`).
+        NotesSpellingPreferences.apply(to: textView)
         // Links draw as the theme styles them (muted, a faint underline, as in Notion), not in
         // AppKit's blue: its default link attributes painted over every link kind's own style.
         textView.linkTextAttributes = [.cursor: NSCursor.pointingHand]
@@ -623,6 +626,24 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
             Task { await confirmSlashMenu() }
             return true
         }
+    }
+
+    /// Drops what the checker found in code, link destinations, syntax and drawn tables or rows:
+    /// no underline where it would sit under something else, no autocorrect rewriting a URL.
+    func textView(_ view: NSTextView, didCheckTextIn range: NSRange, types checkingTypes: NSTextCheckingTypes,
+                  options: [NSSpellChecker.OptionKey: Any] = [:], results: [NSTextCheckingResult],
+                  orthography: NSOrthography, wordCount: Int) -> [NSTextCheckingResult] {
+        let skipped = model.spellingSkipped
+        guard !skipped.isEmpty else { return results }
+        let checked: NSTextCheckingResult.CheckingType = [.spelling, .grammar, .correction]
+        return results.filter { result in
+            !checked.contains(result.resultType) || !NotesSpelling.isSkipped(Self.range(result.range), in: skipped)
+        }
+    }
+
+    /// The same for underlines set any other way (Check Document Now, ⌘;).
+    func textView(_ textView: NSTextView, shouldSetSpellingState value: Int, range affectedCharRange: NSRange) -> Int {
+        NotesSpelling.isSkipped(Self.range(affectedCharRange), in: model.spellingSkipped) ? 0 : value
     }
 
     func textView(_ textView: NSTextView, clickedOnLink link: Any, at charIndex: Int) -> Bool {
