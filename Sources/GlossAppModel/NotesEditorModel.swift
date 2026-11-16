@@ -92,6 +92,8 @@ public enum NotesTableSettings {
     /// Children with no block line, listed after the text ("more pages in here").
     public private(set) var unplacedChildren: [Page] = []
     public private(set) var activeFormats: Set<String> = []
+    /// The text the spelling checker and autocorrect leave alone (`NotesSpelling`), sorted.
+    public private(set) var spellingSkipped: [Range<Int>] = []
     public private(set) var slashMenu: SlashMenu?
     public private(set) var saveState: SaveState = .saved
     /// A live search's highlights in the open page: every match of the query in the body (outside
@@ -581,6 +583,7 @@ public enum NotesTableSettings {
         }
         let grids = gridTables.map { StyleSpan(range: $0.table.range, role: NotesRole.tableGrid) }
         spans = SyntaxReveal.apply(baseSpans + grids, selection: selection, concealed: subpageRows.map(\.lineRange))
+        spellingSkipped = NotesSpelling.standard.skippedRanges(in: spans)
         activeFormats = FormatBar.activeItems(in: document, selection: selection)
         refreshSearchRanges()
     }

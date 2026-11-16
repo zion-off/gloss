@@ -353,6 +353,23 @@ final class NotesTextView: NSTextView {
         return super.menu(for: event)
     }
 
+    // The Edit › Spelling and Grammar items (and the context menu's) toggle this view only;
+    // remembering them lets the next page's view start the same way.
+    override func toggleContinuousSpellChecking(_ sender: Any?) {
+        super.toggleContinuousSpellChecking(sender)
+        NotesSpellingPreferences.save(.checkSpelling, from: self)
+    }
+
+    override func toggleGrammarChecking(_ sender: Any?) {
+        super.toggleGrammarChecking(sender)
+        NotesSpellingPreferences.save(.checkGrammar, from: self)
+    }
+
+    override func toggleAutomaticSpellingCorrection(_ sender: Any?) {
+        super.toggleAutomaticSpellingCorrection(sender)
+        NotesSpellingPreferences.save(.correctSpelling, from: self)
+    }
+
     override func paste(_ sender: Any?) {
         if let string = NSPasteboard.general.string(forType: .string), onPaste?(string) == true { return }
         super.paste(sender)
