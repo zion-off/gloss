@@ -498,6 +498,28 @@ struct ReaderControllerTests {
         _ = try await controller.highlightSelection()
         #expect(controller.selectionAnchor == nil)
     }
+
+    @Test("the shortcut's highlight takes the colour last picked, yellow before any")
+    func lastColour() async throws {
+        let lib = TestLibrary()
+        let (book, _) = try await lib.book()
+        let controller = ReaderController(services: lib.services)
+        let driver = FakeDriver()
+        controller.attach(driver)
+        await controller.openShowing(book, on: driver)
+        #expect(try await controller.highlightSelection() == nil)  // nothing selected: nothing to do
+
+        await controller.handle(.selectionChanged(lib.passage("one", at: "a"), anchor: anchor))
+        #expect(try await controller.highlightSelection()?.color == .yellow)
+        await controller.handle(.selectionChanged(lib.passage("two", at: "b"), anchor: anchor))
+        let green = try #require(try await controller.highlightSelection(.green))
+        await controller.handle(.selectionChanged(lib.passage("three", at: "c"), anchor: anchor))
+        #expect(try await controller.highlightSelection()?.color == .green)
+
+        try await controller.recolor(green.id, to: .purple)  // a recolour is a pick too
+        await controller.handle(.selectionChanged(lib.passage("four", at: "d"), anchor: anchor))
+        #expect(try await controller.highlightSelection()?.color == .purple)
+    }
 }
 
 @MainActor

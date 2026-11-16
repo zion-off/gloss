@@ -67,6 +67,9 @@ import GlossReaderBridge
     public private(set) var location: ReaderLocation?
     public private(set) var selection: BookSelection?
     public private(set) var selectionAnchor: ReaderRect?
+    /// The colour last picked for a highlight (new or recoloured), which Format › highlight
+    /// (⇧⌘H) uses, as Books does. For the session; yellow until one is picked.
+    public private(set) var lastHighlightColor: HighlightColor = .yellow
     public private(set) var markerChoice: MarkerChoice?
     public private(set) var highlightFocus: HighlightFocus?
     public private(set) var errorMessage: String?
@@ -334,11 +337,13 @@ import GlossReaderBridge
         do { try await driver.show(annotations) } catch { shownAnnotations = nil }
     }
 
-    /// Highlights the current selection.
+    /// Highlights the current selection, in `color` or else the colour last picked.
     @discardableResult
-    public func highlightSelection(_ color: HighlightColor = .yellow) async throws -> Highlight? {
+    public func highlightSelection(_ color: HighlightColor? = nil) async throws -> Highlight? {
         guard let selection else { return nil }
+        let color = color ?? lastHighlightColor
         let highlight = try await services.highlights.add(selection.passage, color: color, in: selection.documentID)
+        lastHighlightColor = color
         if isShowingBook { try? await driver?.clearSelection() }
         self.selection = nil
         selectionAnchor = nil
@@ -349,6 +354,7 @@ import GlossReaderBridge
 
     public func recolor(_ id: HighlightID, to color: HighlightColor) async throws {
         let updated = try await services.highlights.recolor(id, to: color)
+        lastHighlightColor = color
         if highlightFocus?.highlight.id == id { highlightFocus?.highlight = updated }
         await refreshAnnotations()
         await highlightsDidChange()
