@@ -757,16 +757,17 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
             return NSTextRange(location: start, end: end)
         }
         // Remove what moved or went, add what is new; the current one last, so it draws on top.
+        // Only the background: the spelling underlines are rendering attributes too.
         for range in drawnSearchHighlights + (drawnSearchCurrent.map { [$0] } ?? []) {
             if let textRange = textRange(range) { manager.removeRenderingAttribute(.backgroundColor, for: textRange) }
         }
         let soft = NSColor.unemphasizedSelectedTextBackgroundColor
         let strong = NSColor.selectedTextBackgroundColor
         for range in model.searchRanges where range != model.searchCurrent {
-            if let textRange = textRange(range) { manager.setRenderingAttributes([.backgroundColor: soft], for: textRange) }
+            if let textRange = textRange(range) { manager.addRenderingAttribute(.backgroundColor, value: soft, for: textRange) }
         }
         if let current = model.searchCurrent, let textRange = textRange(current) {
-            manager.setRenderingAttributes([.backgroundColor: strong], for: textRange)
+            manager.addRenderingAttribute(.backgroundColor, value: strong, for: textRange)
         }
         drawnSearchHighlights = model.searchRanges
         drawnSearchCurrent = model.searchCurrent
