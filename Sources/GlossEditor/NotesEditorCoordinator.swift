@@ -350,6 +350,7 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
         drawnSearchHighlights = []
         drawnSearchCurrent = nil  // the new page's highlights are drawn fresh
         restyle()
+        normalizeTypingAttributes()
         textView.scroll(NSPoint(x: 0, y: 0))
     }
 
@@ -543,13 +544,13 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
 
     /// The text size setting changed: every font, row, list indent and table grid follows.
     private func textSizeChanged() {
-        guard let textView else { return }
+        guard textView != nil else { return }
         theme.setBodySize(CGFloat(model.textSize))
         tableBuilder.reset()
         drawnTables = []
         lastRuns = []  // every run's font changes
         restyle()
-        textView.typingAttributes = theme.attributes(for: TextStyle(font: .body))
+        normalizeTypingAttributes()
         invalidateRows()
     }
 
@@ -692,22 +693,21 @@ final class NotesEditorCoordinator: NSObject, NSTextViewDelegate, NSTextLayoutMa
 
     // MARK: Styling
 
-    /// Restyles what moved: only the ranges whose runs changed get new attributes, so a cursor
-    /// move in a long page doesn't touch the whole layout.
-    /// A caret right after hidden text would type in its collapsed font: an empty line after a subpage
-    /// row came out a hair high, and clicks below the row landed on it. Typing is always plain.
+    /// Typing is always in the body's style. A plain-text view's own typing attributes are 12pt with
+    /// no line height, and TextKit sizes an empty last line and its caret by them: the line after a
+    /// Return at the end of a page came out 14pt instead of a body line's 24 and grew when its
+    /// first character was typed (shrinking again on Backspace), so the page's end jumped by a few
+    /// points as the user wrote. Inheriting from the character before is no better: after hidden
+    /// syntax it's a collapsed font, after a drawn table the table line's fixed height. What
+    /// typing inserts is restyled straight away; this is only what it starts as.
     private func normalizeTypingAttributes() {
-        guard let textView, let storage = textView.textStorage, textView.selectedRange().length == 0 else { return }
-        let caret = textView.selectedRange().location
-        guard caret > 0, caret <= storage.length else { return }
-        let before = storage.attributes(at: caret - 1, effectiveRange: nil)
-        let collapsed = ((before[.font] as? NSFont)?.pointSize ?? 12) < 1
-        let invisible = (before[.foregroundColor] as? NSColor)?.alphaComponent == 0
-        // Right after a drawn table, the line break carries the table line's fixed height.
-        let afterTable = model.gridTable(at: caret - 1) != nil
-        if collapsed || invisible || afterTable { textView.typingAttributes = theme.attributes(for: TextStyle(font: .body)) }
+        guard let textView else { return }
+        let body = theme.attributes(for: TextStyle(font: .body))
+        if !(textView.typingAttributes as NSDictionary).isEqual(to: body) { textView.typingAttributes = body }
     }
 
+    /// Restyles what moved: only the ranges whose runs changed get new attributes, so a cursor
+    /// move in a long page doesn't touch the whole layout.
     private func restyle() {
         guard let textView, let storage = textView.textStorage,
               storage.length == model.text.utf16.count else { return }  // not in step: the next change restyles
