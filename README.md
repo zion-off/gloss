@@ -38,7 +38,11 @@ choose **gloss > install command line tool**, then:
 gloss import ~/Books
 gloss read "moby dick"
 gloss search whiteness --book "moby dick"
+gloss text "moby dick" --section 12
+gloss highlights "moby dick" --section 12
 gloss link "moby dick" --text "his obsession" --quote "the white whale"
+gloss link "moby dick" --batch links.json --dry-run
 ```
 
-every command takes `--json`. `gloss --help` lists them all.
+every command takes `--json`. `gloss --help` lists them all. `gloss link` only ever adds or
+re-points links: if a page's text would change in any other way, it writes nothing.
