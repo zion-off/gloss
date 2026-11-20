@@ -7,9 +7,12 @@ import GlossTestSupport
 
 @Suite("cli: part flags")
 struct PartFlagsTests {
-    @Test("the names formats supply become --part, after link only")
+    @Test("the names formats supply become --part, after link, text and highlights only")
     func rewrite() {
         let names = ["section", "page"]
+        #expect(PartFlags.rewrite(["text", "b", "--page", "2"], names: names) == ["text", "b", "--part", "page:2"])
+        #expect(PartFlags.rewrite(["highlights", "list", "b", "--section=4"], names: names) == ["highlights", "list", "b", "--part=section:4"])
+        #expect(PartFlags.rewrite(["read", "link", "--page", "2"], names: names) == ["read", "link", "--page", "2"])
         #expect(PartFlags.rewrite(["link", "n", "--section", "5", "--offset", "1-2"], names: names)
             == ["link", "n", "--part", "section:5", "--offset", "1-2"])
         #expect(PartFlags.rewrite(["--json", "link", "--page=3", "n"], names: names) == ["--json", "link", "--part=page:3", "n"])
@@ -172,5 +175,97 @@ struct CLILinkTests {
         let missing = await cli.run("link", "Moby", "--text", "nowhere", "--quote", "whale")
         #expect(missing.code == 1)
         #expect(missing.err.contains("couldn't find “nowhere” in Moby"))
+    }
+
+    @Test("--text-after links the first match after words that appear once; it must be unique")
+    func textAfter() async throws {
+        let (cli, book) = try await setUp(body: "## one\nthe whale\n## two\nthe whale again")
+        let linked = await cli.run("link", "Moby", "--text-after", "## two", "--text", "the whale", "--match", "fake:section-1@26-35")
+        #expect(linked.code == 0, "\(linked.err)")
+        #expect(try await body(cli, book).hasPrefix("## one\nthe whale\n## two\n[the whale](gloss://passage/"))
+        let again = await cli.run("link", "Moby", "--text-after", "## two", "--text", "the whale", "--match", "fake:section-1@26-35")
+        #expect(again.out.contains("already links"))
+        let repeated = await cli.run("link", "Moby", "--text-after", "##", "--text", "the whale", "--quote", "Ishmael")
+        #expect(repeated.code == 1)
+        #expect(repeated.err.contains("“##” appears twice"))
+        let none = await cli.run("link", "Moby", "--text-after", "again", "--text", "the whale", "--quote", "Ishmael")
+        #expect(none.err.contains("couldn't find “the whale” after “again”"))
+        #expect(await cli.run("link", "Moby", "--text-after", "## two", "--quote", "Ishmael").code == 64)
+        #expect(await cli.run("link", "Moby", "--text-after", "## two", "--text-offset", "0-3", "--quote", "Ishmael").code == 64)
+    }
+
+    @Test("a passage past the limit links with a warning, in json too")
+    func longPassage() async throws {
+        let cli = CLIHarness()
+        let long = "Start here. " + String(repeating: "filler words ", count: 80) + "end here."
+        let book = try await cli.book("Long", chapters: [long])
+        #expect(await cli.run("page", "write", "Long", "a note").code == 0)
+        let result = await cli.run("link", "Long", "--text", "a note", "--from", "Start here", "--through", "end here.")
+        #expect(result.code == 0, "\(result.err)")
+        #expect(result.err.contains("that passage is \(long.utf16.count) characters long"))
+        #expect(try await cli.services.pages.rootPage(of: book.id)!.body.hasPrefix("[a note]("))
+        let json = try #require(try await cli.run("link", "Long", "--text", "a note", "--from", "Start here", "--through", "end here.", "--json").json() as? [String: Any])
+        #expect((json["warnings"] as? [String])?.count == 1)
+        let short = try #require(try await cli.run("link", "Long", "--text", "a note", "--quote", "Start here", "--json").json() as? [String: Any])
+        #expect(short["warnings"] == nil)
+    }
+
+    @Test("--batch links each entry in order with the command line's flags as defaults; failures don't stop the rest")
+    func batch() async throws {
+        let (cli, book) = try await setUp(body: "## one\nthe whale\n## two\nthe whale and Ahab")
+        let spec = """
+        [
+          {"text-after": "## one", "text": "the whale", "quote": "The whale", "section": 2},
+          {"text-after": "## two", "text": "the whale", "offset": "26-35"},
+          {"text": "Ahab", "quote": "nowhere"},
+          {"text": "the whale", "quote": "whale"},
+          {"anchor": "## two", "text": "Ahab"}
+        ]
+        """
+        try cli.file("links.json", Data(spec.utf8))
+        let dry = await cli.run("link", "Moby", "--batch", "links.json", "--section", "2", "--dry-run")
+        #expect(dry.code == 1)
+        #expect(dry.out.contains("  1 ✔ would link “the whale” · line 2 → chapter 2 · section 2 · 9 chars"))
+        #expect(dry.out.contains("  2 ✔ would link"))
+        #expect(dry.out.contains("  3 ✘ “Ahab”: couldn't find “nowhere” in Moby"))
+        #expect(dry.out.contains("  4 ✘ “the whale”: “the whale” appears twice in Moby"))
+        #expect(dry.out.contains("--text-nth 2  ·  --text-offset 24-33"))
+        #expect(dry.out.contains("  5 ✘ “Ahab”: “anchor” isn't a flag an entry can set"))
+        #expect(dry.out.contains("5 entries, 3 failed (dry run, nothing written)"))
+        #expect(try await body(cli, book) == "## one\nthe whale\n## two\nthe whale and Ahab")
+
+        cli.stdin = """
+        [{"text-after": "## one", "text": "the whale", "quote": "The whale", "section": 2},
+         {"text-after": "## two", "text": "the whale", "offset": "26-35"}]
+        """
+        let applied = await cli.run("link", "Moby", "--batch", "-", "--section", "2", "--json")
+        #expect(applied.code == 0, "\(applied.out)")
+        let json = try #require(try applied.json() as? [String: Any])
+        #expect(json["failed"] as? Int == 0)
+        #expect(json["pageLinks"] as? Int == 2)
+        #expect(json["textUnchanged"] as? Bool == true)
+        let results = try #require(json["results"] as? [[String: Any]])
+        #expect(results.compactMap { ($0["result"] as? [String: Any])?["outcome"] as? String } == ["linked", "linked"])
+        let linked = try await body(cli, book)
+        #expect(linked.replacingOccurrences(of: #"\]\(gloss://passage/[a-z0-9]+\)"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: "[", with: "") == "## one\nthe whale\n## two\nthe whale and Ahab")
+        #expect(linked.contains("## two\n[the whale](gloss://passage/"))
+
+        let again = await cli.run("link", "Moby", "--batch", "links.json", "--section", "2", "--json")
+        let failures = try #require((try again.json() as? [String: Any])?["results"] as? [[String: Any]]).filter { $0["ok"] as? Bool == false }
+        #expect(failures.compactMap { $0["side"] as? String } == ["notes"])
+        #expect((failures.first { $0["side"] != nil }?["candidates"] as? [[String: Any]])?.count == 2)
+        #expect(try await body(cli, book) == linked)
+    }
+
+    @Test("--batch input mistakes are usage errors")
+    func batchUsage() async throws {
+        let (cli, _) = try await setUp()
+        cli.stdin = "{}"
+        #expect(await cli.run("link", "Moby", "--batch", "-").code == 64)
+        cli.stdin = "[]"
+        #expect(await cli.run("link", "Moby", "--batch", "-").code == 64)
+        #expect(await cli.run("link", "Moby", "--batch", "missing.json").code == 1)
+        #expect(await cli.run("link", "Moby", "--batch", "-", "--list").code == 64)
     }
 }

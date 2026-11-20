@@ -1,16 +1,21 @@
+import ArgumentParser
 import Foundation
 
-/// The per-format flags of `gloss link` (`--section 5` for epubs, `--page 5` for pdfs).
+/// The per-format flags of `gloss link`, `gloss text` and `gloss highlights` (`--section 5` for
+/// epubs, `--page 5` for pdfs).
 ///
 /// ArgumentParser's options are fixed at compile time, but which words name a part of a book
-/// belongs to the formats (`QuoteLocating.partName`). So the command declares one
+/// belongs to the formats (`QuoteLocating.partName`). So the commands declare one
 /// `--part` option and the names the formats supply are rewritten into it before parsing:
-/// `--section 5` becomes `--part section:5`. Only arguments after the `link` subcommand change.
+/// `--section 5` becomes `--part section:5`. Only arguments after one of those subcommands change.
 enum PartFlags {
+    static let commands: Set<String> = ["link", "text", "highlights"]
+
     static func rewrite(_ arguments: [String], names: [String]) -> [String] {
-        guard !names.isEmpty, let link = arguments.firstIndex(of: "link") else { return arguments }
-        var result = Array(arguments[...link])
-        var index = link + 1
+        guard !names.isEmpty, let command = arguments.firstIndex(where: { !$0.hasPrefix("-") }),
+              commands.contains(arguments[command]) else { return arguments }
+        var result = Array(arguments[...command])
+        var index = command + 1
         while index < arguments.count {
             let argument = arguments[index]
             index += 1
@@ -49,5 +54,20 @@ enum PartFlags {
 
         /// What to call the flag in messages: `--section`, or `--part`.
         var flag: String { "--\(noun ?? "part")" }
+
+        /// The transform for a `--part` option.
+        static func parse(_ text: String) throws -> Selection {
+            guard let selection = Selection(text) else {
+                let flag = text.firstIndex(of: ":").map { "--" + text[..<$0] } ?? "--part"
+                throw ValidationError("\(flag) needs a number, like 3")
+            }
+            return selection
+        }
+    }
+
+    /// Fails when the part was named with another format's word (`--page` for an epub).
+    static func check(_ selection: Selection?, against partName: String) throws {
+        guard let selection, let used = selection.noun, used != partName else { return }
+        throw CLIFailure("this book has \(partName)s, not \(used)s", hint: "use --\(partName) \(selection.number)", code: CLIFailure.usageCode)
     }
 }
