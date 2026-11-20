@@ -18,13 +18,39 @@ public struct NotesTextMatch: Hashable, Sendable {
 
 /// Finds the words `gloss link --text` names in a page, the way the editor's link gesture
 /// would accept a selection: on one line, outside code, and not across a link's syntax or in
-/// its destination. Matching is by whole words, whitespace-normalised, optionally case-insensitive.
+/// its destination. Matching is by whole words, whitespace-normalised, optionally case-insensitive,
+/// against the page as it reads (formatting and escapes aside) and as it's written.
 public enum NotesTextFinder {
     public static func matches(of text: String, in body: String, ignoringCase: Bool = false,
                                parser: MarkdownParser = .standard) -> [NotesTextMatch] {
         let document = parser.parse(body)
-        return FoldedText.ranges(of: text, in: body, whitespace: .collapsed, ignoringCase: ignoringCase, wholeWords: true)
-            .compactMap { match(at: $0, in: document) }
+        return ranges(of: text, in: document, ignoringCase: ignoringCase, wholeWords: true).compactMap { match(at: $0, in: document) }
+    }
+
+    /// Body ranges of `text` as the page reads (`a replica` in `a **replica**`, `[b]` in `\[b\]`)
+    /// or as it's written (`a **replica**`), in order, each once. Not yet checked for linking.
+    public static func ranges(of text: String, in body: String, ignoringCase: Bool = false, wholeWords: Bool = false,
+                              parser: MarkdownParser = .standard) -> [Range<Int>] {
+        ranges(of: text, in: parser.parse(body), ignoringCase: ignoringCase, wholeWords: wholeWords)
+    }
+
+    static func ranges(of text: String, in document: MarkdownDocument, ignoringCase: Bool, wholeWords: Bool) -> [Range<Int>] {
+        let read = VisibleNotesText(document).ranges(of: text, ignoringCase: ignoringCase, wholeWords: wholeWords)
+        let written = FoldedText.ranges(of: text, in: document.text.string, whitespace: .collapsed, ignoringCase: ignoringCase,
+                                        wholeWords: wholeWords)
+        return Set(read + written).sorted { ($0.lowerBound, $0.upperBound) < ($1.lowerBound, $1.upperBound) }
+    }
+
+    /// Whether the words at `range` say `text`, as the page reads or as it's written
+    /// (whitespace aside), to check `--text` against `--text-offset`.
+    public static func range(_ range: Range<Int>, in body: String, says text: String, ignoringCase: Bool = false,
+                             parser: MarkdownParser = .standard) -> Bool {
+        let units = Array(body.utf16)
+        guard range.lowerBound >= 0, range.upperBound <= units.count else { return false }
+        let wanted = FoldedText(text, whitespace: .collapsed, ignoringCase: ignoringCase).units
+        let written = String(decoding: units[range], as: UTF16.self)
+        let read = VisibleNotesText(parser.parse(body)).text(in: range)
+        return [written, read].contains { FoldedText($0, whitespace: .collapsed, ignoringCase: ignoringCase).units == wanted }
     }
 
     /// The words at an exact UTF-16 range of the body; nil when a link can't wrap them there.

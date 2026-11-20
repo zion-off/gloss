@@ -267,6 +267,42 @@ struct NotesTextFinderTests {
         #expect(NotesTextFinder.match(at: 3..<6, in: "😀 the whale")?.text == "the")
     }
 
+    @Test("words match as the page reads: across formatting it covers whole, through escapes, and again once linked")
+    func asItReads() async throws {
+        // Formatting covered whole is wrapped with the words; words inside it stay inside.
+        let bold = "- a **replica** stores a copy"
+        #expect(NotesTextFinder.matches(of: "a replica stores", in: bold).map(\.text) == ["a **replica** stores"])
+        #expect(NotesTextFinder.matches(of: "replica", in: bold).map(\.range) == [6..<13])
+        #expect(NotesTextFinder.matches(of: "a **replica** stores", in: bold).count == 1)  // as written still works
+        // Cutting through formatting, or reaching into code, is no match.
+        #expect(NotesTextFinder.matches(of: "replica stores", in: "a **big replica** stores").isEmpty)
+        #expect(NotesTextFinder.matches(of: "big whale", in: "`the big` whale").isEmpty)
+        #expect(NotesTextFinder.matches(of: "the whale", in: "`the` whale").map(\.text) == ["`the` whale"])  // code inside a link is fine
+        // Escaped brackets read as brackets; the range takes the backslash with it.
+        let escaped = "see \\[sic\\] here"
+        #expect(NotesTextFinder.matches(of: "[sic]", in: escaped).map(\.range) == [4..<11])
+        #expect(NotesTextFinder.range(4..<11, in: escaped, says: "[sic]"))
+        #expect(!NotesTextFinder.range(4..<11, in: escaped, says: "[sick]"))
+
+        // Linking words with brackets escapes them; the same words find that link again.
+        let library = TestLibrary()
+        let (document, _) = try await library.book(chapters: ["Call me Ishmael."])
+        let page = try await library.services.pages.rootPage(of: document.id)!
+        _ = try await library.services.pages.updateBody(page.id, to: "a note [with brackets] and a **bold** claim")
+        let passage = try await library.services.passages.text(of: document.id).candidates(for: BookTextQuery(.quote("Ishmael")))[0].passage
+        for words in ["note [with brackets]", "a bold claim"] {
+            let first = try #require(NotesTextFinder.matches(of: words, in: try await library.services.pages.page(page.id)!.body).first)
+            let linked = try await library.services.links.link(first.range, expecting: first.text, in: page.id, to: passage, in: document.id)
+            #expect(linked.change == .linked)
+            let again = try #require(NotesTextFinder.matches(of: words, in: linked.page.body).first)
+            #expect(again.linkDestination != nil)
+            let relinked = try await library.services.links.link(again.range, expecting: again.text, in: page.id, to: passage, in: document.id)
+            #expect(relinked.change == .alreadyLinked)
+        }
+        let body = try await library.services.pages.page(page.id)!.body
+        #expect(body.hasPrefix("a [note \\[with brackets\\]](gloss://passage/"))
+        #expect(body.contains(" and [a **bold** claim](gloss://passage/"))
+    }
 }
 
 @Suite("linking words in notes")
