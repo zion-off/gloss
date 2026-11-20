@@ -66,6 +66,19 @@ struct EPUBTests {
         #expect(format.quoteLocator(for: anchor, in: TextChunk(locator: Locator(scheme: EPUBLocators.cfiScheme, value: "x"), label: nil, text: "")) == nil)
     }
 
+    @Test("a passage's section comes from its quote locator or its CFI's spine step")
+    func passageParts() {
+        let quote = EPUBQuoteLocator(section: 4, quote: QuoteAnchor(text: "a", prefix: "", suffix: "", occurrence: 0)).locator
+        #expect(format.partNumber(of: quote) == 5)
+        func cfi(_ value: String) -> Int? { format.partNumber(of: Locator(scheme: EPUBLocators.cfiScheme, value: value)) }
+        #expect(cfi("epubcfi(/6/14!/4/2,/1:0,/1:9)") == 7)
+        #expect(cfi("epubcfi(/6/2[cover]!/4/1:0)") == 1)
+        #expect(cfi("epubcfi(/6/14)") == nil)
+        #expect(cfi("epubcfi(/6/3!/4)") == nil)
+        #expect(cfi("nonsense") == nil)
+        #expect(format.partNumber(of: Locator(scheme: EPUBLocators.hrefScheme, value: "epubcfi(/6/14!/4)")) == nil)
+    }
+
     @Test("epub 2 books use the NCX for labels")
     func ncx() throws {
         var builder = EPUBBuilder()

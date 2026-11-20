@@ -66,4 +66,15 @@ struct PDFLocatorTests {
         #expect(PDFQuoteLocator(locator: locator) == PDFQuoteLocator(page: 11, quote: anchor))
         #expect(PDFPassageLocator(locator: locator) == nil)
     }
+
+    @Test("a passage's page comes from its quote locator or the first page it spans")
+    func passageParts() {
+        let format = PDFFormat()
+        let anchor = QuoteAnchor(text: "words", prefix: "", suffix: "", occurrence: 0)
+        #expect(format.partNumber(of: PDFQuoteLocator(page: 11, quote: anchor).locator) == 12)
+        let spans = PDFPassageLocator(pages: [.init(page: 3, ranges: [[0, 4]], rects: []), .init(page: 4, ranges: [[0, 2]], rects: [])])
+        #expect(format.partNumber(of: spans.locator) == 4)
+        #expect(format.partNumber(of: PDFPassageLocator(pages: []).locator) == nil)
+        #expect(format.partNumber(of: Locator(scheme: PDFLocators.pageScheme, value: "3")) == nil)
+    }
 }
