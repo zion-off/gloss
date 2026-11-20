@@ -26,6 +26,17 @@ struct LinkCommand: AsyncParsableCommand {
             \(names.isEmpty ? "parts" : names.map { "\($0)s" }.joined(separator: " or ")) depending on its format; \
             --part N works for all of them.
 
+            --text-after links the first match of --text after words that appear once in the page, usually a \
+            heading, so repeated words are linked in the right section. gloss warns when a passage runs past \
+            \(Self.longPassage) characters: a closer --through makes a better link. gloss link only ever adds or \
+            re-points links: if the page's text would change in any other way, it writes nothing.
+
+            --batch links many words in one go from a json array (a file, or - for stdin). each object holds the \
+            flags of one gloss link, named without their dashes ("text-after", "quote", "section": 12, \
+            "ignore-case": true); flags given on the command line apply to every entry that doesn't set them. \
+            entries run in order, a failure doesn't stop the rest, and the summary says whether the page's text \
+            stayed the same apart from links. combine with --dry-run to check every entry first.
+
             examples:
               gloss link "moby dick" --text "his obsession" --quote "the white whale"
               gloss link notes --text "the sea" --to "the waves" --quote "the sea" --nth 2
@@ -33,6 +44,8 @@ struct LinkCommand: AsyncParsableCommand {
               gloss link notes --quote "the whale" --list --json      (see every match and its --match ref)
               gloss link notes --text "here" --match epub-section:4@1204-1213 --quote "the whale"
               gloss link notes --text-offset 10-14 --\(names.first ?? "part") 5 --offset 1204-1213 --dry-run
+              gloss link notes --text-after "## 2. leaders" --text "replica" --quote "Each node that stores a copy"
+              gloss link notes --batch links.json --match epub-section:12 --dry-run
             """)
     }
 
@@ -42,6 +55,8 @@ struct LinkCommand: AsyncParsableCommand {
     @Option(help: "the words in the page that become the link") var text: String?
     @Option(name: .customLong("text-offset"), help: "the words by their place in the page: START-END") var textOffset: String?
     @Option(name: .customLong("text-nth"), help: "which match of --text, counting from 1") var textNth: Int?
+    @Option(name: .customLong("text-after"), help: "link the first match of --text after these words, which appear once in the page")
+    var textAfter: String?
 
     @Option(help: "the book to link into (default: the page's own book)") var to: String?
     @Option(help: "the passage's words (with --match or --offset: what they should say)") var quote: String?
@@ -51,7 +66,7 @@ struct LinkCommand: AsyncParsableCommand {
     @Option(help: "the passage by its place in the text of the part --part (or its format's own flag) names: START-END") var offset: String?
     @Option(help: "which match in the book, counting from 1 in reading order") var nth: Int?
     @Option(help: "only this part of the book, counting from 1 (a format's own word for its parts works as a flag too, see above)",
-            transform: { try Self.selection($0) }) var part: [PartFlags.Selection] = []
+            transform: { try PartFlags.Selection.parse($0) }) var part: [PartFlags.Selection] = []
     @Option(help: "only sections whose title has these words (\"3\", \"loomings\")") var chapter: String?
     @Option(help: "words that come right before the passage") var before: String?
     @Option(help: "words that come right after the passage") var after: String?
@@ -59,8 +74,16 @@ struct LinkCommand: AsyncParsableCommand {
     @Flag(help: "link even if the text at --match or --offset doesn't say --quote") var force = false
     @Flag(help: "list every match and write nothing") var list = false
     @Flag(name: .customLong("dry-run"), help: "show what would be linked and write nothing") var dryRun = false
+    @Option(help: "link many words from a json array of flag objects (a file, or - for stdin)") var batch: String?
+
+    /// Past this many characters a passage is more of a chapter than a quote.
+    static let longPassage = 900
 
     func validate() throws {
+        if batch != nil {
+            if list { throw ValidationError("--batch links, so it doesn't go with --list") }
+            return  // each entry is checked with these flags added
+        }
         let exact = [match.map { _ in "--match" }, offset.map { _ in "--offset" }].compactMap { $0 }
         if exact.count > 1 { throw ValidationError("pick either --match or --offset") }
         if (from == nil) != (through == nil) { throw ValidationError("a longer passage needs both --from and --through") }
@@ -72,6 +95,7 @@ struct LinkCommand: AsyncParsableCommand {
             throw ValidationError("which passage? give --quote, --from/--through, --match or \(partFlags) with --offset")
         }
         if textNth != nil, text == nil { throw ValidationError("--text-nth picks among the matches of --text") }
+        if textAfter != nil, text == nil { throw ValidationError("--text-after says where to look for --text") }
         if textOffset != nil, Self.range(textOffset) == nil { throw ValidationError("--text-offset needs START-END, like 10-24") }
         if offset != nil, Self.range(offset) == nil { throw ValidationError("--offset needs START-END, like 1204-1251") }
         if let match, isExactRef, BookTextRef(string: match) == nil { throw ValidationError("--match needs a ref like epub-section:4@1204-1251") }
@@ -100,8 +124,8 @@ struct LinkCommand: AsyncParsableCommand {
                     + "drop \(given.count == 1 ? "it" : "them"), or drop \(place == "--offset" ? "--offset" : "the range") to search by words instead")
             }
         }
-        if textOffset != nil, textNth != nil {
-            throw ValidationError("--text-offset names one exact place, so --text-nth would do nothing\n"
+        if textOffset != nil, textNth != nil || textAfter != nil {
+            throw ValidationError("--text-offset names one exact place, so \(textNth != nil ? "--text-nth" : "--text-after") would do nothing\n"
                 + "drop one of them")
         }
     }
@@ -111,14 +135,6 @@ struct LinkCommand: AsyncParsableCommand {
 
     static func range(_ text: String?) -> Range<Int>? { text.flatMap(BookTextRef.range) }
 
-    static func selection(_ text: String) throws -> PartFlags.Selection {
-        guard let selection = PartFlags.Selection(text) else {
-            let flag = text.firstIndex(of: ":").map { "--" + text[..<$0] } ?? "--part"
-            throw ValidationError("\(flag) needs a number, like 3")
-        }
-        return selection
-    }
-
     /// "--section/--page" (or "--part"): the flags that name a part, as the registered formats call it.
     private var partFlags: String {
         let names = CLIEnvironment.current.partNames
@@ -127,6 +143,31 @@ struct LinkCommand: AsyncParsableCommand {
 
     func run() async throws {
         let context = try Context(global)
+        if let batch { return try await runBatch(batch, context: context) }
+        var texts: [DocumentID: BookText] = [:]
+        guard let done = try await perform(context: context, texts: &texts, mode: .single) else { return }
+        try report(done, context: context)
+    }
+
+    /// One command line, or one entry of a batch: never asks, lists ambiguity as an error.
+    enum Mode { case single, batch }
+
+    /// What a link did, for the report.
+    struct Performed {
+        var outcome: Outcome
+        var page: Page
+        var url: String?
+        var words: Words?
+        var picked: Picked
+        var notesCount: Int?
+        var document: Document
+        var bookText: BookText
+        var linkRange: Range<Int>?
+    }
+
+    /// Finds the words and the passage and links them (or, for --list, shows the matches and
+    /// returns nil). `texts` keeps each book's extracted text across a batch.
+    func perform(context: Context, texts: inout [DocumentID: BookText], mode: Mode) async throws -> Performed? {
         let page = try await context.references.page(self.page)
         let book: Document
         if let to {
@@ -138,66 +179,65 @@ struct LinkCommand: AsyncParsableCommand {
             book = own
         }
         let bookText: BookText
-        do { bookText = try await context.core.passages.text(of: book.id) }
-        catch let error as GlossError { throw CLIFailure(error.description) }
+        if let cached = texts[book.id] {
+            bookText = cached
+        } else {
+            do { bookText = try await context.core.passages.text(of: book.id) }
+            catch let error as GlossError { throw CLIFailure(error.description) }
+            texts[book.id] = bookText
+        }
 
         let query = try bookQuery(for: bookText)
         let candidates: [PassageCandidate]
         do { candidates = try bookText.candidates(for: query) }
         catch let error as GlossError { throw CLIFailure(error.description, code: CLIFailure.usageCode) }
-        let notes = try notesMatches(in: page.body)
+        let notes = try notesMatches(in: page)
 
         if list {
             try showList(book: candidates, notes: notes, bookText: bookText, document: book, page: page, context: context)
-            return
+            return nil
         }
         // Words that aren't there fail before anything asks which of several to use.
-        if candidates.isEmpty { _ = try pickPassage(candidates, bookText: bookText, document: book, context: context) }
-        let words = try notes.map { try pickWords($0, page: page, context: context) }
-        let (chosen, number) = try pickPassage(candidates, bookText: bookText, document: book, context: context)
-        let picked = Picked(candidate: chosen, number: number, of: candidates.count)
-
-        if dryRun {
-            try report(.dryRun, page: page, url: nil, words: words, passage: picked, notesCount: notes?.count,
-                       document: book, bookText: bookText, context: context)
-            return
-        }
+        if candidates.isEmpty { _ = try pickPassage(candidates, bookText: bookText, document: book, context: context, mode: mode) }
+        let words = try notes.map { try pickWords($0, page: page, context: context, mode: mode) }
+        let (chosen, number) = try pickPassage(candidates, bookText: bookText, document: book, context: context, mode: mode)
+        var done = Performed(outcome: .dryRun, page: page, url: nil, words: words,
+                             picked: Picked(candidate: chosen, number: number, of: candidates.count),
+                             notesCount: notes?.count, document: book, bookText: bookText)
+        if dryRun { return done }
         guard let words else {
             let target = try await context.core.links.target(for: chosen.passage, in: book.id)
             let url = GlossLink.passage(target.id).string
+            done.url = url
             if LinkScanner.links(in: page.body).contains(where: { $0.destination == url }) {
-                try report(.alreadyQuoted, page: page, url: url, words: nil, passage: picked, notesCount: nil,
-                           document: book, bookText: bookText, context: context)
-                return
+                done.outcome = .alreadyQuoted
+                return done
             }
             let added = try await context.core.links.addQuote(of: chosen.passage, in: book.id, to: page.id)
-            try report(.quoted, page: added.page, url: url, words: nil, passage: picked, notesCount: nil,
-                       document: book, bookText: bookText, context: context)
-            return
+            done.outcome = .quoted
+            done.page = added.page
+            return done
         }
         let result: NotesLinkResult
         do {
             result = try await context.core.links.link(words.match.range, expecting: words.match.text, in: page.id,
                                                        to: chosen.passage, in: book.id)
         } catch let error as GlossError { throw CLIFailure(error.description) }
-        let outcome: Outcome
         switch result.change {
-        case .linked: outcome = .linked
-        case .relinked(let from): outcome = .relinked(from)
-        case .alreadyLinked: outcome = .alreadyLinked
+        case .linked: done.outcome = .linked
+        case .relinked(let from): done.outcome = .relinked(from)
+        case .alreadyLinked: done.outcome = .alreadyLinked
         }
-        try report(outcome, page: result.page, url: GlossLink.passage(result.target.id).string, words: words, passage: picked,
-                   notesCount: notes?.count, document: book, bookText: bookText, context: context,
-                   linkRange: result.range)
+        done.page = result.page
+        done.url = GlossLink.passage(result.target.id).string
+        done.linkRange = result.range
+        return done
     }
 
     // MARK: The book side
 
     private func bookQuery(for text: BookText) throws -> BookTextQuery {
-        let noun = text.partName
-        if let used = part.first?.noun, used != noun {
-            throw CLIFailure("this book has \(noun)s, not \(used)s", hint: "use --\(noun) \(part[0].number)", code: CLIFailure.usageCode)
-        }
+        try PartFlags.check(part.first, against: text.partName)
         let part = part.first?.number
         let target: BookTextQuery.Target
         var scope: Locator?
@@ -225,7 +265,7 @@ struct LinkCommand: AsyncParsableCommand {
 
     /// The candidate to link and its 1-based number among the matches (0 for an exact place).
     private func pickPassage(_ candidates: [PassageCandidate], bookText: BookText, document: Document,
-                             context: Context) throws -> (PassageCandidate, Int) {
+                             context: Context, mode: Mode) throws -> (PassageCandidate, Int) {
         if isExact, let only = candidates.first {
             if let quote, !force, !only.says(quote, ignoringCase: ignoreCase) {
                 throw CLIFailure("the text at \(only.ref) says “\(DisplayWidth.truncate(only.passage.quote, to: 80))”, not “\(quote)”",
@@ -256,7 +296,7 @@ struct LinkCommand: AsyncParsableCommand {
         let index = try choose(rows, message: "\(what) appears \(Self.times(candidates.count)) in \(document.title)",
                                hint: "pick one with --nth N or its --match ref; narrow with --\(bookText.partName), --chapter, --before or --after",
                                side: "book", json: candidates.enumerated().map { CandidateJSON($1, number: $0 + 1, bookText: bookText) },
-                               context: context)
+                               context: context, mode: mode)
         return (candidates[index], index + 1)
     }
 
@@ -273,8 +313,10 @@ struct LinkCommand: AsyncParsableCommand {
         var number: Int
     }
 
-    /// Every match of the words, or nil when the command isn't linking words.
-    private func notesMatches(in body: String) throws -> [NotesTextMatch]? {
+    /// Every match of the words (after --text-after's words, with it), or nil when the command
+    /// isn't linking words.
+    private func notesMatches(in page: Page) throws -> [NotesTextMatch]? {
+        let body = page.body
         if let textOffset, let range = Self.range(textOffset) {
             // After an earlier run the link's "[" has shifted the words by one.
             guard let match = NotesTextFinder.match(wrappedAt: range, in: body) ?? NotesTextFinder.match(at: range, in: body) else {
@@ -282,23 +324,37 @@ struct LinkCommand: AsyncParsableCommand {
                                  hint: "links need a few words on one line, outside code (offsets count utf-16 units in gloss read --raw)",
                                  code: CLIFailure.usageCode)
             }
-            if let text, !force, FoldedText(match.text, whitespace: .collapsed, ignoringCase: ignoreCase).units
-                != FoldedText(text, whitespace: .collapsed, ignoringCase: ignoreCase).units {
+            if let text, !force, !NotesTextFinder.range(match.range, in: body, says: text, ignoringCase: ignoreCase) {
                 throw CLIFailure("the page says “\(match.text)” at \(textOffset), not “\(text)”",
                                  hint: "check the offsets, or link it anyway with --force", code: CLIFailure.usageCode)
             }
             return [match]
         }
         guard let text else { return nil }
-        return NotesTextFinder.matches(of: text, in: body, ignoringCase: ignoreCase)
+        let matches = NotesTextFinder.matches(of: text, in: body, ignoringCase: ignoreCase)
+        guard let textAfter else { return matches }
+        let anchors = NotesTextFinder.ranges(of: textAfter, in: body, ignoringCase: ignoreCase)
+        guard anchors.count == 1, let anchor = anchors.first else {
+            let title = page.title.isEmpty ? PageService.untitled : page.title
+            throw CLIFailure(anchors.isEmpty ? "couldn't find “\(textAfter)” in \(title)"
+                                 : "“\(textAfter)” appears \(Self.times(anchors.count)) in \(title), so it doesn't mark one place",
+                             hint: "--text-after needs words that appear once in the page, like a heading\n"
+                                 + "see the page with: gloss read \(Format.shortID(page.id)) --raw")
+        }
+        return matches.filter { $0.range.lowerBound >= anchor.upperBound }
     }
 
-    private func pickWords(_ matches: [NotesTextMatch], page: Page, context: Context) throws -> Words {
+    private func pickWords(_ matches: [NotesTextMatch], page: Page, context: Context, mode: Mode) throws -> Words {
         let title = page.title.isEmpty ? PageService.untitled : page.title
         if textOffset != nil, let only = matches.first { return Words(match: only, number: 1) }
         let text = self.text ?? ""
         guard !matches.isEmpty else {
+            if let textAfter {
+                throw CLIFailure("couldn't find “\(text)” after “\(textAfter)” in \(title)",
+                                 hint: (ignoreCase ? "" : "try -i to ignore case\n") + "see the page with: gloss read \(Format.shortID(page.id)) --raw")
+            }
             let anywhere = FoldedText.ranges(of: text, in: page.body, ignoringCase: ignoreCase, wholeWords: true)
+                + NotesTextFinder.ranges(of: text, in: page.body, ignoringCase: ignoreCase, wholeWords: true)
             if !anywhere.isEmpty {
                 throw CLIFailure("“\(text)” is in \(title) only inside code, a link's address or across lines",
                                  hint: "links need a few words on one line, outside code")
@@ -313,14 +369,16 @@ struct LinkCommand: AsyncParsableCommand {
             }
             return Words(match: matches[textNth - 1], number: textNth)
         }
-        guard matches.count > 1 else { return Words(match: matches[0], number: 1) }
+        // The first match after the anchor is what --text-after means, not a guess.
+        guard matches.count > 1, textAfter == nil else { return Words(match: matches[0], number: 1) }
         let rows = matches.enumerated().map { index, match in
             Row(number: index + 1, place: "line \(match.line)", before: match.before, match: match.text, after: match.after,
                 pick: "--text-nth \(index + 1)", exact: "--text-offset \(match.range.lowerBound)-\(match.range.upperBound)")
         }
         let index = try choose(rows, message: "“\(text)” appears \(Self.times(matches.count)) in \(title)",
                                hint: "pick one with --text-nth N or --text-offset START-END",
-                               side: "notes", json: matches.enumerated().map { NotesMatchJSON($1, number: $0 + 1) }, context: context)
+                               side: "notes", json: matches.enumerated().map { NotesMatchJSON($1, number: $0 + 1) }, context: context,
+                               mode: mode)
         return Words(match: matches[index], number: index + 1)
     }
 
@@ -337,23 +395,17 @@ struct LinkCommand: AsyncParsableCommand {
     }
 
     /// Several matches and no way to tell: on a terminal, ask; otherwise list them all and stop
-    /// (exit 64), in json too. Never guesses.
-    private func choose<J: Encodable>(_ rows: [Row], message: String, hint: String, side: String, json: [J], context: Context) throws -> Int {
+    /// (exit 64), in json too. In a batch, the listing is the entry's failure. Never guesses.
+    private func choose<J: Encodable>(_ rows: [Row], message: String, hint: String, side: String, json: [J], context: Context,
+                                      mode: Mode) throws -> Int {
+        if mode == .batch { throw Ambiguity(message: message, hint: hint, side: side, rows: rows) }
         let printer = context.printer
         let interactive = context.environment.stdinIsTTY && printer.terminal.isTTY && !context.json
-        if context.json {
-            try printer.json(AmbiguityJSON(error: message, hint: hint, side: side, candidates: json))
-            throw ExitCode(CLIFailure.usageCode)
-        }
-        if !interactive { printer.failure(CLIFailure(message)) }
-        else { printer.clearStatus(); context.environment.output.err(message + "\n") }
-        let stderr = printer.stderrTerminal
+        guard interactive else { try Self.list(rows, message: message, hint: hint, side: side, json: json, context: context) }
+        printer.clearStatus()
+        context.environment.output.err(message + "\n")
         for row in rows {
-            context.environment.output.err(Self.render(row, on: stderr) + "\n")
-        }
-        guard interactive else {
-            context.environment.output.err(stderr.paint(hint, .muted) + "\n")
-            throw ExitCode(CLIFailure.usageCode)
+            context.environment.output.err(Self.render(row, on: printer.stderrTerminal) + "\n")
         }
         printer.ask("which one? (1–\(rows.count), return to stop)")
         let answer = context.environment.readLine()?.trimmingCharacters(in: .whitespaces) ?? ""
@@ -361,6 +413,30 @@ struct LinkCommand: AsyncParsableCommand {
             throw CLIFailure("nothing linked", hint: hint, code: 1)
         }
         return number - 1
+    }
+
+    /// Lists every match with the flags that pick it, on stderr (or as json), and stops with exit 64.
+    static func list<J: Encodable>(_ rows: [Row], message: String, hint: String, side: String, json: [J], context: Context) throws -> Never {
+        let printer = context.printer
+        if context.json {
+            try printer.json(AmbiguityJSON(error: message, hint: hint, side: side, candidates: json))
+            throw ExitCode(CLIFailure.usageCode)
+        }
+        printer.failure(CLIFailure(message))
+        let stderr = printer.stderrTerminal
+        for row in rows {
+            context.environment.output.err(render(row, on: stderr) + "\n")
+        }
+        context.environment.output.err(stderr.paint(hint, .muted) + "\n")
+        throw ExitCode(CLIFailure.usageCode)
+    }
+
+    /// Several matches in a batch entry: its failure, with the rows that would pick each.
+    struct Ambiguity: Error {
+        var message: String
+        var hint: String
+        var side: String
+        var rows: [Row]
     }
 
     static func render(_ row: Row, on terminal: Terminal) -> String {
@@ -429,16 +505,12 @@ struct LinkCommand: AsyncParsableCommand {
         var of: Int
     }
 
-    private func report(_ outcome: Outcome, page: Page, url: String?, words: Words?, passage picked: Picked,
-                        notesCount: Int?, document: Document, bookText: BookText, context: Context, linkRange: Range<Int>? = nil) throws {
+    private func report(_ done: Performed, context: Context) throws {
+        let (outcome, page, url, words, picked) = (done.outcome, done.page, done.url, done.words, done.picked)
+        let (notesCount, document, bookText) = (done.notesCount, done.document, done.bookText)
         let printer = context.printer
         if context.json {
-            try printer.json(LinkResultJSON(
-                outcome: outcome.name, dryRun: { if case .dryRun = outcome { true } else { false } }(), url: url,
-                page: PageJSON(page), book: DocumentJSON(document),
-                words: words.map { NotesMatchJSON($0.match, number: $0.number, of: notesCount) },
-                link: linkRange.map { [$0.lowerBound, $0.upperBound] },
-                passage: CandidateJSON(picked.candidate, number: picked.number, of: picked.number > 0 ? picked.of : nil, bookText: bookText)))
+            try printer.json(LinkResultJSON(done))
             return
         }
         let title = printer.title(page.title)
@@ -466,6 +538,14 @@ struct LinkCommand: AsyncParsableCommand {
         printer.line(pad + printer.paint("book  ", .muted) + " " + Self.snippet(passage, on: printer.terminal))
         printer.line(pad + "       " + printer.paint(of + "--match \(passage.ref)", .faint))
         if let url { printer.line(pad + printer.paint("link  ", .muted) + " " + printer.paint(url, .link)) }
+        if let warning = Self.lengthWarning(picked.candidate) { printer.warn(warning) }
+    }
+
+    /// A passage past `longPassage` characters.
+    static func lengthWarning(_ candidate: PassageCandidate) -> String? {
+        let length = candidate.ref.range.count
+        guard length > longPassage else { return nil }
+        return "that passage is \(length) characters long; a closer --through would make a tighter link"
     }
 
     static func snippet(_ candidate: PassageCandidate, on terminal: Terminal) -> String {
@@ -560,4 +640,19 @@ struct LinkResultJSON: Encodable {
     /// UTF-16 range of the whole `[words](gloss://…)` link in the saved page.
     var link: [Int]?
     var passage: CandidateJSON
+    /// Things worth a look that didn't stop the link (a very long passage).
+    var warnings: [String]?
+
+    init(_ done: LinkCommand.Performed) {
+        outcome = done.outcome.name
+        if case .dryRun = done.outcome { dryRun = true } else { dryRun = false }
+        url = done.url
+        page = PageJSON(done.page)
+        book = DocumentJSON(done.document)
+        words = done.words.map { NotesMatchJSON($0.match, number: $0.number, of: done.notesCount) }
+        link = done.linkRange.map { [$0.lowerBound, $0.upperBound] }
+        let picked = done.picked
+        passage = CandidateJSON(picked.candidate, number: picked.number, of: picked.number > 0 ? picked.of : nil, bookText: done.bookText)
+        warnings = LinkCommand.lengthWarning(picked.candidate).map { [$0] }
+    }
 }
