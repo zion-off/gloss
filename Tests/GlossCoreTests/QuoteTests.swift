@@ -185,6 +185,60 @@ struct PassageFinderTests {
     }
 }
 
+@Suite("a book's parts and where passages sit")
+struct BookTextPartsTests {
+    static let chapters = [
+        "Replication\nKeeping a copy of the same data on several machines.\nLeaders and Followers\nEach node that stores a copy is a replica.",
+        "Partitioning\nA copy of the same data, but split. Each node that stores a copy is a replica.",
+    ]
+
+    func book() async throws -> BookText {
+        let library = TestLibrary()
+        let (document, _) = try await library.book(chapters: Self.chapters)
+        return try await library.services.passages.text(of: document.id)
+    }
+
+    func passage(_ quote: String, section: Int? = nil) -> Passage {
+        Passage(locator: Locator(scheme: section == nil ? LocatorScheme("elsewhere") : FakeFormat.scheme,
+                                 value: section.map { "section-\($0)" } ?? "x"), quote: quote)
+    }
+
+    @Test("parts list in reading order with numbers, labels and lengths, and select by number or label words")
+    func parts() async throws {
+        let text = try await book()
+        #expect(text.parts.map(\.number) == [1, 2])
+        #expect(text.parts.map(\.label) == ["chapter 1", "chapter 2"])
+        #expect(text.parts[1].length == Self.chapters[1].utf16.count)
+        #expect(text.parts(number: 2).map(\.index) == [1])
+        #expect(text.parts(chapter: "chapter").count == 2)
+        #expect(text.parts(chapter: "1").map(\.index) == [0])
+        #expect(text.parts(number: 1, chapter: "2").isEmpty)
+    }
+
+    @Test("a passage's part comes from its locator, or the one part with its words; refs only for words found once")
+    func places() async throws {
+        let text = try await book()
+        let heading = try #require(text.place(of: passage("Leaders and Followers", section: 0)))
+        #expect(heading.part.number == 1)
+        #expect(heading.looksLikeHeading)
+        #expect(heading.ref?.description == "fake:section-0@65-86")
+        // Found by its words alone when the locator doesn't say.
+        let elsewhere = try #require(text.place(of: passage("but  split.")))
+        #expect(elsewhere.part.number == 2)
+        #expect(!elsewhere.looksLikeHeading)
+        #expect(elsewhere.ref?.description == "fake:section-1@38-48")
+        // In both parts and the locator doesn't say: no guess.
+        #expect(text.place(of: passage("a replica.")) == nil)
+        // In the part the locator names, but twice: the part, no ref.
+        let twice = try #require(text.place(of: passage("copy", section: 1)))
+        #expect(twice.part.number == 2)
+        #expect(twice.ref == nil)
+        // A whole line that ends like a sentence isn't a heading.
+        #expect(text.place(of: passage("Keeping a copy of the same data on several machines.", section: 0))?.looksLikeHeading == false)
+        #expect(text.place(of: passage("Replication", section: 0))?.looksLikeHeading == true)
+    }
+}
+
 @Suite("finding words in notes")
 struct NotesTextFinderTests {
     @Test("matches skip code, link destinations and line breaks, and see the links they're in")
@@ -212,6 +266,7 @@ struct NotesTextFinderTests {
         #expect(NotesTextFinder.match(at: 1..<6, in: "😀 the whale") == nil)
         #expect(NotesTextFinder.match(at: 3..<6, in: "😀 the whale")?.text == "the")
     }
+
 }
 
 @Suite("linking words in notes")

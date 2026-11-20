@@ -13,6 +13,17 @@ public enum EPUBLocators {
     /// Passages pinned by their words (`gloss link`): `EPUBQuoteLocator` JSON, resolved by
     /// the reader against the section it loads.
     public static let quoteScheme = LocatorScheme("epub-quote")
+
+    /// The 0-based spine index a CFI points into: the last step of its package path, which is
+    /// the itemref's even child index (`epubcfi(/6/14[ch5]!/4/2,/1:0,/1:9)` is 6).
+    static func spineIndex(ofCFI cfi: String) -> Int? {
+        guard cfi.hasPrefix("epubcfi("), let bang = cfi.firstIndex(of: "!") else { return nil }
+        let path = cfi[cfi.index(cfi.startIndex, offsetBy: 8)..<bang]
+        guard let step = path.split(separator: "/").last else { return nil }
+        let digits = step.prefix { $0.isASCII && $0.isNumber }
+        guard let index = Int(digits), index >= 2, index.isMultiple(of: 2) else { return nil }
+        return index / 2 - 1
+    }
 }
 
 /// A passage the CLI pinned by quoting a section's text: the spine index plus the quote, its
@@ -94,6 +105,14 @@ public struct EPUBFormat: DocumentFormat, TextExtracting, CoverExtracting, Quote
     public func quoteLocator(for anchor: QuoteAnchor, in chunk: TextChunk) -> Locator? {
         guard chunk.locator.scheme == EPUBLocators.sectionScheme, let section = Int(chunk.locator.value), section >= 0 else { return nil }
         return EPUBQuoteLocator(section: section, quote: anchor).locator
+    }
+
+    /// Quote locators name their section; a CFI's last step before the `!` is the itemref's
+    /// child index in the spine (`/6/14!…` is spine index 6), as foliate-js writes them.
+    public func partNumber(of passage: Locator) -> Int? {
+        if let quote = EPUBQuoteLocator(locator: passage) { return quote.section + 1 }
+        guard passage.scheme == EPUBLocators.cfiScheme else { return nil }
+        return EPUBLocators.spineIndex(ofCFI: passage.value).map { $0 + 1 }
     }
 
     public func extractCover(from data: Data) throws -> CoverImage? {

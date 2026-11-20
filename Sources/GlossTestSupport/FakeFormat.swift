@@ -59,6 +59,13 @@ public struct FakeFormat: DocumentFormat, TextExtracting, CoverExtracting, Quote
         return Locator(scheme: Self.quoteScheme, value: chunk.locator.value + "|" + json)
     }
 
+    /// Quote locators and plain `fake:section-N` passages name their section.
+    public func partNumber(of passage: Locator) -> Int? {
+        guard passage.scheme == Self.quoteScheme || passage.scheme == Self.scheme else { return nil }
+        let chunk = passage.value.split(separator: "|").first.map(String.init) ?? ""
+        return partNumber(of: TextChunk(locator: Locator(scheme: Self.scheme, value: chunk), label: nil, text: ""))
+    }
+
     public func extractCover(from data: Data) throws -> CoverImage? {
         String(decoding: data, as: UTF8.self).contains("cover: yes") ? CoverImage(data: Data([0x89, 0x50, 0x4E, 0x47]), mimeType: "image/png") : nil
     }

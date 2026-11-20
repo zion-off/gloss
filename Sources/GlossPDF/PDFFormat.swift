@@ -117,6 +117,12 @@ public struct PDFFormat: DocumentFormat, TextExtracting, QuoteLocating {
         return PDFQuoteLocator(page: page, quote: anchor).locator
     }
 
+    /// The page a passage starts on, for the reader's passages and quote locators alike.
+    public func partNumber(of passage: Locator) -> Int? {
+        if let quote = PDFQuoteLocator(locator: passage) { return quote.page + 1 }
+        return PDFPassageLocator(locator: passage)?.pages.first.map { $0.page + 1 }
+    }
+
     // MARK: Text extraction
 
     /// One chunk per page with text (skipping empty pages), located by zero-based page

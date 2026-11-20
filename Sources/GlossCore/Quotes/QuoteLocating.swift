@@ -10,6 +10,9 @@ public protocol QuoteLocating: Sendable {
     func partNumber(of chunk: TextChunk) -> Int?
     /// A locator for a quote inside `chunk`; nil when the chunk isn't one of this format's.
     func quoteLocator(for anchor: QuoteAnchor, in chunk: TextChunk) -> Locator?
+    /// The 1-based part a passage's locator points into (its reader's locators and its own
+    /// quote locators), counted as `partNumber(of:)` counts; nil when the locator doesn't say.
+    func partNumber(of passage: Locator) -> Int?
 }
 
 extension FormatRegistry {
