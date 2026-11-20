@@ -272,31 +272,91 @@ struct HighlightsCommand: AsyncParsableCommand {
 }
 
 struct HighlightsListCommand: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "list", abstract: "a book's highlights, in reading order")
+    static var configuration: CommandConfiguration {
+        let names = CLIEnvironment.current.partNames
+        return CommandConfiguration(
+            commandName: "list", abstract: "a book's highlights, in reading order",
+            discussion: """
+            each highlight shows the part of the book it's in, a --match ref that links exactly its words (when \
+            they appear once in that part), and “heading?” when it's a short line on its own, which usually means \
+            a heading. \(names.isEmpty ? "--part" : names.map { "--\($0)" }.joined(separator: "/")) N or --chapter \
+            show only one part's highlights.
+            """)
+    }
 
     @OptionGroup var global: GlobalOptions
     @Argument(help: "a title, id or gloss:// link") var book: String
+    @Option(help: "only this part of the book, counting from 1 (a format's own word for its parts works as a flag too)",
+            transform: { try PartFlags.Selection.parse($0) }) var part: [PartFlags.Selection] = []
+    @Option(help: "only parts whose title has these words (\"6\", \"replication\")") var chapter: String?
+
+    func validate() throws {
+        if part.count > 1 { throw ValidationError("pick one part of the book") }
+        if let selection = part.first, selection.number < 1 { throw ValidationError("\(selection.flag) counts from 1") }
+    }
 
     func run() async throws {
         let context = try Context(global)
         let document = try await context.references.document(book)
-        let highlights = try await context.core.highlights.highlights(in: document.id)
-        if context.json { try context.printer.json(highlights.map(HighlightJSON.init)); return }
+        var highlights = try await context.core.highlights.highlights(in: document.id)
+        let filtering = !part.isEmpty || chapter != nil
+        // Where each highlight sits in the text; books without text gloss can read just list.
+        var bookText: BookText?
+        if !highlights.isEmpty {
+            do { bookText = try await context.core.passages.text(of: document.id) }
+            catch let error as GlossError where filtering { throw CLIFailure(error.description) }
+            catch {}
+        }
+        let places = Dictionary(uniqueKeysWithValues: highlights.map { ($0.id, bookText?.place(of: $0.passage)) })
+        var unplaced = 0
+        if filtering, let bookText {
+            try PartFlags.check(part.first, against: bookText.partName)
+            let scope = Set(bookText.parts(number: part.first?.number, chapter: chapter).map(\.index))
+            guard !scope.isEmpty else {
+                throw CLIFailure("\(document.title) has no such \(bookText.partName) with text",
+                                 hint: "see its parts with: gloss text \(Format.shortID(document.id))")
+            }
+            unplaced = highlights.filter { places[$0.id].flatMap { $0 } == nil }.count
+            highlights = highlights.filter { places[$0.id].flatMap { $0 }.map { scope.contains($0.part.index) } ?? false }
+        }
+        if context.json {
+            try context.printer.json(highlights.map { HighlightJSON($0, place: places[$0.id].flatMap { $0 }, partName: bookText?.partName) })
+            if unplaced > 0 { context.printer.warn(Self.unplacedNote(unplaced, bookText)) }
+            return
+        }
         let printer = context.printer
         guard !highlights.isEmpty else {
-            printer.note("no highlights in \(document.title) yet")
+            printer.note(filtering ? "no highlights there" : "no highlights in \(document.title) yet")
+            if unplaced > 0 { printer.warn(Self.unplacedNote(unplaced, bookText)) }
             return
         }
         printer.line(printer.paint(document.title, .title))
         for highlight in highlights {
+            let place = places[highlight.id].flatMap { $0 }
             let swatch = printer.paint("●", TerminalStyle(color: Self.color(highlight.color)))
-            let meta = [Format.shortID(highlight.id), highlight.passage.label].compactMap { $0 }.joined(separator: " · ")
+            let part = place.flatMap { place in place.part.number.map { "\(bookText?.partName ?? "part") \($0)" } }
+            let label = place?.part.label ?? highlight.passage.label
+            let meta = [Format.shortID(highlight.id), label, part == label ? nil : part,
+                        place?.ref.map { "--match \($0)" }].compactMap { $0 }.joined(separator: " · ")
             let lines = TextWrap.wrap("“\(highlight.passage.quote)”", width: min(printer.terminal.width, 100), indent: "  ")
+            let heading = place?.looksLikeHeading == true ? " " + printer.paint("heading?", .accent2Style) : ""
             printer.line()
-            printer.line(swatch + " " + lines.first!.dropFirst(2))
-            for line in lines.dropFirst() { printer.line(line) }
+            printer.line(swatch + " " + lines.first!.dropFirst(2) + (lines.count == 1 ? heading : ""))
+            for (index, line) in lines.dropFirst().enumerated() { printer.line(line + (index == lines.count - 2 ? heading : "")) }
             printer.line("  " + printer.paint(meta, .faint))
         }
+        if filtering {
+            printer.line()
+            let headings = highlights.filter { places[$0.id].flatMap { $0 }?.looksLikeHeading == true }.count
+            printer.note("\(highlights.count) \(highlights.count == 1 ? "highlight" : "highlights"), \(headings) heading?")
+        }
+        if unplaced > 0 { printer.warn(Self.unplacedNote(unplaced, bookText)) }
+    }
+
+    static func unplacedNote(_ count: Int, _ bookText: BookText?) -> String {
+        let noun = bookText?.partName ?? "part"
+        return "\(count) \(count == 1 ? "highlight" : "highlights") couldn't be placed in a \(noun), so \(count == 1 ? "it isn't" : "they aren't") shown; "
+            + "see every highlight with: gloss highlights list <book>"
     }
 
     static func color(_ color: HighlightColor) -> TerminalColor {

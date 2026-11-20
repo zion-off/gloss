@@ -72,14 +72,29 @@ struct HighlightJSON: Encodable {
     var location: String?
     var progression: Double?
     var created: Date
+    /// The part of the book's text it's in (`gloss text --part`), when gloss can tell.
+    var part: Int?
+    var partName: String?
+    var partLabel: String?
+    /// A `gloss link --match` ref for exactly its words, when they appear once in that part.
+    var ref: String?
+    /// A guess: a short line on its own without closing punctuation.
+    var heading: Bool?
 
-    init(_ highlight: Highlight) {
+    init(_ highlight: Highlight, place: BookTextPlace? = nil, partName: String? = nil) {
         id = highlight.id.stringValue
         color = highlight.color.rawValue
         quote = highlight.passage.quote
         location = highlight.passage.label
         progression = highlight.passage.progression
         created = highlight.createdAt
+        if let place {
+            part = place.part.number
+            self.partName = partName
+            partLabel = place.part.label
+            ref = place.ref?.description
+            heading = place.looksLikeHeading
+        }
     }
 }
 
