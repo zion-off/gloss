@@ -45,12 +45,13 @@ jobs:
         run: |
           sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
           echo "build=$(xcodebuild -version | awk '/Build version/ { print $3 }')" | tee -a "$GITHUB_OUTPUT"
-          echo "image=$ImageVersion" | tee -a "$GITHUB_OUTPUT"
 
       # The resolved packages, their build products and the SDK module cache, saved by main and
       # restored everywhere. The checkout gives every tracked file a new mtime, so gloss's own
       # modules always rebuild: only the dependencies and the module cache are reused. The key
-      # changes with the runner image, the Xcode build and Package.resolved.
+      # changes with the Xcode build (the compiler and SDK) and Package.resolved, not with the
+      # runner image: GitHub updates that about weekly, and each update left pull requests
+      # building cold until main saved a cache for it.
       - name: restore the swiftpm cache
         id: cache
         uses: actions/cache/restore@v4
@@ -58,9 +59,9 @@ jobs:
           path: |
             .build
             !.build/arm64-apple-macosx/debug/index
-          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.image }}-${{ steps.xcode.outputs.build }}-${{ hashFiles('Package.resolved') }}
+          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.build }}-${{ hashFiles('Package.resolved') }}
           restore-keys: |
-            swiftpm-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.image }}-${{ steps.xcode.outputs.build }}-
+            swiftpm-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.build }}-
 
       - name: build the app, the cli and the tests
         # pipefail: through tee, a failed build would pass this step and main would cache it.
