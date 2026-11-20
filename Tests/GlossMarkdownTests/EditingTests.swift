@@ -329,6 +329,18 @@ struct EscapingTests {
         #expect(rewritten == "a `[b](c)`\n```\n[d](e)\n```\n<https://f>")
     }
 
+    @Test("unlinked text is the same before and after wrapping words, even with brackets, and differs for any other edit")
+    func unlinked() throws {
+        let body = "a [note] about \\[it\\] and [x](gloss://page/y)"
+        let document = MarkdownParser.standard.parse(body)
+        let edit = try #require(WrapInLink(destination: "gloss://passage/z").edit(document, selection: 0..<8))
+        let linked = edit.apply(to: body)
+        #expect(linked.hasPrefix("[a \\[note\\]](gloss://passage/z)"))
+        #expect(LinkScanner.unlinked(linked) == LinkScanner.unlinked(body))
+        #expect(LinkScanner.unlinked(body) == "a [note] about [it] and x")
+        #expect(LinkScanner.unlinked(linked.replacing("about", with: "abut")) != LinkScanner.unlinked(body))
+    }
+
     @Test("plain text strips inline syntax")
     func plain() {
         #expect(PlainText.strip("**bold** and [link](u) and \\*") == "bold and link and *")
