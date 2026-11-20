@@ -150,7 +150,13 @@ public struct LinkService: Sendable {
             guard let edit = WrapInLink(destination: destination).edit(document, selection: range) else {
                 throw GlossError.notAllowed("links need a few words on one line, outside code")
             }
-            page.body = edit.apply(to: page.body)
+            let linked = edit.apply(to: page.body)
+            // The words must be the only thing that changes: never write a page whose text,
+            // links aside, would differ from what the person wrote.
+            guard LinkScanner.unlinked(linked) == LinkScanner.unlinked(page.body) else {
+                throw GlossError.notAllowed("linking would have changed more of the page than the link, so gloss left it as it was")
+            }
+            page.body = linked
             page.updatedAt = now
             try PageService.save(page, in: tx, now: now)
             let saved = MarkdownParser.standard.parse(page.body)

@@ -31,6 +31,21 @@ public enum LinkScanner {
         links(in: document).first { $0.range.contains(offset) }
     }
 
+    /// The text with every link reduced to its label and bracket escapes undone: what stays
+    /// the same when links are added, removed or re-pointed, so a link edit can prove it
+    /// changed nothing else.
+    public static func unlinked(_ string: String, parser: MarkdownParser = .standard) -> String {
+        var result = ""
+        var escaping = false
+        for character in rewrite(string, parser: parser, { $0.label }) {
+            if escaping, character != "[", character != "]" { result.append("\\") }
+            escaping = character == "\\" && !escaping
+            if !escaping { result.append(character) }
+        }
+        if escaping { result.append("\\") }
+        return result
+    }
+
     /// Replaces each link for which `transform` returns a string.
     public static func rewrite(_ string: String, parser: MarkdownParser = .standard,
                                _ transform: (MarkdownLink) -> String?) -> String {
