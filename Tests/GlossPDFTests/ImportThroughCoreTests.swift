@@ -32,7 +32,10 @@ struct PDFImportThroughCoreTests {
         let hits = try await lib.services.search.search("whale", in: .document(document.id, [.text]))
         let hit = try #require(hits.first?.hits.first)
         #expect(hit.title == "page 1")
-        #expect(hit.destination == .bookText(document.id, locator: Locator(scheme: PDFLocators.pageScheme, value: "0"), matchText: "whale"))
+        guard case .bookText(let id, let locator, let matchText, let match) = hit.destination else { Issue.record(); return }
+        #expect(id == document.id && locator == Locator(scheme: PDFLocators.pageScheme, value: "0") && matchText == "whale")
+        let anchor = try await lib.services.search.anchor(in: document.id, chunk: locator, match: match)
+        #expect(anchor?.text == "whale")
         #expect(hit.snippet.segments.filter(\.isMatch) == [.init(text: "whale", isMatch: true)])
 
         // The format offers no cover of its own; the library says "none" until the app registers a renderer.

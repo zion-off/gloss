@@ -55,7 +55,7 @@ struct SearchTests {
     @Test("custom sources join in")
     func customSource() async throws {
         struct Echo: SearchSource {
-            func search(_ query: String, in scope: SearchScope, limit: Int, tx: any ReadTransaction) throws -> [SearchHit] {
+            func search(_ query: String, in scope: SearchScope, limit: Int?, tx: any ReadTransaction) throws -> [SearchHit] {
                 [SearchHit(group: SearchResultGroup(id: "echo", title: "echo", order: -1), title: query, subtitle: nil,
                            snippet: Snippet(segments: []), destination: .document(DocumentID(GlossID(high: 0, low: 0))))]
             }
@@ -73,6 +73,94 @@ struct SearchTests {
         let snippet = try #require(try await lib.services.search.search("mother", in: .allNotes).first?.hits.first?.snippet.plainText)
         #expect(!snippet.contains("[x]") && !snippet.contains(">") && !snippet.contains("**"))
         #expect(snippet.contains("mother died today"))
+    }
+
+    @Test("in-book search lists every match, in reading order, however many")
+    func everyMatchInOrder() async throws {
+        let lib = TestLibrary()
+        let many = Array(repeating: "whale", count: 40).joined(separator: " and ")
+        let (document, _) = try await lib.book(chapters: ["the whale, then another whale", "no match here", many, "a last whale"])
+        let hits = try await lib.services.search.search("whale", in: .document(document.id, [.text])).flatMap(\.hits)
+        #expect(hits.count == 2 + 40 + 1)
+        #expect(hits.map(\.title) == ["chapter 1", "chapter 1"] + Array(repeating: "chapter 3", count: 40) + ["chapter 4"])
+        // Within a chapter, each match is its own place, in order.
+        let starts = hits.compactMap { hit -> Int? in
+            guard case .bookText(_, _, _, let match) = hit.destination else { return nil }
+            return match?.lowerBound
+        }
+        #expect(Array(starts[0..<2]) == [4, 24])
+        #expect(Array(starts[2..<42]) == (0..<40).map { $0 * 10 })  // "whale and " is 10 long
+        #expect(starts[42] == 7)
+        // A caller that asks for a limit (the cli) gets the first matches in reading order.
+        let first = try await lib.services.search.search("whale", in: .document(document.id, [.text]), limit: 3).flatMap(\.hits)
+        #expect(first.map(\.title) == ["chapter 1", "chapter 1", "chapter 3"])
+    }
+
+    @Test("in-book matches are what the reader highlights: the whole query, anywhere, any case and accent")
+    func matchesLikeTheReader() async throws {
+        let lib = TestLibrary()
+        let (document, _) = try await lib.book(chapters: ["Café BOULEVARD, the white\n  whale; a whaler"])
+        func matches(_ query: String) async throws -> [String] {
+            try await lib.services.search.search(query, in: .document(document.id, [.text])).flatMap(\.hits)
+                .flatMap { $0.snippet.segments.filter(\.isMatch).map(\.text) }
+        }
+        #expect(try await matches("cafe boulevard") == ["Café BOULEVARD"])
+        #expect(try await matches("white whale") == ["white whale"])  // across a line break
+        #expect(try await matches("hale") == ["hale", "hale"])  // inside words, as the reader finds them
+        #expect(try await matches("whale white").isEmpty)  // a phrase, not loose words
+    }
+
+    @Test("a chosen match is pinned by its words, and that anchor finds it again in its chapter")
+    func anchorsFindTheirMatch() async throws {
+        let lib = TestLibrary()
+        let text = "Call me Ishmael. The whale, the whale!\nAnd the WHALE again."
+        let (document, _) = try await lib.book(chapters: [text])
+        let hits = try await lib.services.search.search("the whale", in: .document(document.id, [.text])).flatMap(\.hits)
+        var found: [Int] = []
+        for hit in hits {
+            guard case .bookText(_, let chunk, _, let match) = hit.destination else { continue }
+            let anchor = try await lib.services.search.anchor(in: document.id, chunk: chunk, match: match)
+            if let start = anchor?.resolve(in: text)?.lowerBound { found.append(start) }
+        }
+        let expected = FoldedText.ranges(of: "the whale", in: text, ignoringCase: true).map(\.lowerBound)
+        #expect(expected.count == 3)
+        #expect(found == expected)
+    }
+
+    @Test("in-book snippets show each match in its own context, cut at words")
+    func perMatchSnippets() async throws {
+        let lib = TestLibrary()
+        let filler = Array(repeating: "lorem ipsum dolor", count: 10).joined(separator: " ")
+        let (document, _) = try await lib.book(chapters: ["whale \(filler) final  whale"])
+        let hits = try await lib.services.search.search("whale", in: .document(document.id, [.text])).flatMap(\.hits)
+        #expect(hits.count == 2)
+        let first = hits[0].snippet.segments
+        #expect(first.first == .init(text: "whale", isMatch: true))
+        #expect(first.last?.text.hasSuffix("…") == true)
+        let last = hits[1].snippet.segments
+        #expect(last.last == .init(text: "whale", isMatch: true))
+        #expect(last.first?.text.hasPrefix("…") == true)
+        #expect(last.first?.text.hasSuffix("final ") == true)  // whitespace runs collapse
+        #expect(!(last.first?.text.dropFirst().hasPrefix(" ") ?? true))
+    }
+
+    @Test("the book-text matcher never overlaps matches")
+    func nonOverlapping() {
+        #expect(BookTextMatcher(query: "aa").ranges(in: "aaaaa") == [0..<2, 2..<4])
+        #expect(BookTextMatcher(query: "  ").isEmpty)
+        #expect(BookTextMatcher(query: "e").ranges(in: "É e\u{301}") == [0..<1, 2..<4])
+    }
+
+    @Test("snippets keep text outside ascii intact")
+    func unicodeSnippets() {
+        let text = "“Call me Ishmael,” she said — 🐋 whale 🐳 — naïve"
+        let units = Array(text.utf16)
+        let range = BookTextMatcher(query: "whale").ranges(in: text)[0]
+        #expect(Snippet.excerpt(around: range, in: units).plainText == text)
+        // A cut never splits a surrogate pair.
+        let tight = Snippet.excerpt(around: range, in: units, before: 3, after: 3).plainText
+        #expect(!tight.unicodeScalars.contains("\u{FFFD}"))
+        #expect(tight.contains("whale"))
     }
 
     @Test("rebuilding derived data restores indexes and references")

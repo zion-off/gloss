@@ -23,7 +23,7 @@ import GlossCore
     /// Selecting a hit tells the workspace (and the editor/engine) where to go.
     public enum Selection: Hashable, Sendable {
         case page(PageID, DocumentID, match: Range<Int>?)
-        case bookText(DocumentID, locator: Locator?, matchText: String)
+        case bookText(DocumentID, locator: Locator?, matchText: String, match: Range<Int>?)
         case document(DocumentID)
     }
 
@@ -115,11 +115,6 @@ import GlossCore
     /// A click or a list selection: makes this result current and returns it.
     public func selectResult(at index: Int) -> SearchHit? {
         stepper.select(at: index)
-    }
-
-    /// The flat index of a hit, for the row that shows it (nil when it isn't in the list).
-    public func index(of hit: SearchHit) -> Int? {
-        stepper.index(of: hit)
     }
 
     /// The session follows where the user went: it keeps the book it started in, or the one a

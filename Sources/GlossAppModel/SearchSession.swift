@@ -9,12 +9,15 @@ public struct SearchStepper: Equatable, Sendable {
     public private(set) var hits: [SearchHit] = []
     /// The current hit's index into `hits`; nil when there is nothing to step to.
     public private(set) var current: Int?
+    /// Where each section's hits start in `hits`, by section id: a row's place in the list is its
+    /// section's start plus its index there, found without searching thousands of hits per row.
+    public private(set) var sectionStarts: [String: Int] = [:]
 
     public init() {}
 
     /// The results the sections hold, flattened in display order.
     public init(sections: [SearchResultSection]) {
-        hits = sections.flatMap(\.hits)
+        replace(sections: sections)
     }
 
     public var count: Int { hits.count }
@@ -29,6 +32,12 @@ public struct SearchStepper: Equatable, Sendable {
     public mutating func replace(sections: [SearchResultSection]) {
         let old = currentHit
         hits = sections.flatMap(\.hits)
+        var start = 0
+        sectionStarts = [:]
+        for section in sections {
+            sectionStarts[section.id] = start
+            start += section.hits.count
+        }
         current = old.flatMap { hit in hits.firstIndex(of: hit) }
     }
 
@@ -49,9 +58,6 @@ public struct SearchStepper: Equatable, Sendable {
         current = index
         return currentHit
     }
-
-    /// The index of a hit, for tagging the row that shows it.
-    public func index(of hit: SearchHit) -> Int? { hits.firstIndex(of: hit) }
 }
 
 infix operator %%: MultiplicationPrecedence

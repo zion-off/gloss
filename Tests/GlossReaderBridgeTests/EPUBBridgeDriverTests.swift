@@ -25,7 +25,9 @@ struct EPUBBridgeDriverTests {
         try await driver.go(to: Locator(scheme: EPUBLocators.hrefScheme, value: "ch1.xhtml"))
         try await driver.turnPage(forward: false)
         try await driver.clearSelection()
-        try await driver.reveal(searchHit: Locator(scheme: EPUBLocators.sectionScheme, value: "3"), text: "whale")
+        try await driver.reveal(searchHit: Locator(scheme: EPUBLocators.sectionScheme, value: "3"), text: "whale", anchor: nil)
+        try await driver.reveal(searchHit: Locator(scheme: EPUBLocators.sectionScheme, value: "3"), text: "whale",
+                                anchor: QuoteAnchor(text: "whale", prefix: "the white", suffix: ", said", occurrence: 4))
         try await driver.close()
         #expect(sent() == [
             .open(ReaderOpenPayload(openID: 7, url: "gloss-reader://app/book/\(document.id)", position: cfi.value, appearance: appearance)),
@@ -34,6 +36,8 @@ struct EPUBBridgeDriverTests {
             .turnPage(ReaderTurnPagePayload(direction: .backward)),
             .clearSelection,
             .revealSearchHit(ReaderRevealSearchHitPayload(cfi: nil, section: 3, text: "whale")),
+            .revealSearchHit(ReaderRevealSearchHitPayload(cfi: nil, section: 3, text: "whale", quote: ReaderQuoteTarget(
+                section: 3, text: "whale", prefix: "the white", suffix: ", said", occurrence: 4))),
             .close,
         ])
     }

@@ -229,6 +229,7 @@ export const COMMAND_PAYLOAD_SPECS = {
         cfi: { t: 'string', nullable: true },
         section: { t: 'number', min: 0, int: true, nullable: true },
         text: STR,
+        quote: { t: 'object', fields: quoteTargetFields, nullable: true },
     },
     setSearchHighlights: {
         query: { t: 'string', nullable: true },

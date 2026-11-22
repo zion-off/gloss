@@ -53,8 +53,10 @@ Everything is one SQLite file (WAL, so the app and the CLI can share it): by def
 `~/Library/Application Support/gloss/library.sqlite`, overridable with `--library` or
 `GLOSS_LIBRARY`. Book bytes are content-addressed blobs in the same file. Search is one FTS5 table
 keyed by corpus (notes, book text, library), so a new searchable source adds a corpus, not a
-schema change. Every write appends to a change journal; the app polls it to pick up CLI writes.
-Search tables and covers are derived and rebuildable (`gloss reindex`).
+schema change. Notes and the library are ranked by it; a book's text is only stored there, and
+scanned in reading order for every match, the way the readers highlight (`BookTextMatcher`).
+Every write appends to a change journal; the app polls it to pick up CLI writes. Search tables
+and covers are derived and rebuildable (`gloss reindex`).
 
 ## Notes tables
 

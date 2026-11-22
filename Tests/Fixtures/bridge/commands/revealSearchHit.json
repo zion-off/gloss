@@ -4,6 +4,13 @@
   "payload": {
     "cfi": null,
     "section": 3,
-    "text": "white whale"
+    "text": "white whale",
+    "quote": {
+      "section": 3,
+      "text": "white whale",
+      "prefix": "the ",
+      "suffix": ", said",
+      "occurrence": 1
+    }
   }
 }

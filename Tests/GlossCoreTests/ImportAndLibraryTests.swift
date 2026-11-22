@@ -89,7 +89,8 @@ struct ImportTests {
         let sections = try await lib.services.search.search("sisyphus", in: .document(document.id, [.text]))
         let hit = try #require(sections.first?.hits.first)
         #expect(hit.title == "chapter 2")
-        #expect(hit.destination == .bookText(document.id, locator: Locator(scheme: FakeFormat.scheme, value: "section-1"), matchText: "sisyphus"))
+        #expect(hit.destination == .bookText(document.id, locator: Locator(scheme: FakeFormat.scheme, value: "section-1"), matchText: "sisyphus",
+                                             match: 0..<8))
     }
 }
 

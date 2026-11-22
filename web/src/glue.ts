@@ -751,14 +751,14 @@ const commands: { [K in protocol.CommandType]: (payload: protocol.CommandPayload
         view.clearSearch()
     },
 
-    async revealSearchHit({ cfi, section, text }: protocol.RevealSearchHitPayload) {
+    async revealSearchHit({ cfi, section, text, quote }: protocol.RevealSearchHitPayload) {
         requireRenderer()
         if (cfi != null) {
             await revealAndMark(await view.goTo(cfi))
             return
         }
-        if (section == null)
-            throw new Error('revealSearchHit needs a cfi or a section')
+        if (section == null && quote == null)
+            throw new Error('revealSearchHit needs a cfi, a section or a quote')
         // Find the hit's own CFI in its section, off the command queue (a whole section scan
         // must not hold back the commands sent after it), then go to it and draw the
         // session's current mark. Never view.search here — it clears and redraws the session's
@@ -769,7 +769,10 @@ const commands: { [K in protocol.CommandType]: (payload: protocol.CommandPayload
         const generation = revealGeneration.bump()
         void (async () => {
             try {
-                const found = await cfiOfFirstMatch(section, text)
+                // The hit's own match by its words; the section's first match when they aren't
+                // found (the reader's text differs from the extracted text the hit came from).
+                const found = (quote ? await resolveQuote(quote) : null)
+                    ?? await cfiOfFirstMatch(section ?? quote!.section, text)
                 if (!revealGeneration.isCurrent(generation) || found == null) return
                 await revealAndMark(await view.goTo(found))
             } catch (error) {

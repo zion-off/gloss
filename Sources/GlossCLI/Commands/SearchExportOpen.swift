@@ -64,7 +64,7 @@ struct SearchCommand: AsyncParsableCommand {
         switch hit.destination {
         case .document(let id): Format.shortID(id)
         case .page(let id, _, _): Format.shortID(id)
-        case .bookText(let id, _, _): Format.shortID(id)
+        case .bookText(let id, _, _, _): Format.shortID(id)
         }
     }
 

@@ -12,6 +12,9 @@ import Foundation
 /// - curly quotes fold to `'` and `"`, dashes and the minus sign to `-`;
 /// - everything else is decomposed (NFKD: ligatures split, accents separate) and, when
 ///   ignoring case, lowercased.
+///
+/// Ignoring diacritics (dropping the separated accents) is for in-book search only; quotes keep
+/// them, so the TypeScript twin has no such option.
 public struct FoldedText: Sendable {
     public enum Whitespace: Sendable {
         /// A run of whitespace is one space: the quote's spaces must meet spaces in the text.
@@ -26,7 +29,7 @@ public struct FoldedText: Sendable {
     /// For every unit, the UTF-16 range of the source scalar (or whitespace run) it came from.
     public let sourceRanges: [Range<Int>]
 
-    public init(_ text: String, whitespace: Whitespace, ignoringCase: Bool = false) {
+    public init(_ text: String, whitespace: Whitespace, ignoringCase: Bool = false, ignoringDiacritics: Bool = false) {
         var units: [UInt16] = []
         var ranges: [Range<Int>] = []
         units.reserveCapacity(text.utf16.count)
@@ -52,10 +55,21 @@ public struct FoldedText: Sendable {
             } else if let cached = cache[value] {
                 folded = cached
             } else {
-                folded = Self.fold(scalar, ignoringCase: ignoringCase)
+                folded = Self.fold(scalar, ignoringCase: ignoringCase, ignoringDiacritics: ignoringDiacritics)
                 cache[value] = folded
             }
-            guard isASCII || !folded.isEmpty else { continue }
+            guard isASCII || !folded.isEmpty else {
+                // A dropped accent belongs to the letter before it, so a match ending on that
+                // letter takes its accent along.
+                if ignoringDiacritics, pendingSpace == nil, let last = ranges.last, last.upperBound == offset {
+                    var index = ranges.count - 1
+                    while index >= 0, ranges[index] == last {
+                        ranges[index] = last.lowerBound..<(offset + width)
+                        index -= 1
+                    }
+                }
+                continue
+            }
             if let space = pendingSpace {
                 if !units.isEmpty {
                     units.append(0x20)
@@ -167,7 +181,7 @@ public struct FoldedText: Sendable {
     private static let doubleQuotes: Set<UInt32> = [0x201C, 0x201D, 0x201E, 0x201F, 0x2033]
     private static let dashes: Set<UInt32> = [0x2010, 0x2011, 0x2012, 0x2013, 0x2014, 0x2015, 0x2212]
 
-    static func fold(_ scalar: Unicode.Scalar, ignoringCase: Bool) -> [UInt16] {
+    static func fold(_ scalar: Unicode.Scalar, ignoringCase: Bool, ignoringDiacritics: Bool = false) -> [UInt16] {
         let value = scalar.value
         if value < 0x80 {
             if ignoringCase, value >= 0x41, value <= 0x5A { return [UInt16(value + 0x20)] }
@@ -179,6 +193,8 @@ public struct FoldedText: Sendable {
         if dashes.contains(value) { return [0x2D] }
         var folded = String(scalar).decomposedStringWithCompatibilityMapping
         if ignoringCase { folded = folded.lowercased() }
-        return folded.unicodeScalars.filter { !$0.properties.isWhitespace }.flatMap { Array(String($0).utf16) }
+        return folded.unicodeScalars.filter {
+            !$0.properties.isWhitespace && !(ignoringDiacritics && $0.properties.generalCategory == .nonspacingMark)
+        }.flatMap { Array(String($0).utf16) }
     }
 }
