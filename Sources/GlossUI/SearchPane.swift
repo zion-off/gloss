@@ -51,6 +51,41 @@ private struct SearchField: ViewModifier {
                     Text(verbatim: option.title).tag(option.scope)
                 }
             }
+            .modifier(SearchFieldFocus(model: model))
+    }
+}
+
+/// Puts the cursor in the field when the model asks (Find…, the search button). `initial` covers
+/// the field macOS 26 creates on demand: it arrives with the request already standing. Before
+/// macOS 15 there is no way to focus a toolbar search field, and opening it is all there is.
+private struct SearchFieldFocus: ViewModifier {
+    let model: SearchModel
+
+    func body(content: Content) -> some View {
+        if #available(macOS 15.0, *) {
+            content.modifier(Focusing(model: model))
+        } else {
+            content
+        }
+    }
+
+    @available(macOS 15.0, *)
+    private struct Focusing: ViewModifier {
+        let model: SearchModel
+        @FocusState private var focused: Bool
+
+        func body(content: Content) -> some View {
+            content
+                .searchFocused($focused)
+                .onChange(of: model.wantsFieldFocus, initial: true) { _, wants in
+                    guard wants else { return }
+                    // A turn later: a field the toolbar is only now adding can't take focus yet.
+                    Task { @MainActor in
+                        focused = true
+                        model.fieldDidTakeFocus()
+                    }
+                }
+        }
     }
 }
 
@@ -59,7 +94,7 @@ struct SearchToolbarButton: View {
     let model: SearchModel
 
     var body: some View {
-        Button { model.isPresented = true } label: {
+        Button { model.present() } label: {
             Label("search", systemImage: "magnifyingglass")
         }
         .help("search your books and notes (⌘F)")
