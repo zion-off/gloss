@@ -41,9 +41,10 @@ public struct FullTextQuery: Hashable, Sendable {
     public var text: String
     public var corpus: Corpus
     public var documentID: DocumentID?
-    public var limit: Int
+    /// The most hits, best first; nil for every hit.
+    public var limit: Int?
 
-    public init(text: String, corpus: Corpus, documentID: DocumentID? = nil, limit: Int = 50) {
+    public init(text: String, corpus: Corpus, documentID: DocumentID? = nil, limit: Int? = 50) {
         self.text = text
         self.corpus = corpus
         self.documentID = documentID
@@ -94,6 +95,9 @@ public struct FullTextHit: Hashable, Sendable {
 
 public protocol FullTextSearching {
     func search(_ query: FullTextQuery) throws -> [FullTextHit]
+    /// A document's chunks in a corpus, in the order they were indexed (for book text, reading
+    /// order): for searches that must see every match, not the best chunks.
+    func entries(corpus: Corpus, documentID: DocumentID) throws -> [FullTextEntry]
 }
 
 public protocol FullTextIndexing: FullTextSearching {

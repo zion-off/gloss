@@ -261,7 +261,14 @@ extension MemoryTransaction: FullTextIndexing {
                                locator: entry.locator, label: entry.label, title: entry.title,
                                snippet: matcher.snippet(of: snippetSource), rank: -Double(matcher.score(haystack)))
         }
-        return Array(hits.sorted { ($0.rank, $0.owner) < ($1.rank, $1.owner) }.prefix(query.limit))
+        let ranked = hits.sorted { ($0.rank, $0.owner) < ($1.rank, $1.owner) }
+        return query.limit.map { Array(ranked.prefix($0)) } ?? ranked
+    }
+
+    func entries(corpus: Corpus, documentID: DocumentID) throws -> [FullTextEntry] {
+        // Owners in a stable order; each owner's chunks as they were indexed.
+        state.fullText.sorted { $0.key < $1.key }.flatMap(\.value)
+            .filter { $0.corpus == corpus && $0.documentID == documentID }
     }
 
     func replaceEntries(_ entries: [FullTextEntry], corpus: Corpus, owner: String) throws {

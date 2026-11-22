@@ -47,13 +47,30 @@ extension SQLiteTransaction: FullTextIndexing {
             sql += " AND e.document_id = ?"
             _ = arguments.append(contentsOf: [documentID.stringValue])
         }
-        sql += " ORDER BY rank LIMIT ?"
-        _ = arguments.append(contentsOf: [query.limit])
+        sql += " ORDER BY rank"
+        if let limit = query.limit {
+            sql += " LIMIT ?"
+            _ = arguments.append(contentsOf: [limit])
+        }
         return try Row.fetchAll(db, sql: sql, arguments: arguments).map { row in
             let locator = (row["locator_scheme"] as String?).map { Locator(scheme: LocatorScheme($0), value: row["locator"] ?? "") }
             return FullTextHit(corpus: Corpus(row["corpus"] as String), owner: row["owner"], documentID: try Columns.optionalID(row, "document_id"),
                                locator: locator, label: row["label"], title: row["title"],
                                snippet: FTSQueryBuilder.snippet(from: row["snip"] ?? ""), rank: row["rank"])
+        }
+    }
+
+    func entries(corpus: Corpus, documentID: DocumentID) throws -> [FullTextEntry] {
+        let sql = """
+            SELECT e.owner, e.locator_scheme, e.locator, e.label, fts.title, fts.body
+            FROM fts_entries e JOIN fts ON fts.rowid = e.rowid
+            WHERE e.corpus = ? AND e.document_id = ?
+            ORDER BY e.rowid
+            """
+        return try Row.fetchAll(db, sql: sql, arguments: [corpus.rawValue, documentID.stringValue]).map { row in
+            let locator = (row["locator_scheme"] as String?).map { Locator(scheme: LocatorScheme($0), value: row["locator"] ?? "") }
+            return FullTextEntry(corpus: corpus, owner: row["owner"], documentID: documentID, locator: locator,
+                                 label: row["label"], title: row["title"] ?? "", body: row["body"] ?? "")
         }
     }
 

@@ -69,6 +69,27 @@ struct SQLiteStoreTests {
         await #expect(throws: StoreError.conflict("document \(doc.id)")) { try await store.write { tx in try tx.documents.insert(doc) } }
     }
 
+    @Test("a document's full-text entries read back in the order they were indexed")
+    func entriesInOrder() async throws {
+        let store = try SQLiteLibraryStore.inMemory()
+        let a = document("a"), b = document("b")
+        let chapters = (0..<5).map { index in
+            FullTextEntry(corpus: .bookText, owner: a.id.stringValue, documentID: a.id, locator: Locator(scheme: LocatorScheme("x"), value: "\(index)"),
+                          label: "chapter \(index + 1)", title: "chapter \(index + 1)", body: "text \(index)")
+        }
+        try await store.write { tx in
+            try tx.documents.insert(a)
+            try tx.documents.insert(b)
+            try tx.fullText.replaceEntries([FullTextEntry(corpus: .bookText, owner: b.id.stringValue, documentID: b.id, title: "b", body: "other")],
+                                           corpus: .bookText, owner: b.id.stringValue)
+            try tx.fullText.replaceEntries(chapters, corpus: .bookText, owner: a.id.stringValue)
+            try tx.fullText.replaceEntries([FullTextEntry(corpus: .notes, owner: "p", documentID: a.id, title: "notes", body: "mine")],
+                                           corpus: .notes, owner: "p")
+        }
+        #expect(try await store.read { try $0.fullText.entries(corpus: .bookText, documentID: a.id) } == chapters)
+        #expect(try await store.read { try $0.fullText.search(FullTextQuery(text: "text", corpus: .bookText, limit: nil)) }.count == 5)
+    }
+
     @Test("full-text search: prefixes, diacritics, filters, snippets and removal")
     func fullText() async throws {
         let store = try SQLiteLibraryStore.inMemory()
