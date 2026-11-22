@@ -35,30 +35,38 @@ public struct FoldedText: Sendable {
         var pendingSpace: Range<Int>?
         var cache: [UInt32: [UInt16]] = [:]
         for scalar in text.unicodeScalars {
-            let width = scalar.utf16.count
+            let value = scalar.value
+            let width = value < 0x10000 ? 1 : 2
             defer { offset += width }
-            if scalar.properties.isWhitespace {
+            // ASCII, most of any book, goes without a properties lookup or an array per character.
+            let isASCII = value < 0x80
+            if isASCII ? (value == 0x20 || (0x09...0x0D).contains(value)) : scalar.properties.isWhitespace {
                 if whitespace == .collapsed {
                     pendingSpace = (pendingSpace?.lowerBound ?? offset)..<(offset + width)
                 }
                 continue
             }
-            let folded: [UInt16]
-            if scalar.value < 0x80 {
-                folded = Self.fold(scalar, ignoringCase: ignoringCase)
-            } else if let cached = cache[scalar.value] {
+            var folded: [UInt16] = []
+            if isASCII {
+                // folded below, straight into `units`
+            } else if let cached = cache[value] {
                 folded = cached
             } else {
                 folded = Self.fold(scalar, ignoringCase: ignoringCase)
-                cache[scalar.value] = folded
+                cache[value] = folded
             }
-            guard !folded.isEmpty else { continue }
+            guard isASCII || !folded.isEmpty else { continue }
             if let space = pendingSpace {
                 if !units.isEmpty {
                     units.append(0x20)
                     ranges.append(space)
                 }
                 pendingSpace = nil
+            }
+            if isASCII {
+                units.append(UInt16(ignoringCase && value >= 0x41 && value <= 0x5A ? value + 0x20 : value))
+                ranges.append(offset..<(offset + 1))
+                continue
             }
             for unit in folded {
                 units.append(unit)
