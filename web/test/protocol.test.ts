@@ -146,8 +146,12 @@ test('rejects missing and mistyped fields', () => {
     invalidCommand({ v: 1, type: 'setAnnotations', payload: {
         highlights: [], markers: [{ id: 'm', cfi: 3 }],
     } }, 'marker cfi not a string')
-    invalidCommand({ v: 1, type: 'revealSearchHit', payload: { cfi: null, section: -1, text: 'x' } }, 'negative section')
-    invalidCommand({ v: 1, type: 'revealSearchHit', payload: { cfi: 5, section: null, text: 'x' } }, 'cfi not a string')
+    invalidCommand({ v: 1, type: 'revealSearchHit', payload: { cfi: null, section: -1, text: 'x', quote: null } }, 'negative section')
+    invalidCommand({ v: 1, type: 'revealSearchHit', payload: { cfi: 5, section: null, text: 'x', quote: null } }, 'cfi not a string')
+    invalidCommand({ v: 1, type: 'revealSearchHit', payload: { cfi: null, section: 3, text: 'x' } }, 'quote left out, not null')
+    invalidCommand({ v: 1, type: 'revealSearchHit', payload: { cfi: null, section: 3, text: 'x', quote: {
+        section: 3, text: 'x', prefix: '', suffix: '', occurrence: -1,
+    } } }, 'negative quote occurrence')
 })
 
 test('goTo target must have exactly one of cfi/href/fraction', () => {

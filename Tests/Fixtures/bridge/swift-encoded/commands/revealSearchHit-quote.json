@@ -1,0 +1,16 @@
+{
+  "payload" : {
+    "cfi" : null,
+    "quote" : {
+      "occurrence" : 4,
+      "prefix" : "the white",
+      "section" : 3,
+      "suffix" : ", said",
+      "text" : "whale"
+    },
+    "section" : 3,
+    "text" : "whale"
+  },
+  "type" : "revealSearchHit",
+  "v" : 1
+}

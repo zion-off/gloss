@@ -41,6 +41,8 @@ struct WireContractTests {
         ("clearSearch", .clearSearch),
         ("revealSearchHit-cfi", .revealSearchHit(ReaderRevealSearchHitPayload(cfi: "epubcfi(/6/12!/4/2/1:10)", text: "whale"))),
         ("revealSearchHit-section", .revealSearchHit(ReaderRevealSearchHitPayload(section: 3, text: "whale"))),
+        ("revealSearchHit-quote", .revealSearchHit(ReaderRevealSearchHitPayload(section: 3, text: "whale", quote: ReaderQuoteTarget(
+            section: 3, text: "whale", prefix: "the white", suffix: ", said", occurrence: 4)))),
         ("revealSearchHit-text-only", .revealSearchHit(ReaderRevealSearchHitPayload(text: "whale"))),
         ("setSearchHighlights", .setSearchHighlights(ReaderSearchHighlightsPayload(query: "white whale"))),
         ("setSearchHighlights-nil", .setSearchHighlights(ReaderSearchHighlightsPayload(query: nil))),
@@ -83,6 +85,7 @@ struct WireContractTests {
         let reveal = try Self.encode(.revealSearchHit(ReaderRevealSearchHitPayload(text: "t")))
         #expect(reveal.contains("\"cfi\" : null"))
         #expect(reveal.contains("\"section\" : null"))
+        #expect(reveal.contains("\"quote\" : null"))
         // And they still decode back.
         #expect(try JSONDecoder().decode(ReaderCommand.self, from: Data(open.utf8))
                 == .open(ReaderOpenPayload(openID: 1, url: "u", position: nil, appearance: Self.appearance)))

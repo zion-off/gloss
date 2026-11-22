@@ -124,9 +124,9 @@ public protocol ReaderDriving: AnyObject {
     func turnPage(forward: Bool) async throws
     func show(_ annotations: ReaderAnnotations) async throws
     func clearSelection() async throws
-    /// Shows a search hit: the locator when the engine can resolve it, else the first match of
-    /// `text` near it.
-    func reveal(searchHit locator: Locator?, text: String) async throws
+    /// Shows a search hit: the match `anchor` pins inside the text chunk at `locator`, else the
+    /// first match of `text` near the locator.
+    func reveal(searchHit locator: Locator?, text: String, anchor: QuoteAnchor?) async throws
 }
 
 /// Engines that reflow text (EPUB) also take reading settings. PDFs don't, so this is a

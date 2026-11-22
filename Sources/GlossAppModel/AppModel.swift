@@ -592,11 +592,13 @@ import GlossReaderBridge
             search.sessionMoves(to: documentID)
             // Not focusing the editor: the results list is driving (its Up/Down must keep it).
             try? await workspace.openPage(pageID, revealing: match, focusesText: false)
-        case .bookText(let documentID, let locator, let matchText):
+        case .bookText(let documentID, let locator, let matchText, let match):
             search.sessionMoves(to: documentID)
             if reader.document?.id == documentID {
                 workspace.layout = workspace.layout.showsReader ? workspace.layout : .split
-                await reader.reveal(searchHit: locator, text: matchText)
+                // No anchor (a failed read, a reindexed book) still lands near the hit.
+                let anchor = try? await services.search.anchor(in: documentID, chunk: locator, match: match)
+                await reader.reveal(searchHit: locator, text: matchText, anchor: anchor)
             } else {
                 // Another book (or none): the reader shows it at the hit's locator (only
                 // the reader moves — a search hit never drags the notes off their page). The
@@ -687,7 +689,8 @@ extension SearchHit {
     public var selection: SearchModel.Selection {
         switch destination {
         case .page(let page, let document, let match): .page(page, document, match: match)
-        case .bookText(let document, let locator, let matchText): .bookText(document, locator: locator, matchText: matchText)
+        case .bookText(let document, let locator, let matchText, let match):
+            .bookText(document, locator: locator, matchText: matchText, match: match)
         case .document(let document): .document(document)
         }
     }

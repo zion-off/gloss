@@ -98,7 +98,7 @@ import GlossReaderBridge
     private var pendingFocus: Locator?
     /// A search hit to reveal once the open book is on screen — for the book it was asked in,
     /// so opening another book in between drops it instead of mislanding.
-    private var pendingSearchReveal: (documentID: DocumentID, locator: Locator?, text: String)?
+    private var pendingSearchReveal: (documentID: DocumentID, locator: Locator?, text: String, anchor: QuoteAnchor?)?
     /// A search session's query to highlight once the open book is on screen (a result opened a
     /// new book mid-session; the highlights follow it there).
     private var pendingSearchHighlights: String?
@@ -206,7 +206,7 @@ import GlossReaderBridge
                 pendingSearchReveal = nil
                 // Only for the book that opened; a reveal asked in an earlier book is stale.
                 if search.documentID == document?.id {
-                    await reveal(searchHit: search.locator, text: search.text)
+                    await reveal(searchHit: search.locator, text: search.text, anchor: search.anchor)
                 }
             }
             if let query = pendingSearchHighlights {
@@ -306,15 +306,15 @@ import GlossReaderBridge
         await setSearchHighlights(nil)
     }
 
-    public func reveal(searchHit locator: Locator?, text: String) async {
+    public func reveal(searchHit locator: Locator?, text: String, anchor: QuoteAnchor? = nil) async {
         guard let document else { return }
         guard isShowingBook else {
             // The book is still opening: land on the hit once it shows (like `go(to:)`).
-            pendingSearchReveal = (document.id, locator, text)
+            pendingSearchReveal = (document.id, locator, text, anchor)
             return
         }
         pendingSearchReveal = nil
-        do { try await driver?.reveal(searchHit: locator, text: text) } catch { errorMessage = Self.describe(error) }
+        do { try await driver?.reveal(searchHit: locator, text: text, anchor: anchor) } catch { errorMessage = Self.describe(error) }
     }
 
     /// Redraws highlights and markers from the store (after edits, links, external changes).

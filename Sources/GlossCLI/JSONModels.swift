@@ -126,7 +126,7 @@ struct SearchHitJSON: Encodable {
         case .page(let page, let document, _):
             url = GlossLink.page(page).string
             bookId = document.stringValue
-        case .bookText(let document, let locator, _):
+        case .bookText(let document, let locator, _, _):
             url = GlossLink.document(document).string
             bookId = document.stringValue
             self.locator = locator.map { LocatorJSON(scheme: $0.scheme.rawValue, value: $0.value) }

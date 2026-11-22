@@ -17,7 +17,7 @@ final class FakeDriver: ReaderDriving, SearchHighlighting {
         case turn(forward: Bool)
         case show(ReaderAnnotations)
         case clearSelection
-        case reveal(Locator?, String)
+        case reveal(Locator?, String, QuoteAnchor? = nil)
     }
 
     var calls: [Call] = []
@@ -45,7 +45,7 @@ final class FakeDriver: ReaderDriving, SearchHighlighting {
     func turnPage(forward: Bool) async throws { calls.append(.turn(forward: forward)) }
     func show(_ annotations: ReaderAnnotations) async throws { calls.append(.show(annotations)) }
     func clearSelection() async throws { calls.append(.clearSelection) }
-    func reveal(searchHit locator: Locator?, text: String) async throws { calls.append(.reveal(locator, text)) }
+    func reveal(searchHit locator: Locator?, text: String, anchor: QuoteAnchor?) async throws { calls.append(.reveal(locator, text, anchor)) }
     func setSearchHighlights(_ query: String?) async throws { searchHighlightCalls.append(query) }
 
     var lastAnnotations: ReaderAnnotations? {
@@ -329,14 +329,14 @@ struct ReaderControllerTests {
         let passage = Locator(scheme: FakeFormat.scheme, value: "p")
         await controller.go(to: passage)
         await controller.turnPage(forward: true)
-        await controller.reveal(searchHit: passage, text: "t")
+        await controller.reveal(searchHit: passage, text: "t", anchor: QuoteAnchor(text: "t", occurrence: 2))
         await controller.refreshAnnotations()
         #expect(driver.calls.count == 1)  // only the open
         await controller.handle(.opened(toc: [], openID: driver.lastOpenID))
         #expect(driver.calls.contains(.go(passage)))
         // The queued search reveal lands after the queued go: both were asked for
         // while the book opened, both arrive once it has.
-        #expect(driver.calls.last == .reveal(passage, "t"))
+        #expect(driver.calls.last == .reveal(passage, "t", QuoteAnchor(text: "t", occurrence: 2)))
     }
 
     @Test("attaching the engine that is already attached changes nothing")

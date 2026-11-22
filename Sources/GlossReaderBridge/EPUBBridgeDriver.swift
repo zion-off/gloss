@@ -66,12 +66,16 @@ public final class EPUBBridgeDriver: ReaderDriving, ReflowableAppearanceApplying
         try await send(.clearSelection)
     }
 
-    public func reveal(searchHit locator: Locator?, text: String) async throws {
+    public func reveal(searchHit locator: Locator?, text: String, anchor: QuoteAnchor?) async throws {
         var payload = ReaderRevealSearchHitPayload(text: text)
         switch locator?.scheme {
         case EPUBLocators.cfiScheme?: payload.cfi = locator?.value
         case EPUBLocators.sectionScheme?: payload.section = locator.flatMap { Int($0.value) }
         default: break
+        }
+        if let section = payload.section, let anchor {
+            payload.quote = ReaderQuoteTarget(section: section, text: anchor.text, prefix: anchor.prefix,
+                                              suffix: anchor.suffix, occurrence: anchor.occurrence)
         }
         try await send(.revealSearchHit(payload))
     }

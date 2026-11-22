@@ -340,20 +340,24 @@ public struct ReaderRevealSearchHitPayload: Codable, Hashable, Sendable {
     /// The spine index to search in; sent as null when unknown.
     public var section: Int?
     public var text: String
+    /// This very match, pinned by its words; sent as null to find the first match of `text`.
+    public var quote: ReaderQuoteTarget?
 
-    public init(cfi: String? = nil, section: Int? = nil, text: String) {
+    public init(cfi: String? = nil, section: Int? = nil, text: String, quote: ReaderQuoteTarget? = nil) {
         self.cfi = cfi
         self.section = section
         self.text = text
+        self.quote = quote
     }
 
-    private enum CodingKeys: String, CodingKey { case cfi, section, text }
+    private enum CodingKeys: String, CodingKey { case cfi, section, text, quote }
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(cfi, forKey: .cfi)
         try container.encode(section, forKey: .section)
         try container.encode(text, forKey: .text)
+        try container.encode(quote, forKey: .quote)
     }
 }
 

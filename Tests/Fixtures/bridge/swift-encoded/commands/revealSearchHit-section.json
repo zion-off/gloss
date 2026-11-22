@@ -1,6 +1,7 @@
 {
   "payload" : {
     "cfi" : null,
+    "quote" : null,
     "section" : 3,
     "text" : "whale"
   },

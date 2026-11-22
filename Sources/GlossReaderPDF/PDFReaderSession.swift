@@ -282,15 +282,18 @@ final class PDFReaderSession: NSObject, ReaderSession, ReaderDriving, SearchHigh
         Task { @MainActor in self.isEmphasisingSearchMatch = false }
     }
 
-    /// A search hit: its own occurrence on its own page when it has a locator (search chunks
-    /// are pages); the document's first occurrence only when it has none. The hit becomes the
-    /// current selection, which PDFKit draws in its stronger find style over the soft ones.
-    func reveal(searchHit locator: Locator?, text: String) async throws {
+    /// A search hit: its own match on its own page when it has a locator (search chunks are
+    /// pages): the one its anchor pins, else the page's first. The document's first match only
+    /// when it has no locator. The hit becomes the current selection, which PDFKit draws in its
+    /// stronger find style over the soft ones.
+    func reveal(searchHit locator: Locator?, text: String, anchor: QuoteAnchor?) async throws {
         guard let pdf = document else { return }
         if let locator {
             let target = try PDFReaderTarget(locator)
-            if let page = pdf.page(at: clamped(target.pageIndex)),
-               let match = page.string.flatMap({ PDFTextMatch.range(of: text, in: $0) }),
+            // The anchor came from gloss's own text extraction; PDFKit's page text may differ a
+            // little, which the anchor's context absorbs.
+            if let page = pdf.page(at: clamped(target.pageIndex)), let pageText = page.string,
+               let match = anchor?.resolve(in: pageText) ?? PDFTextMatch.range(of: text, in: pageText),
                let selection = page.selection(for: NSRange(location: match.lowerBound, length: match.count)) {
                 pdfView.go(to: selection)
                 emphasise(selection)

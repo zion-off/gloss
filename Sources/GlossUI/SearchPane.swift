@@ -145,9 +145,7 @@ struct SearchResults: View {
     var body: some View {
         ScrollViewReader { proxy in
             List(selection: selection) {
-                ForEach(app.search.results) { section in
-                    Section(content: { hits(of: section) }, header: { Text(verbatim: section.group.title) })
-                }
+                ResultSections(sections: app.search.results, starts: app.search.stepper.sectionStarts)
             }
             .modifier(ResultsListStyle(placement: placement))
             .overlay { emptyState }
@@ -186,18 +184,28 @@ struct SearchResults: View {
             Task { await app.openSearchResult(at: new) }
         })
     }
+}
 
-    /// The section's rows, each tagged with its place in the flat stepping list.
-    private func hits(of section: SearchResultSection) -> some View {
-        ForEach(Array(section.hits.enumerated()), id: \.offset) { index, hit in
-            SearchHitRow(hit: hit)
-                .tag(flatIndex(of: index, in: section) ?? 0)
-                .id(flatIndex(of: index, in: section) ?? 0)
+/// The rows, apart from the list: nothing they take changes when the selection does, so a step
+/// (⌘G, a click) doesn't make SwiftUI walk every result, which took a second with 100k of them.
+private struct ResultSections: View {
+    let sections: [SearchResultSection]
+    let starts: [String: Int]
+
+    var body: some View {
+        ForEach(sections) { section in
+            Section(content: { hits(of: section) }, header: { Text(verbatim: section.group.title) })
         }
     }
 
-    private func flatIndex(of index: Int, in section: SearchResultSection) -> Int? {
-        app.search.index(of: section.hits[index])
+    /// The section's rows, each tagged with its place in the flat stepping list.
+    private func hits(of section: SearchResultSection) -> some View {
+        let start = starts[section.id] ?? 0
+        return ForEach(section.hits.indices, id: \.self) { index in
+            SearchHitRow(hit: section.hits[index])
+                .tag(start + index)
+                .id(start + index)
+        }
     }
 }
 

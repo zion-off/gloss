@@ -163,6 +163,8 @@ export interface RevealSearchHitPayload {
     cfi: string | null
     section: number | null
     text: string
+    /** This very match, pinned by its words; null finds the first match of `text` in `section`. */
+    quote: QuoteTarget | null
 }
 
 export interface CommandPayloads {
@@ -448,6 +450,7 @@ export const COMMAND_PAYLOAD_SPECS: Record<CommandType, Record<string, FieldSpec
         cfi: { t: 'string', nullable: true },
         section: { t: 'number', min: 0, int: true, nullable: true },
         text: STR,
+        quote: { t: 'object', fields: quoteTargetFields, nullable: true },
     },
     setSearchHighlights: {
         query: { t: 'string', nullable: true },

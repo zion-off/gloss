@@ -118,7 +118,7 @@ struct IndependentPanesTests {
         let (app, a, aRoot, b, _, target) = try await twoBooks(lib)
         await app.follow(.passage(target.id))  // reader: B, notes: A
         // A hit in the book the reader already left for — the case that used to drag the notes.
-        let hit = SearchModel.Selection.bookText(b.id, locator: Locator(scheme: FakeFormat.scheme, value: "hit"), matchText: "whale")
+        let hit = SearchModel.Selection.bookText(b.id, locator: Locator(scheme: FakeFormat.scheme, value: "hit"), matchText: "whale", match: nil)
         await app.reveal(hit)
         #expect(app.workspace.document?.id == b.id)
         #expect(app.workspace.page?.id == aRoot.id)  // the notes stay on A's page
