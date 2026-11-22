@@ -57,7 +57,7 @@ public final class WindowCommands {
 
     /// Find… (⌘F): opens the toolbar search with the default scope for where the user is.
     public func find() {
-        app?.search.isPresented = true
+        app?.search.present()
         app?.search.resetToDefaultScope()  // the brief: ⌘F means the default scope for here
     }
 

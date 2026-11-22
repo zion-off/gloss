@@ -165,6 +165,24 @@ import GlossCore
     /// Whether the search field is open (focused or expanded); the window binds it to the field.
     public var isPresented = false
 
+    /// Whether the field should take keyboard focus as soon as it can: asked for by Find… and the
+    /// search button, cleared by the field once it has focus. A field the window has just put in
+    /// the toolbar, or one already open while the focus is elsewhere, sees no change in
+    /// `isPresented`, so that alone doesn't focus it.
+    public private(set) var wantsFieldFocus = false
+
+    /// Find… (⌘F) and the search button: opens the search with the cursor in the field, even when
+    /// it is already open and something else has focus.
+    public func present() {
+        isPresented = true
+        wantsFieldFocus = true
+    }
+
+    /// The field took the focus it was asked to.
+    public func fieldDidTakeFocus() {
+        wantsFieldFocus = false
+    }
+
     /// Whether the results pane replaces the detail column: while the search is open, even with
     /// the field cleared (an empty search state, not a jump home), or while a query stands after
     /// the field lost focus.
@@ -180,6 +198,7 @@ import GlossCore
     public func dismiss() {
         query = ""  // the didSet clears the results
         isPresented = false
+        wantsFieldFocus = false
         sessionDocumentID = nil
         cancel()
     }
